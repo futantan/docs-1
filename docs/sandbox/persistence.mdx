@@ -5,7 +5,7 @@ sidebarTitle: Persistence
 
 <Note>
 Sandbox persistence is currently in public beta:
-1. Consider [some limitations](#limitations-while-in-beta).
+1. Consider [some limitations](#persistance-limitations-for-sandboxes).
 2. The persistence is free for all users during the beta.
 </Note>
 
@@ -274,8 +274,22 @@ If you have a service (for example a server) running inside your sandbox and you
 If you resume the sandbox, the service will be accessible again but you need to connect clients again.
 
 
-## Limitations while in beta
-- Pausing a sandbox takes about 4 seconds per 1 GiB of RAM
-- Resuming a sandbox takes about 1 second
-- Sandbox can be used up to 30 days
-  - After 30 days from the initial sandbox create call, the data may be deleted and you will not be able to resume it. Attempting to resume a sandbox that was deleted or does not exist will result in the `NotFoundError` in the JavaScript SDK or the `NotFoundException` in the Python SDK
+## Persistance limitations for sandboxes
+
+### Lifecycle duration
+- A sandbox can exist for **up to 30 days** from the initial `create` call.
+- After 30 days, sandbox data **may be deleted** and the sandbox can no longer be resumed.
+- Attempting to resume a deleted or non-existent sandbox will result in:
+  - `NotFoundError` in the JavaScript SDK
+  - `NotFoundException` in the Python SDK
+
+### Pause and resume performance
+- Pausing a sandbox takes approximately **4 seconds per 1 GiB of RAM**
+- Resuming a sandbox takes approximately **1 second**
+
+### Continuous runtime limits
+- A sandbox can remain running (without being paused) for:
+  - **24 hours** on the **Pro tier**
+  - **1 hour** on the **Base tier**
+- After a sandbox is paused and resumed, the continuous runtime limit is **reset**
+- The **30-day total lifetime limit** still applies regardless of how many times the sandbox is paused or resumed

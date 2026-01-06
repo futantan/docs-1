@@ -5,6 +5,15 @@ sidebarTitle: Lifecycle
 
 When you start the sandbox, it stays alive for 5 minutes by default but you can change it by passing the `timeout` parameter.
 After the time passes, the sandbox will be automatically shutdown.
+
+<Warning>
+The maximum time sandbox can be kept running without being paused is 
+- 24 hours on the Pro Tier
+- 1 hour on the Base Tier
+
+For more details, please reffer to [sandbox persistance page](/docs/sandbox/persistence#persistance-limitations-for-sandboxes).
+</Warning>
+
 <CodeGroup>
 ```js JavaScript & TypeScript highlight={6}
 import { Sandbox } from '@e2b/code-interpreter'
