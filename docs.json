@@ -36,158 +36,39 @@
                   "docs/quickstart/install-custom-packages"
                 ]
               },
-              "docs/api-key",
-              "docs/cookbook",
-              "docs/support"
+              "docs/api-key"
             ]
           },
           {
-            "group": "Code Interpreting",
+            "group": "Use Case Examples",
             "pages": [
-              {
-                "group": "Analyze data with AI",
-                "pages": [
-                  "docs/code-interpreting/analyze-data-with-ai",
-                  "docs/code-interpreting/analyze-data-with-ai/pre-installed-libraries"
-                ]
-              },
-              {
-                "group": "Charts & visualizations",
-                "pages": [
-                  "docs/code-interpreting/create-charts-visualizations",
-                  "docs/code-interpreting/create-charts-visualizations/static-charts",
-                  "docs/code-interpreting/create-charts-visualizations/interactive-charts"
-                ]
-              },
-              "docs/code-interpreting/streaming",
-              {
-                "group": "Supported languages",
-                "pages": [
-                  "docs/code-interpreting/supported-languages",
-                  "docs/code-interpreting/supported-languages/python",
-                  "docs/code-interpreting/supported-languages/javascript",
-                  "docs/code-interpreting/supported-languages/r",
-                  "docs/code-interpreting/supported-languages/java",
-                  "docs/code-interpreting/supported-languages/bash"
-                ]
-              }
+              "docs/use-cases/linux-desktop",
+              "docs/use-cases/deep-research-agents",
+              "docs/use-cases/ai-data-analysis-visualization",
+              "docs/use-cases/reinforcement-learning",
+              "docs/use-cases/vibe-coding"
             ]
           },
           {
             "group": "Sandbox",
             "pages": [
-              "docs/sandbox",
-              "docs/sandbox/lifecycle-events-api",
-              "docs/sandbox/lifecycle-events-webhooks",
+              "docs/sandbox/intro",
+              "docs/sandbox/executing-code",
+              "docs/sandbox/reading-output",
               "docs/sandbox/persistence",
-              "docs/sandbox/metrics",
-              "docs/sandbox/metadata",
-              "docs/sandbox/environment-variables",
-              "docs/sandbox/list",
-              "docs/sandbox/connect",
-              "docs/sandbox/internet-access",
-              "docs/sandbox/connect-bucket",
-              "docs/sandbox/rate-limits",
-              "docs/sandbox/secured-access"
+              "docs/sandbox/security"
             ]
           },
           {
             "group": "Templates",
             "pages": [
-              "docs/template/quickstart",
-              "docs/template/how-it-works",
-              "docs/template/user-and-workdir",
-              "docs/template/caching",
-              "docs/template/base-image",
-              "docs/template/private-registries",
-              "docs/template/defining-template",
-              "docs/template/start-ready-command",
-              "docs/template/build",
-              "docs/template/logging",
-              "docs/template/error-handling",
-              {
-                "group": "Examples",
-                "pages": [
-                  "docs/template/examples/nextjs",
-                  "docs/template/examples/nextjs-bun",
-                  "docs/template/examples/expo",
-                  "docs/template/examples/desktop",
-                  "docs/template/examples/claude-code"
-                ]
-              },
-              "docs/template/migration-v2",
-              {
-                "group": "Legacy Docs",
-                "pages": [
-                  "docs/sandbox-template",
-                  "docs/sandbox-template/start-cmd",
-                  "docs/sandbox-template/ready-cmd",
-                  "docs/sandbox-template/customize-cpu-ram"
-                ]
-              }
+              "docs/templates/intro"
             ]
           },
           {
-            "group": "Filesystem",
+            "group": "FAQ",
             "pages": [
-              "docs/filesystem",
-              "docs/filesystem/read-write",
-              "docs/filesystem/info",
-              "docs/filesystem/watch",
-              "docs/filesystem/upload",
-              "docs/filesystem/download"
-            ]
-          },
-          {
-            "group": "Commands",
-            "pages": [
-              "docs/commands",
-              "docs/commands/streaming",
-              "docs/commands/background"
-            ]
-          },
-          {
-            "group": "MCP Gateway",
-            "pages": [
-              "docs/mcp",
-              "docs/mcp/quickstart",
-              "docs/mcp/available-servers",
-              "docs/mcp/custom-templates",
-              "docs/mcp/custom-servers",
-              "docs/mcp/examples"
-            ]
-          },
-          {
-            "group": "CLI",
-            "pages": [
-              "docs/cli",
-              "docs/cli/auth",
-              "docs/cli/list-sandboxes",
-              "docs/cli/shutdown-sandboxes"
-            ]
-          },
-          {
-            "group": "Deployment",
-            "pages": ["docs/byoc"]
-          },
-          {
-            "group": "Migration",
-            "pages": ["docs/migration/v2"]
-          },
-          {
-            "group": "Troubleshooting",
-            "pages": [
-              {
-                "group": "SDKs",
-                "pages": ["docs/troubleshooting/sdks/workers-edge-runtime"]
-              },
-              {
-                "group": "Templates",
-                "pages": [
-                  "docs/troubleshooting/templates/build-authentication-error",
-                  "docs/troubleshooting/templates/49999-port-not-open"
-                ]
-              }
+              "docs/faq"
             ]
           }
         ]
