@@ -4,6 +4,59 @@ description: "Build AI agents that perform comprehensive research by executing c
 icon: "magnifying-glass-chart"
 ---
 
-# Deep Research Agents
+## Related Guides
+
+<CardGroup cols={3}>
+  <Card title="Sandbox Basics" icon="cube" href="/docs/sandbox/intro">
+    Create and manage E2B sandboxes
+  </Card>
+  <Card title="Executing Code" icon="terminal" href="/docs/sandbox/executing-code">
+    Run code in sandboxes
+  </Card>
+  <Card title="Reading Output" icon="scroll" href="/docs/sandbox/reading-output">
+    Capture execution results
+  </Card>
+  <Card title="Persistence" icon="database" href="/docs/sandbox/persistence">
+    Save data across sessions
+  </Card>
+  <Card title="Data Visualization" icon="chart-line" href="/docs/use-cases/ai-data-analysis-visualization">
+    Create charts from findings
+  </Card>
+  <Card title="Templates" icon="layer-group" href="/docs/templates/intro">
+    Custom sandbox templates
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+<CodeGroup>
+```ts JavaScript && TypeScript
+research-agent/
+├── agent/
+│   ├── orchestrator.py      // Main agent logic
+│   ├── tools.py             // Research tools (web search, code execution)
+│   └── memory.py            // Research state management
+├── sandbox/
+│   ├── setup.py             // Sandbox initialization
+│   └── analysis.py          // Data analysis helpers
+├── config.py                // Configuration (API keys, models)
+└── main.py                  // Entry point
+```
+```python Python
+research-agent/
+├── agent/
+│   ├── orchestrator.py       # Main agent logic
+│   ├── tools.py              # Research tools (web search, code execution)
+│   └── memory.py             # Research state management
+├── sandbox/
+│   ├── setup.py              # Sandbox initialization
+│   └── analysis.py           # Data analysis helpers
+├── config.py                 # Configuration (API keys, models)
+└── main.py                   # Entry point
+```
+</CodeGroup>
+---
+
+## Implementation
 
 Content coming soon.
