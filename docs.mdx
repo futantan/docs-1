@@ -6,12 +6,10 @@ icon: house
 
 import { Quickstart } from '/snippets/Quickstart.jsx';
 import { CodeInterpreting } from '/snippets/CodeInterpreting.jsx';
-import { Examples } from '/snippets/Examples.jsx';
-import { Reference } from '/snippets/Reference.jsx';
 
 ## What is E2B?
 
-E2B provides isolated sandboxes that let agents safely execute code, process data, and run tools. Our [SDKs]() make it easy to start and manage these environments.
+E2B provides isolated sandboxes that let agents safely execute code, process data, and run tools. Our [SDKs](/docs/sdks-explained) make it easy to start and manage these environments.
 
 ## E2B Building Blocks
 
@@ -31,16 +29,16 @@ The documentation is split into three main sections:
 
 - [**API/SDK Reference**](https://e2b.dev/docs/sdk-reference) — A complete technical reference for every feature, component, and configuration option.
 
-<div id="quickstart"></div>
-
 ## 🚀 Quickstart.
 
 <Quickstart />
 
-<div id="examples"></div>
-
 ## 🧠 Examples
 
-<Examples />
-
-<div id="reference"></div>
+<CardGroup cols={2}>
+  <Card title="Linux Desktop" icon="desktop" href="/docs/use-cases/linux-desktop" />
+  <Card title="Deep Research Agents" icon="magnifying-glass-chart" href="/docs/use-cases/deep-research-agents" />
+  <Card title="AI Data Analysis & Visualization" icon="chart-line" href="/docs/use-cases/ai-data-analysis-visualization" />
+  <Card title="Reinforcement Learning" icon="arrows-rotate" href="/docs/use-cases/reinforcement-learning" />
+  <Card title="Vibe Coding" icon="wand-magic-sparkles" href="/docs/use-cases/vibe-coding" />
+</CardGroup>

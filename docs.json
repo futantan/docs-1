@@ -36,7 +36,8 @@
                   "docs/quickstart/install-custom-packages"
                 ]
               },
-              "docs/api-key"
+              "docs/api-key",
+              "docs/sdks-explained"
             ]
           },
           {
@@ -63,6 +64,27 @@
             "group": "Templates",
             "pages": [
               "docs/templates/intro"
+            ]
+          },
+          {
+            "group": "Code Interpreter",
+            "pages": [
+              "docs/code-interpreter"
+            ]
+          },
+          {
+            "group": "Desktop",
+            "pages": [
+              "docs/desktop/intro"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "docs/dashboard/billing",
+              "docs/dashboard/usage",
+              "docs/dashboard/webhooks",
+              "docs/dashboard/templates"
             ]
           },
           {

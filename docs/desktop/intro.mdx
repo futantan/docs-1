@@ -1,0 +1,118 @@
+---
+title: "Desktop Intro"
+description: "Full Linux desktop environment with GUI, browser automation, and window management built on top of the E2B SDK."
+icon: "desktop"
+---
+
+# Desktop
+
+Built on top of `e2b` with a full Linux desktop environment including GUI, browser, and window management capabilities.
+
+<Note>
+Includes **all features from `e2b`** plus desktop-specific methods like `getDesktopUrl()` and pre-configured GUI environment.
+</Note>
+
+## Installation
+
+<CodeGroup>
+```bash Python
+pip install e2b-desktop
+```
+
+```bash JavaScript
+npm install @e2b/desktop
+```
+</CodeGroup>
+
+## Quick Start
+
+<CodeGroup>
+```python Python
+from e2b_desktop import Sandbox
+
+# Create desktop sandbox
+sbx = Sandbox.create()
+
+# Get desktop URL
+desktop_url = sbx.get_desktop_url()
+print(f"Access desktop at: {desktop_url}")
+
+# Run GUI application
+sbx.commands.run("firefox https://example.com")
+```
+
+```typescript JavaScript
+import { Sandbox } from '@e2b/desktop'
+
+// Create desktop sandbox
+const sbx = await Sandbox.create()
+
+// Get desktop URL
+const desktopUrl = await sbx.getDesktopUrl()
+console.log(`Access desktop at: ${desktopUrl}`)
+
+// Run GUI application
+await sbx.commands.run('firefox https://example.com')
+```
+</CodeGroup>
+
+## Features
+
+### Remote Desktop Access
+
+Access a full Linux desktop environment in your browser:
+
+- **Window Management:** Run multiple applications with full window controls
+- **Browser Access:** Remote desktop URL for web-based access
+- **Screen Resolution:** Configurable display settings
+- **Clipboard Support:** Copy/paste between local and remote environments
+
+### Pre-installed Applications
+
+The desktop comes with common applications:
+
+<CardGroup cols={2}>
+  <Card title="Web Browsers" icon="globe">
+    Firefox, Chromium for browser automation
+  </Card>
+  <Card title="Development Tools" icon="code">
+    Text editors, terminals, and dev utilities
+  </Card>
+  <Card title="Media Tools" icon="image">
+    Image viewers and basic media players
+  </Card>
+  <Card title="System Utilities" icon="wrench">
+    File managers and system monitors
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Browser Automation" icon="browser" href="/docs/use-cases/linux-desktop">
+    Automate web interactions with visual feedback
+  </Card>
+  <Card title="Visual Testing" icon="eye">
+    Test applications requiring GUI in isolated environments
+  </Card>
+  <Card title="Screen Recording" icon="video">
+    Record application behavior and workflows
+  </Card>
+  <Card title="Remote Development" icon="laptop-code">
+    Cloud-based development with full desktop access
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={3}>
+  <Card title="Linux Desktop Guide" icon="desktop" href="/docs/use-cases/linux-desktop">
+    Complete walkthrough and examples
+  </Card>
+  <Card title="SDK Reference" icon="book" href="https://e2b.dev/docs/sdk-reference">
+    Complete API documentation
+  </Card>
+  <Card title="Templates" icon="layer-group" href="/docs/templates/intro">
+    Customize your desktop environment
+  </Card>
+</CardGroup>

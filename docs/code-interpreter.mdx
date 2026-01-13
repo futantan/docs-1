@@ -1,0 +1,213 @@
+---
+title: "Code Interpreter"
+description: "Multi-language code execution with pre-installed data science libraries, visualization support, and built on top of the core E2B SDK."
+icon: "code"
+---
+
+# Code Interpreter
+
+Built on top of `e2b` with added support for multi-language code execution (Python, JavaScript, R, Java, Bash), pre-installed data science libraries, and visualization capabilities.
+
+<Note>
+Includes **all features from `e2b`** plus specialized code execution methods and pre-configured environment.
+</Note>
+
+## Installation
+
+<CodeGroup>
+```bash Python
+pip install e2b-code-interpreter
+```
+
+```bash JavaScript
+npm install @e2b/code-interpreter
+```
+</CodeGroup>
+
+## Quick Start
+
+<CodeGroup>
+```python Python
+from e2b_code_interpreter import Sandbox
+
+# Create code interpreter
+sbx = Sandbox()
+
+# Execute Python with visualization
+execution = sbx.run_code("""
+import matplotlib.pyplot as plt
+plt.plot([1, 2, 3, 4])
+plt.ylabel('some numbers')
+plt.savefig('chart.png')
+""")
+
+# Access results
+for result in execution.results:
+    print(result)
+
+sbx.close()
+```
+
+```typescript JavaScript
+import { Sandbox } from '@e2b/code-interpreter'
+
+// Create code interpreter
+const sbx = await Sandbox.create()
+
+// Execute Python with visualization
+const execution = await sbx.runCode(`
+import matplotlib.pyplot as plt
+plt.plot([1, 2, 3, 4])
+plt.ylabel('some numbers')
+plt.savefig('chart.png')
+`)
+
+// Access results
+execution.results.forEach(result => console.log(result))
+
+await sbx.close()
+```
+</CodeGroup>
+
+## Supported Languages
+
+<CardGroup cols={3}>
+  <Card title="Python" icon="python">
+    Full Python support with data science libraries
+  </Card>
+  <Card title="JavaScript" icon="js">
+    Node.js runtime for JavaScript execution
+  </Card>
+  <Card title="R" icon="r-project">
+    Statistical computing with R
+  </Card>
+  <Card title="Java" icon="java">
+    Java code execution
+  </Card>
+  <Card title="Bash" icon="terminal">
+    Shell scripts and commands
+  </Card>
+</CardGroup>
+
+## Pre-installed Libraries
+
+The code interpreter comes with popular data science and visualization libraries:
+
+<AccordionGroup>
+  <Accordion title="Python Libraries" icon="python">
+    - **Data Analysis:** pandas, numpy, scipy
+    - **Visualization:** matplotlib, seaborn, plotly
+    - **Machine Learning:** scikit-learn
+    - **And many more...**
+    
+    [View full list →](/docs/code-interpreting/analyze-data-with-ai/pre-installed-libraries)
+  </Accordion>
+  
+  <Accordion title="JavaScript Libraries" icon="js">
+    - **Node.js built-in modules**
+    - **Popular npm packages** (install as needed)
+  </Accordion>
+</AccordionGroup>
+
+## Features
+
+### Code Execution Results
+
+Access execution results including stdout, stderr, charts, and data:
+
+<CodeGroup>
+```python Python
+execution = sbx.run_code("print('Hello'); 2 + 2")
+
+for result in execution.results:
+    if result.type == "stdout":
+        print(result.text)
+    elif result.type == "result":
+        print(result.data)
+```
+
+```typescript JavaScript
+const execution = await sbx.runCode("console.log('Hello'); 2 + 2")
+
+execution.results.forEach(result => {
+    if (result.type === 'stdout') {
+        console.log(result.text)
+    } else if (result.type === 'result') {
+        console.log(result.data)
+    }
+})
+```
+</CodeGroup>
+
+### Chart Generation
+
+Create and retrieve visualizations:
+
+<CodeGroup>
+```python Python
+execution = sbx.run_code("""
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+plt.plot(x, np.sin(x))
+plt.title('Sine Wave')
+plt.savefig('plot.png')
+""")
+
+# Charts are available in results
+for result in execution.results:
+    if result.type == "image":
+        print(f"Chart saved: {result.url}")
+```
+
+```typescript JavaScript
+const execution = await sbx.runCode(`
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+plt.plot(x, np.sin(x))
+plt.title('Sine Wave')
+plt.savefig('plot.png')
+`)
+
+// Charts are available in results
+execution.results.forEach(result => {
+    if (result.type === 'image') {
+        console.log(`Chart saved: ${result.url}`)
+    }
+})
+```
+</CodeGroup>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="AI Data Analysis" icon="chart-line" href="/docs/use-cases/ai-data-analysis-visualization">
+    Build AI agents that analyze datasets and create visualizations
+  </Card>
+  <Card title="Code Execution Environments" icon="code">
+    Create Jupyter-like environments for interactive coding
+  </Card>
+  <Card title="Automated Reporting" icon="file-chart-column">
+    Generate reports with code, analysis, and charts
+  </Card>
+  <Card title="Educational Platforms" icon="graduation-cap">
+    Run student code safely in sandboxed environments
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={3}>
+  <Card title="Pre-installed Libraries" icon="flask" href="/docs/code-interpreting/analyze-data-with-ai/pre-installed-libraries">
+    Full list of available libraries
+  </Card>
+  <Card title="Create Visualizations" icon="chart-line" href="/docs/code-interpreting/create-charts-visualizations">
+    Chart generation guide
+  </Card>
+  <Card title="SDK Reference" icon="book" href="https://e2b.dev/docs/sdk-reference">
+    Complete API documentation
+  </Card>
+</CardGroup>
