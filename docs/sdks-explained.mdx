@@ -1,0 +1,228 @@
+---
+title: "SDKs Explained"
+description: "E2B offers three SDK packages, each available in **Python** and **JavaScript/TypeScript**."
+icon: "code"
+---
+
+<Info>
+**Architecture:** `e2b-code-interpreter` and `e2b-desktop` are built on top of the core `e2b` SDK. All classes, methods, and features from `e2b` are available in the specialized SDKs.
+</Info>
+
+<CardGroup cols={3}>
+  <Card title="e2b" icon="cube" href="#e2b">
+    Core SDK - Foundation
+  </Card>
+  <Card title="e2b-code-interpreter" icon="code" href="#code-interpreter">
+    e2b + code execution environment
+  </Card>
+  <Card title="e2b-desktop" icon="desktop" href="#desktop">
+    e2b + Linux desktop GUI
+  </Card>
+</CardGroup>
+
+---
+
+<a id="e2b"></a>
+## e2b
+
+General-purpose sandboxes for running any code, commands, or processes.
+
+**Use when:** Building custom AI agents, running untrusted code, or need full control over the environment.
+
+### Installation
+
+<CodeGroup>
+```bash Python
+pip install e2b
+```
+
+```bash JavaScript
+npm install e2b
+```
+</CodeGroup>
+
+### Quick Start
+
+<CodeGroup>
+```python Python
+from e2b import Sandbox
+
+# Create sandbox
+sbx = Sandbox.create()
+
+# Run command
+result = sbx.commands.run("echo 'Hello from E2B'")
+print(result.stdout)
+
+# Run Python code
+result = sbx.commands.run("whoami")
+print(result.stdout)
+```
+
+```typescript JavaScript
+import { Sandbox } from 'e2b'
+
+// Create sandbox
+const sbx = await Sandbox.create()
+
+// Run command
+const result = await sbx.commands.run("echo 'Hello from E2B'")
+console.log(result.stdout)
+
+// Run Node.js code
+const result2 = await sbx.commands.run("whoami")
+console.log(result2.stdout)
+```
+</CodeGroup>
+
+<Card title="Full SDK Reference" icon="book" href="https://e2b.dev/docs/sdk-reference">
+  Complete API documentation
+</Card>
+
+---
+
+<a id="code-interpreter"></a>
+## e2b-code-interpreter
+
+Built on top of `e2b` with added support for multi-language code execution (Python, JavaScript, R, Java, Bash), pre-installed data science libraries, and visualization capabilities.
+
+<Note>
+Includes **all features from `e2b`** plus specialized code execution methods and pre-configured environment.
+</Note>
+
+**Use when:** Building AI data analysts, code execution environments, or need chart generation.
+
+### Installation
+
+<CodeGroup>
+```bash Python
+pip install e2b-code-interpreter
+```
+
+```bash JavaScript
+npm install @e2b/code-interpreter
+```
+</CodeGroup>
+
+### Quick Start
+
+<CodeGroup>
+```python Python
+from e2b_code_interpreter import Sandbox
+
+# Create code interpreter
+sbx = Sandbox.create()
+
+# Execute code with results
+execution = sbx.run_code("print('Hello from E2B'); 2 + 2")
+
+# Access results
+for result in execution.results:
+    print(result)
+```
+
+```typescript JavaScript
+import { Sandbox } from '@e2b/code-interpreter'
+
+// Create code interpreter
+const sbx = await Sandbox.create()
+
+// Execute code with results
+const execution = await sbx.runCode("console.log('Hello from E2B'); 2 + 2")
+
+// Access results
+execution.results.forEach(result => console.log(result))
+```
+</CodeGroup>
+
+<Card title="View Full Code Interpreter Guide" icon="book" href="/docs/code-interpreter">
+  Detailed documentation, examples, and supported languages
+</Card>
+
+---
+
+<a id="desktop"></a>
+## e2b-desktop
+
+Built on top of `e2b` with a full Linux desktop environment including GUI, browser, and window management.
+
+<Note>
+Includes **all features from `e2b`** plus desktop-specific methods like `getDesktopUrl()` and pre-configured GUI environment.
+</Note>
+
+**Use when:** Browser automation, visual testing, or applications requiring a desktop UI.
+
+### Installation
+
+<CodeGroup>
+```bash Python
+pip install e2b-desktop
+```
+
+```bash JavaScript
+npm install @e2b/desktop
+```
+</CodeGroup>
+
+### Quick Start
+
+<CodeGroup>
+```python Python
+from e2b_desktop import Sandbox
+
+# Create desktop sandbox
+sbx = Sandbox.create()
+
+# Get desktop URL
+desktop_url = sbx.get_desktop_url()
+print(f"Access desktop at: {desktop_url}")
+
+# Run GUI application
+sbx.commands.run("firefox https://example.com")
+```
+
+```typescript JavaScript
+import { Sandbox } from '@e2b/desktop'
+
+// Create desktop sandbox
+const sbx = await Sandbox.create()
+
+// Get desktop URL
+const desktopUrl = await sbx.getDesktopUrl()
+console.log(`Access desktop at: ${desktopUrl}`)
+
+// Run GUI application
+await sbx.commands.run('firefox https://example.com')
+```
+</CodeGroup>
+
+<Card title="Linux Desktop Guide" icon="desktop" href="/docs/use-cases/linux-desktop">
+  Full walkthrough and examples
+</Card>
+
+---
+
+## Choosing the Right SDK
+
+<AccordionGroup>
+  <Accordion title="When to use e2b" icon="cube">
+    - Want default Ubuntu VM
+    - Want to use [MCP-Gateway]()
+    - Do not need to use code [interpreter specific functions]()
+  </Accordion>
+
+  <Accordion title="When to use e2b-code-interpreter" icon="code">
+    - AI data analysis and visualization
+    - Multi-language code execution (Python, JavaScript, R, Java, Bash)
+    - Need data science libraries pre-installed
+    - Generating charts, plots, or reports
+    - Jupyter-like code execution environment
+  </Accordion>
+
+  <Accordion title="When to use e2b-desktop" icon="desktop">
+    - Browser automation with visual feedback
+    - Testing applications that require a GUI
+    - Screen recording or screenshots
+    - Running desktop applications in the cloud
+  </Accordion>
+</AccordionGroup>
