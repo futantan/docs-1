@@ -51,6 +51,15 @@
             ]
           },
           {
+            "group": "Dashboard",
+            "pages": [
+              "docs/dashboard/billing",
+              "docs/dashboard/usage",
+              "docs/dashboard/webhooks",
+              "docs/dashboard/templates"
+            ]
+          },
+          {
             "group": "Sandbox",
             "pages": [
               "docs/sandbox/intro",
@@ -76,15 +85,6 @@
             "group": "Desktop",
             "pages": [
               "docs/desktop/intro"
-            ]
-          },
-          {
-            "group": "Dashboard",
-            "pages": [
-              "docs/dashboard/billing",
-              "docs/dashboard/usage",
-              "docs/dashboard/webhooks",
-              "docs/dashboard/templates"
             ]
           },
           {

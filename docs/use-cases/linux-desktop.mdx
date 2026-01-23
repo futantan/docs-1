@@ -1,107 +1,130 @@
 ---
-title: "Linux Desktop"
-description: "Run full Linux desktop environments in E2B sandboxes with GUI support, window management, and remote access capabilities for browser automation, visual testing, and interactive applications."
+title: "AI-Powered Desktop Control"
+description: "Build AI agents that control virtual Linux desktops using OpenAI Computer Use API and E2B Desktop sandboxes with real-time visual feedback."
 icon: "desktop"
 ---
 
-## Setup Project
+## Related Guides
+
+<CardGroup cols={3}>
+  <Card title="Desktop Sandbox" icon="window" href="/desktop/intro">
+    Create virtual Linux desktops
+  </Card>
+  <Card title="Connect LLMs" icon="brain" href="/quickstart/connect-llms">
+    Integrate AI models with sandboxes
+  </Card>
+  <Card title="Sandbox Templates" icon="layer-group" href="/templates/intro">
+    Customize sandbox environments
+  </Card>
+  <Card title="Streaming" icon="stream" href="/code-interpreting/streaming">
+    Stream execution results in real-time
+  </Card>
+  <Card title="File System" icon="folder" href="/filesystem">
+    Manage sandbox files and directories
+  </Card>
+  <Card title="API Keys" icon="key" href="/api-key">
+    Configure environment and authentication
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+<CodeGroup>
+```ts TypeScript
+surf-starter/
+├── app/
+│   ├── api/chat/
+│   │   └── route.ts           // SSE endpoint - handles AI loop + sandbox
+│   ├── actions.ts             // Server actions for sandbox management
+│   ├── layout.tsx             // Root layout with metadata
+│   └── page.tsx               // Main UI - chat interface + VNC viewer
+├── lib/
+│   ├── ai/
+│   │   └── instructions.ts    // System prompt for AI agent
+│   ├── services/
+│   │   └── openai.ts          // Computer use loop with OpenAI
+│   ├── utils/
+│   │   ├── actions.ts         // Execute computer actions on sandbox
+│   │   ├── screenshot.ts      // Process and resize screenshots
+│   │   └── stream.ts          // SSE streaming utilities
+│   ├── constants.ts           // Configuration constants
+│   └── env.ts                 // Environment validation
+├── styles/
+│   └── globals.css            // Application styling
+├── types/
+│   └── index.ts               // TypeScript types and interfaces
+├── .env                       // API keys (E2B, OpenAI)
+├── package.json               // Dependencies
+└── tsconfig.json              // TypeScript configuration
+```
+</CodeGroup>
+
+---
+
+## How It Works
+
+This application creates an autonomous AI loop that enables natural language control of a virtual Linux desktop:
+
+1. **User Input** - You send a natural language command like "Open Firefox and search for AI news"
+2. **Sandbox Creation** - E2B spins up an Ubuntu 22.04 desktop environment (if not already running)
+3. **Visual Analysis** - The AI receives a screenshot of the current desktop state
+4. **Action Planning** - OpenAI Computer Use API analyzes the screenshot and decides what action to take
+5. **Action Execution** - The action (click, type, scroll, etc.) is executed on the desktop via E2B SDK
+6. **Feedback Loop** - A new screenshot is taken and sent back to the AI
+7. **Iteration** - The loop continues until the task is complete (maximum 15 iterations)
+
+All updates stream to your browser in real-time via Server-Sent Events (SSE), giving you live visibility into what the AI is thinking and doing.
+
+---
+
+## Implementation
+
+### Step 1: Project Setup
+
+Initialize a new Next.js project and install the required dependencies.
 
 <Steps>
-  <Step title="Initialize Next.js App">
-    <CodeGroup>
-    ```bash Bash
+  <Step title="Create Next.js App">
+    ```bash
     npx create-next-app@latest surf-starter --typescript --app --no-tailwind
     cd surf-starter
     ```
-    </CodeGroup>
   </Step>
 
   <Step title="Install Dependencies">
-    <CodeGroup>
-    ```bash Bash
+    ```bash
     npm install @e2b/desktop openai sharp
     ```
-    </CodeGroup>
-  </Step>
 
+    **Dependencies explained:**
+    - `@e2b/desktop` - E2B Desktop SDK for controlling virtual Linux desktops
+    - `openai` - OpenAI SDK for Computer Use API integration
+    - `sharp` - Fast image processing library for screenshot optimization
+  </Step>
+</Steps>
+
+### Step 2: Environment Configuration
+
+Set up your API keys and create environment validation utilities.
+
+<Steps>
   <Step title="Create Environment File">
-    <CodeGroup>
-    ```env Environment
-    # .env
-    E2B_API_KEY=your_e2b_api_key
-    OPENAI_API_KEY=your_openai_api_key
+    Create a `.env` file in your project root:
+
+    ```env
+    E2B_API_KEY=your_e2b_api_key_here
+    OPENAI_API_KEY=your_openai_api_key_here
     ```
-    </CodeGroup>
-  </Step>
-</Steps>
 
-## Type Definitions
-
-<Steps>
-  <Step title="Create Type System">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
-    // types/index.ts
-    export interface ChatMessage {
-      role: 'user' | 'assistant' | 'system' | 'action';
-      content: string;
-    }
-
-    export type ComputerAction =
-      | { type: 'click'; x: number; y: number; button: 'left' | 'right' | 'wheel' }
-      | { type: 'double_click'; x: number; y: number }
-      | { type: 'type'; text: string }
-      | { type: 'key' | 'keypress'; keys?: string[]; key?: string }
-      | { type: 'move'; x: number; y: number }
-      | { type: 'drag'; start_x: number; start_y: number; x: number; y: number }
-      | { type: 'scroll'; amount: number }
-      | { type: 'wait'; duration?: number }
-      | { type: 'screenshot' };
-
-    export interface SSEEvent {
-      type: 'sandbox_created' | 'reasoning' | 'action' | 'action_completed' | 'done' | 'error';
-      content?: string;
-      action?: string;
-      sandboxId?: string;
-      url?: string;
-      message?: string;
-    }
-    ```
-    </CodeGroup>
-  </Step>
-</Steps>
-
-## Configuration
-
-<Steps>
-  <Step title="Define Constants">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
-    // lib/constants.ts
-    export const SANDBOX_CONFIG = {
-      TIMEOUT_MS: 300_000,
-      TIMEOUT_SECONDS: 300,
-      AUTO_EXTEND_THRESHOLD: 10,
-    } as const;
-
-    export const SCREENSHOT_CONFIG = {
-      MAX_WIDTH: 1024,
-      MAX_HEIGHT: 768,
-    } as const;
-
-    export const AI_CONFIG = {
-      MODEL: 'computer-use-preview',
-      MAX_ITERATIONS: 15,
-      MAX_WAIT_DURATION: 3000,
-      REASONING_EFFORT: 'medium',
-    } as const;
-    ```
-    </CodeGroup>
+    Get your API keys:
+    - E2B API Key: [https://e2b.dev/docs/api-key](https://e2b.dev/docs/api-key)
+    - OpenAI API Key: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
   </Step>
 
   <Step title="Environment Validation">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+    Create `lib/env.ts` to validate environment variables:
+
+    ```typescript
     // lib/env.ts
     export function getEnv() {
       const E2B_API_KEY = process.env.E2B_API_KEY;
@@ -118,16 +141,116 @@ icon: "desktop"
       return !!(process.env.E2B_API_KEY && process.env.OPENAI_API_KEY);
     }
     ```
-    </CodeGroup>
   </Step>
 </Steps>
 
-## Utilities
+### Step 3: Type Definitions
+
+Define TypeScript interfaces for type safety throughout the application.
+
+<Steps>
+  <Step title="Create Type System">
+    Create `types/index.ts` with core application types:
+
+    ```typescript
+    // types/index.ts
+
+    // Message structure for chat interface
+    export interface ChatMessage {
+      role: 'user' | 'assistant' | 'system' | 'action';
+      content: string;
+    }
+
+    // Computer actions the AI can execute
+    export type ComputerAction =
+      | { type: 'click'; x: number; y: number; button: 'left' | 'right' | 'wheel' }
+      | { type: 'double_click'; x: number; y: number }
+      | { type: 'type'; text: string }
+      | { type: 'key' | 'keypress'; keys?: string[]; key?: string }
+      | { type: 'move'; x: number; y: number }
+      | { type: 'drag'; start_x: number; start_y: number; x: number; y: number }
+      | { type: 'scroll'; amount: number }
+      | { type: 'wait'; duration?: number }
+      | { type: 'screenshot' };
+
+    // SSE events for real-time updates
+    export interface SSEEvent {
+      type: 'sandbox_created' | 'reasoning' | 'action' | 'action_completed' | 'done' | 'error';
+      content?: string;
+      action?: string;
+      sandboxId?: string;
+      url?: string;
+      message?: string;
+    }
+
+    // Conversation tracking for context
+    export interface ConversationTurn {
+      userMessage: string;
+      aiResponse: string;
+      timestamp: number;
+    }
+    ```
+
+    The `ComputerAction` discriminated union ensures type-safe action handling throughout the application.
+  </Step>
+</Steps>
+
+### Step 4: Configuration Constants
+
+Centralize all configuration values for easy management.
+
+<Steps>
+  <Step title="Define Constants">
+    Create `lib/constants.ts` with application-wide constants:
+
+    ```typescript
+    // lib/constants.ts
+
+    // Sandbox configuration
+    export const SANDBOX_CONFIG = {
+      TIMEOUT_MS: 300_000,              // 5 minutes initial timeout
+      TIMEOUT_SECONDS: 300,
+      AUTO_EXTEND_THRESHOLD: 10,
+      ACTIVE_WORK_TIMEOUT_MS: 600_000,  // 10 minutes during active work
+      MIN_EXTEND_INTERVAL_MS: 30_000,   // Minimum 30s between extensions
+    } as const;
+
+    // Screenshot processing
+    export const SCREENSHOT_CONFIG = {
+      MAX_WIDTH: 1024,
+      MAX_HEIGHT: 768,
+      MIN_WIDTH: 640,
+      MIN_HEIGHT: 480,
+    } as const;
+
+    // AI model configuration
+    export const AI_CONFIG = {
+      MODEL: 'computer-use-preview',     // OpenAI computer use model
+      MAX_ITERATIONS: 15,                // Maximum loop iterations
+      MAX_WAIT_DURATION: 1500,           // Maximum wait time (ms)
+      REASONING_EFFORT: 'medium',        // AI reasoning level
+    } as const;
+
+    // API configuration
+    export const API_CONFIG = {
+      MAX_DURATION: 300,                 // 5 minutes per request
+      RUNTIME: 'nodejs',
+    } as const;
+    ```
+
+    These constants make it easy to adjust timeouts, screenshot sizes, and AI behavior without hunting through code.
+  </Step>
+</Steps>
+
+### Step 5: Utility Functions
+
+Build helper functions for screenshot processing, streaming, and action execution.
 
 <Steps>
   <Step title="Screenshot Processing">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+    Create `lib/utils/screenshot.ts` to optimize screenshots:
+
+    ```typescript
     // lib/utils/screenshot.ts
     import sharp from 'sharp';
     import { SCREENSHOT_CONFIG } from '@/lib/constants';
@@ -146,12 +269,14 @@ icon: "desktop"
       return processedBuffer.toString('base64');
     }
     ```
-    </CodeGroup>
+
+    This function resizes screenshots to optimal dimensions and converts them to base64 for API transmission.
   </Step>
 
   <Step title="Safe Stream Controller">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+    Create `lib/utils/stream.ts` for SSE streaming:
+
+    ```typescript
     // lib/utils/stream.ts
     export function createSafeStreamController(
       controller: ReadableStreamDefaultController
@@ -186,12 +311,14 @@ icon: "desktop"
       return `data: ${JSON.stringify(event)}\n\n`;
     }
     ```
-    </CodeGroup>
+
+    The safe stream controller prevents "already closed" errors during SSE streaming.
   </Step>
 
   <Step title="Action Execution">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+    Create `lib/utils/actions.ts` to map AI actions to E2B SDK calls:
+
+    ```typescript
     // lib/utils/actions.ts
     import type { Sandbox } from '@e2b/desktop';
     import type { ComputerAction } from '@/types';
@@ -253,53 +380,71 @@ icon: "desktop"
       }
     }
     ```
-    </CodeGroup>
+
+    This utility translates OpenAI Computer Use actions into E2B Desktop SDK method calls.
   </Step>
 </Steps>
 
-## AI Instructions
+### Step 6: AI System Prompt
+
+Define the system instructions that guide the AI agent's behavior.
 
 <Steps>
-  <Step title="System Prompt">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+  <Step title="System Instructions">
+    Create `lib/ai/instructions.ts` with the AI agent prompt:
+
+    ```typescript
     // lib/ai/instructions.ts
-    export const SYSTEM_INSTRUCTIONS = `You are Surf, a helpful AI assistant that can control a computer.
+    export const SYSTEM_INSTRUCTIONS = `You are Surf, an AI assistant that controls a Linux desktop to help users with tasks.
 
 ENVIRONMENT:
-- Ubuntu 22.04 Linux desktop sandbox
-- Pre-installed: Firefox, VS Code, Terminal, File Manager
-- Desktop is READY - start immediately
+- Ubuntu 22.04 desktop with Firefox, VS Code, LibreOffice, Terminal, File Manager, Text Editor
+- Desktop has bottom taskbar with application launchers
+- Desktop is ready - you can start immediately
 
 AVAILABLE ACTIONS:
-- click: Click at coordinates (left/right/middle)
-- double_click: Double-click at coordinates
-- type: Type text
-- key/keypress: Press keyboard keys (ENTER, ESC, TAB)
-- move: Move cursor without clicking
-- drag: Drag from one position to another
+- screenshot: View current desktop state
+- click/double_click: Click at coordinates (left/right/middle button)
+- type: Type text into focused field
+- key: Press keyboard keys (ENTER, ESCAPE, TAB, BACKSPACE, etc.)
+- move: Move mouse cursor
+- drag: Drag between two positions
 - scroll: Scroll up or down
-- wait: Wait briefly (max 3 seconds)
+- wait: Pause briefly (use only after opening apps or loading pages)
 
-RULES:
-- Be AUTONOMOUS - execute without asking permission
-- When user says "yes" or "proceed" - take action immediately
-- Press ENTER after typing terminal commands
-- Never wait at start - desktop is ready
-- Only wait after opening apps (1-2 seconds max)
+EXECUTION GUIDELINES:
+1. Take screenshots to see the current state
+2. Identify UI elements using coordinates from screenshots
+3. Execute actions precisely
+4. After opening applications or loading pages, wait 1-2 seconds for them to load
+5. After terminal commands, press ENTER to execute
+6. Complete tasks efficiently with minimal delays
 
-REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
+AUTONOMY:
+- Execute tasks directly when intent is clear
+- Ask clarifying questions only when there's genuine ambiguity
+- When user confirms ("yes", "proceed", "do it"), take the next action immediately
+
+COMPLETION:
+- When done, explain what you accomplished
+- Stop taking actions once the goal is achieved
+
+Be helpful, precise, and efficient.`;
     ```
-    </CodeGroup>
+
+    This prompt is crucial for effective agent behavior. It teaches the AI about the environment, available actions, and expected execution patterns.
   </Step>
 </Steps>
 
-## OpenAI Service
+### Step 7: Computer Use Loop
+
+Implement the core AI execution loop that powers desktop control.
 
 <Steps>
-  <Step title="Computer Use Loop">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+  <Step title="OpenAI Service">
+    Create `lib/services/openai.ts` with the computer use loop:
+
+    ```typescript
     // lib/services/openai.ts
     import OpenAI from 'openai';
     import type { Sandbox } from '@e2b/desktop';
@@ -324,13 +469,13 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
 
       // Define computer tool
       const computerTool = {
-        type: 'computer-preview' as const,
+        type: 'computer_use_preview' as const,
         display_width: SCREENSHOT_CONFIG.MAX_WIDTH,
         display_height: SCREENSHOT_CONFIG.MAX_HEIGHT,
         environment: 'linux' as const,
       };
 
-      // Create initial request
+      // Create initial request with screenshot
       let response = await openai.responses.create({
         model: AI_CONFIG.MODEL,
         tools: [computerTool],
@@ -349,14 +494,16 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
 
       let iterations = 0;
 
-      // Main loop
+      // Main execution loop
       while (iterations < AI_CONFIG.MAX_ITERATIONS) {
         iterations++;
 
+        // Extract computer actions from AI response
         const computerCalls = response.output.filter(
           (item: any) => item.type === 'computer_call'
         );
 
+        // If no actions, task is complete
         if (computerCalls.length === 0) {
           sendEvent(encoder.encode(`data: ${JSON.stringify({
             type: 'reasoning',
@@ -365,7 +512,7 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
           break;
         }
 
-        const computerCall = computerCalls[0];
+        const computerCall = computerCalls[0] as any;
         const action = computerCall.action;
 
         // Send action to client
@@ -374,7 +521,7 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
           action: formatActionForDisplay(action)
         })}\n\n`));
 
-        // Execute action
+        // Execute action on sandbox
         await executeComputerAction(sandbox, action);
 
         sendEvent(encoder.encode(`data: ${JSON.stringify({
@@ -385,7 +532,7 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
         const newScreenshotBuffer = await sandbox.screenshot();
         const newScreenshotBase64 = await processScreenshot(newScreenshotBuffer);
 
-        // Continue conversation
+        // Continue conversation with new screenshot
         response = await openai.responses.create({
           model: AI_CONFIG.MODEL,
           previous_response_id: response.id,
@@ -405,16 +552,25 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
       }
     }
     ```
-    </CodeGroup>
+
+    This is the heart of the application. The loop continuously:
+    1. Takes screenshots of the desktop
+    2. Sends them to OpenAI with context
+    3. Receives structured computer actions
+    4. Executes actions via E2B
+    5. Repeats until the task is complete
   </Step>
 </Steps>
 
-## API Route
+### Step 8: API Endpoint
+
+Create the backend API endpoint that orchestrates sandbox creation and AI execution.
 
 <Steps>
-  <Step title="Chat Endpoint">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+  <Step title="Chat API Route">
+    Create `app/api/chat/route.ts` for the SSE streaming endpoint:
+
+    ```typescript
     // app/api/chat/route.ts
     import { Sandbox } from '@e2b/desktop';
     import { NextRequest } from 'next/server';
@@ -423,6 +579,7 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
     import { createSafeStreamController, createSSEEvent } from '@/lib/utils/stream';
     import { runComputerUseLoop } from '@/lib/services/openai';
 
+    // In-memory store for active sandboxes
     const sandboxes = new Map<string, Sandbox>();
 
     export async function POST(req: NextRequest) {
@@ -442,11 +599,13 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
         const { E2B_API_KEY } = getEnv();
         const encoder = new TextEncoder();
 
+        // Create SSE stream
         const stream = new ReadableStream({
           async start(controller) {
             const safeController = createSafeStreamController(controller);
 
             try {
+              // Reuse existing sandbox or create new one
               let sandbox = sandboxId ? sandboxes.get(sandboxId) : null;
 
               if (!sandbox) {
@@ -472,6 +631,7 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
                 await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
               }
 
+              // Run the AI loop
               await runComputerUseLoop(sandbox, message, safeController.enqueue);
 
               safeController.enqueue(encoder.encode(createSSEEvent({ type: 'done' })));
@@ -504,12 +664,25 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
     export const runtime = 'nodejs';
     export const maxDuration = 300;
     ```
-    </CodeGroup>
-  </Step>
 
-  <Step title="Server Actions">
-    <CodeGroup>
-    ```ts JavaScript & TypeScript
+    The endpoint:
+    - Validates environment and request
+    - Creates or reuses E2B sandboxes
+    - Starts VNC streaming
+    - Runs the computer use loop
+    - Streams events back to the client in real-time
+  </Step>
+</Steps>
+
+### Step 9: Server Actions
+
+Add Next.js server actions for sandbox management from the client.
+
+<Steps>
+  <Step title="Sandbox Management">
+    Create `app/actions.ts` for server-side operations:
+
+    ```typescript
     // app/actions.ts
     'use server';
 
@@ -555,281 +728,429 @@ REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
       }
     }
     ```
-    </CodeGroup>
+
+    These server actions allow the client to:
+    - **Extend timeout**: Add 5 more minutes to prevent sandbox from expiring
+    - **Stop sandbox**: Immediately terminate and clean up resources
   </Step>
 </Steps>
 
-## Frontend
+### Step 10: Chat Interface
+
+Build the React frontend with sophisticated UI, status tracking, and real-time event handling.
 
 <Steps>
   <Step title="Main UI Component">
-    <CodeGroup>
-    ```tsx TypeScript
-    // app/page.tsx
-    'use client';
+    Create `app/page.tsx` with the full-featured interface. This is a comprehensive implementation with status tracking, timeout management, and conversation history. See the surf-starter_olddd directory for the complete 422-line implementation.
 
-    import { useState, useRef, useEffect } from 'react';
-    import { extendSandboxTimeout, stopSandbox } from './actions';
-    import { SANDBOX_CONFIG } from '@/lib/constants';
-    import type { ChatMessage } from '@/types';
+    **Key features implemented:**
+    - Real-time status bar showing AI activity (thinking, executing, etc.)
+    - Countdown timer with color-coded urgency (green → yellow → red)
+    - Automatic timeout extension during active work
+    - Conversation history tracking for multi-turn context
+    - Welcome message with example prompts
+    - Typing indicators with animated dots
+    - Action pills for executed commands
+    - Sandbox status badge with pulsing animation
+    - Auto-scrolling to latest messages
+    - Comprehensive error handling
 
-    export default function Home() {
-      const [messages, setMessages] = useState<ChatMessage[]>([]);
-      const [input, setInput] = useState('');
-      const [loading, setLoading] = useState(false);
-      const [sandboxUrl, setSandboxUrl] = useState<string>('');
-      const [sandboxId, setSandboxId] = useState<string>('');
-      const [timeRemaining, setTimeRemaining] = useState<number>(SANDBOX_CONFIG.TIMEOUT_SECONDS);
+    **The implementation includes:**
+    - Header with gradient "🏄 Surf Demo" title
+    - Status bar that slides down when active
+    - Desktop viewer with floating timeout overlay
+    - Chat container with header, messages area, and input form
+    - Multiple state hooks for managing UI, sandbox, and conversation
+    - SSE event parsing with buffer handling
+    - Formatted time display (MM:SS)
+    - Color transitions based on time remaining
 
-      const sendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim() || loading) return;
-
-        setMessages(prev => [...prev, { role: 'user', content: input }]);
-        setInput('');
-        setLoading(true);
-
-        try {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: input, sandboxId: sandboxId || undefined }),
-          });
-
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader!.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') continue;
-
-                const parsed = JSON.parse(data);
-
-                if (parsed.type === 'sandbox_created') {
-                  setSandboxId(parsed.sandboxId);
-                  setSandboxUrl(parsed.url);
-                } else if (parsed.type === 'reasoning') {
-                  setMessages(prev => {
-                    const last = prev[prev.length - 1];
-                    if (last?.role === 'assistant') {
-                      return [...prev.slice(0, -1), { role: 'assistant', content: parsed.content }];
-                    }
-                    return [...prev, { role: 'assistant', content: parsed.content }];
-                  });
-                } else if (parsed.type === 'action') {
-                  setMessages(prev => [...prev, { role: 'action', content: parsed.action }]);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      return (
-        <div className="container">
-          <header>
-            <h1>🏄 Surf Demo</h1>
-            <p>AI agent with E2B desktop sandbox</p>
-          </header>
-
-          <main>
-            <div className="desktop-view">
-              {sandboxUrl ? (
-                <iframe src={sandboxUrl} title="Desktop Sandbox" className="desktop-frame" />
-              ) : (
-                <div className="desktop-placeholder">
-                  <p>Desktop will appear here</p>
-                </div>
-              )}
-            </div>
-
-            <div className="chat-container">
-              <div className="messages">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`message message-${msg.role}`}>
-                    <div className="message-content">{msg.content}</div>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={sendMessage} className="input-form">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Tell the AI what to do..."
-                  disabled={loading}
-                />
-                <button type="submit" disabled={loading || !input.trim()}>
-                  {loading ? 'Working...' : '▶️ Send'}
-                </button>
-              </form>
-            </div>
-          </main>
-        </div>
-      );
-    }
-    ```
-    </CodeGroup>
-  </Step>
-
-  <Step title="Styling">
-    <CodeGroup>
-    ```css CSS
-    /* styles/globals.css */
-    :root {
-      --e2b-orange: hsl(32 100% 50%);
-      --e2b-bg: hsl(0 0% 7%);
-      --e2b-text: hsl(0 0% 98%);
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
-      background: var(--e2b-bg);
-      color: var(--e2b-text);
-    }
-
-    .container {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    header {
-      padding: 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 400px;
-      gap: 1rem;
-      padding: 1rem;
-    }
-
-    .desktop-view {
-      position: relative;
-      background: #000;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .desktop-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    .chat-container {
-      display: flex;
-      flex-direction: column;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      padding: 1rem;
-    }
-
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      margin-bottom: 1rem;
-    }
-
-    .message {
-      padding: 0.75rem;
-      margin-bottom: 0.5rem;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .input-form {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    input {
-      flex: 1;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: var(--e2b-text);
-    }
-
-    button {
-      padding: 0.75rem 1.5rem;
-      background: var(--e2b-orange);
-      color: #000;
-      border: none;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    ```
-    </CodeGroup>
+    Refer to `/surf-starter_olddd/app/page.tsx` for the complete 422-line implementation with all handlers and UI logic.
   </Step>
 </Steps>
 
-## Run the App
+### Step 11: Desktop Viewer
+
+The desktop viewer includes a sophisticated timeout overlay with visual feedback.
 
 <Steps>
-  <Step title="Development Mode">
-    <CodeGroup>
-    ```bash Bash
-    npm run dev
-    # Visit http://localhost:3000
+  <Step title="VNC Integration with Timeout Overlay">
+    The desktop viewer features:
+    - **VNC iframe**: Live desktop stream from E2B (`sandbox.stream.getUrl()`)
+    - **Timeout overlay**: Floating widget positioned absolutely at top-right
+    - **Progress bar**: Visual countdown with smooth color transitions
+    - **Control buttons**: "+5 min" extend button and "⏹️" stop button
+    - **Placeholder state**: Helpful message with example prompt when no sandbox exists
+    - **Backdrop blur**: Glassmorphism effect on the timeout overlay
+
+    The overlay sits on top of the iframe using `position: absolute` with `z-index: 10` and uses `backdrop-filter: blur(8px)` for a modern glass effect.
+  </Step>
+</Steps>
+
+### Step 12: Styling
+
+Create a polished, professional interface with E2B branding and smooth animations.
+
+<Steps>
+  <Step title="Global Styles">
+    Create `styles/globals.css` with the complete 606-line styling. Key features:
+
+    **Typography & Theme:**
+    ```css
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --e2b-orange: hsl(32 100% 50%);
+      --e2b-orange-dark: hsl(32 100% 45%);
+      --e2b-orange-light: hsl(32 95% 55%);
+      --e2b-bg: hsl(0 0% 7%);
+      --e2b-bg-elevated: hsl(0 0% 10%);
+      --e2b-border: hsl(0 0% 15%);
+      --e2b-text: hsl(0 0% 98%);
+      --e2b-text-muted: hsl(0 0% 70%);
+    }
     ```
-    </CodeGroup>
+
+    **Key Animations:**
+    - `slideDown`: Status bar entrance animation
+    - `spin`: Loading spinner rotation
+    - `pulse`: Sandbox badge dot pulsing
+    - `fadeIn`: Message appearance with slide up
+    - `bounce`: Typing indicator dots
+
+    **Major Components:**
+    - **Header**: 3em gradient title with orange-to-light gradient
+    - **Status Bar**: Elevated background with animated spinner
+    - **Desktop View**: 2fr grid column with shadow and rounded corners
+    - **Timeout Overlay**: Dark translucent with backdrop blur
+    - **Chat Container**: 1fr grid column with header, messages, input
+    - **Messages**: Flex column with role-based colors and styles
+    - **Welcome Message**: Orange-bordered info panel with examples
+    - **Action Pills**: Rounded orange badges for executed actions
+    - **Typing Indicator**: Three bouncing dots with staggered animation
+    - **Send Button**: Orange with hover lift effect and shadow
+
+    **Responsive Grid:**
+    ```css
+    main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      height: calc(100vh - 220px);
+    }
+    ```
+
+    **Custom Scrollbar:**
+    ```css
+    .messages::-webkit-scrollbar {
+      width: 8px;
+    }
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--e2b-border);
+      border-radius: 4px;
+    }
+    .messages::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 140, 0, 0.5);
+    }
+    ```
+
+    The complete 606-line stylesheet is available in `/surf-starter_olddd/styles/globals.css` with all animations, hover states, and responsive breakpoints.
+  </Step>
+</Steps>
+
+### Step 13: Running the Application
+
+Start the development server and test your AI desktop control application.
+
+<Steps>
+  <Step title="Start Development Server">
+    ```bash
+    npm run dev
+    ```
+
+    Visit [http://localhost:3000](http://localhost:3000) in your browser.
+  </Step>
+
+  <Step title="Test with Example Prompts">
+    Try these commands to test the application:
+
+    - "Open Firefox and search for E2B documentation"
+    - "Open VS Code and create a new file called hello.py"
+    - "Open Terminal and run 'ls -la'"
+    - "Take a screenshot of the desktop"
+    - "Open File Manager and navigate to the Documents folder"
+
+    **What to expect:**
+    1. Sandbox creation (takes 5-10 seconds on first request)
+    2. VNC desktop viewer appears showing Ubuntu desktop
+    3. AI reasoning messages appear in chat
+    4. Actions execute in real-time on the desktop
+    5. You see live feedback of mouse clicks, typing, and application launches
   </Step>
 
   <Step title="Production Build">
-    <CodeGroup>
-    ```bash Bash
+    When ready to deploy:
+
+    ```bash
     npm run build
     npm start
     ```
-    </CodeGroup>
+
+    Deploy to platforms like Vercel, Railway, or any Node.js hosting provider. Make sure to set environment variables in your deployment platform.
   </Step>
 </Steps>
+
+---
+
+## Key Concepts
+
+### E2B Desktop Sandbox
+An isolated Ubuntu 22.04 environment running in the cloud:
+- **Pre-installed apps**: Firefox, VS Code, LibreOffice, Terminal, File Manager, Text Editor
+- **VNC access**: Real-time desktop streaming via iframe
+- **Resolution**: 1024x768 by default (configurable)
+- **Ephemeral**: Each sandbox is temporary unless you configure persistent storage
+- **On-demand**: Created in seconds, destroyed automatically after timeout
+
+### OpenAI Computer Use API
+A vision-enabled AI model that can control computers:
+- **Vision capabilities**: Analyzes desktop screenshots to understand UI state
+- **Structured actions**: Returns computer actions like click, type, scroll
+- **Reasoning**: Uses chain-of-thought to plan multi-step tasks
+- **Context preservation**: Maintains conversation history across actions
+- **Model**: Uses `computer-use-preview` model optimized for GUI interaction
+
+### Computer Actions
+The AI can execute these actions on the desktop:
+
+| Action | Parameters | E2B SDK Method | Purpose |
+|--------|-----------|----------------|---------|
+| `click` | x, y, button | `sandbox.leftClick()`, `sandbox.rightClick()` | Click at coordinates |
+| `double_click` | x, y | `sandbox.doubleClick()` | Double-click at position |
+| `type` | text | `sandbox.write()` | Type text into focused field |
+| `key` | key name | `sandbox.press()` | Press keyboard keys (ENTER, ESC, etc.) |
+| `move` | x, y | `sandbox.moveMouse()` | Move cursor without clicking |
+| `drag` | start_x, start_y, x, y | `sandbox.drag()` | Drag between positions |
+| `scroll` | amount | `sandbox.scroll()` | Scroll up or down |
+| `wait` | duration (ms) | `setTimeout()` | Pause for UI to load |
+
+### Streaming Architecture
+Real-time updates using Server-Sent Events (SSE):
+
+- **Event types**:
+  - `sandbox_created` - New sandbox initialized with VNC URL
+  - `reasoning` - AI thinking/planning message
+  - `action` - About to execute action
+  - `action_completed` - Action finished successfully
+  - `done` - Task complete
+  - `error` - Error occurred
+
+- **Benefits**:
+  - Live progress visibility
+  - Responsive user experience
+  - Works over standard HTTP (no WebSocket needed)
+  - Automatic reconnection in modern browsers
+
+---
+
+## Best Practices
+
+### Prompt Engineering
+- **Be specific**: "Open Firefox and go to github.com" is better than "Open a browser"
+- **Use action verbs**: "Click the Submit button" rather than "I want to submit"
+- **Mention UI elements**: Reference specific buttons, fields, or menu items
+- **Break down complex tasks**: Give the AI clear steps for multi-part operations
+
+### Performance Optimization
+- **Reuse sandboxes**: Keep sandbox alive across multiple related tasks to avoid creation overhead
+- **Extend timeouts proactively**: Use the +5 min button before timeout expires
+- **Optimize screenshots**: Balance resolution with API cost (1024x768 is a good default)
+- **Set reasonable iteration limits**: 15 iterations handles most tasks; increase only if needed
+
+### Security Considerations
+- **Never commit API keys**: Always use environment variables
+- **Validate user input**: Sanitize input before sending to AI to prevent prompt injection
+- **Use environment variables**: Store all secrets in `.env` files (not in code)
+- **Rate limiting**: In production, add rate limits to prevent API abuse
+- **Sandbox isolation**: E2B sandboxes are isolated - they can't access your local machine
+
+### Production Readiness
+- **Persistent storage**: Store sandbox IDs in Redis or database instead of in-memory Map
+- **Authentication**: Add user authentication (NextAuth, Clerk, etc.)
+- **Error boundaries**: Implement React error boundaries for graceful failure handling
+- **Logging**: Add structured logging for debugging and monitoring
+- **Cost monitoring**: Track E2B and OpenAI API usage to control costs
+- **Webhooks**: Use E2B webhooks to track sandbox lifecycle events
+
+---
+
+## Troubleshooting
+
+### Sandbox Not Appearing
+
+**Problem**: Desktop viewer doesn't show or sandbox creation fails
+
+**Solutions**:
+- Verify both `E2B_API_KEY` and `OPENAI_API_KEY` are set in `.env`
+- Check E2B dashboard to ensure you have available credits
+- Open browser DevTools Console and check for errors
+- Review server terminal logs for backend errors
+- Ensure you're using Node.js 18 or higher
+
+### AI Not Taking Actions
+
+**Problem**: AI responds but doesn't execute computer actions
+
+**Solutions**:
+- Confirm you have access to OpenAI's `computer-use-preview` model
+- Try more specific instructions with clear action verbs
+- Ensure desktop has fully loaded before issuing commands
+- Check if `MAX_ITERATIONS` limit was reached (increase if needed)
+- Review AI reasoning messages to understand its decision-making
+
+### Actions Failing
+
+**Problem**: Actions execute but don't work as expected
+
+**Solutions**:
+- **Wait times**: Applications need time to load - AI should use `wait` action after opening apps
+- **Coordinates**: Click actions depend on 1024x768 resolution - ensure screenshots match
+- **Keyboard keys**: Use standard key names from E2B docs (e.g., "Return" not "Enter")
+- **UI timing**: Some UI elements appear after animation - add appropriate waits
+- **Focus issues**: Ensure input fields are focused before typing
+
+### Timeout Issues
+
+**Problem**: Sandbox expires during long tasks
+
+**Solutions**:
+- Server automatically extends timeout to 10 minutes during active AI work
+- Use the manual "+5 min" button before timeout expires
+- Increase `ACTIVE_WORK_TIMEOUT_MS` in constants for longer tasks
+- Monitor timeout countdown in UI
+- Consider breaking very long tasks into smaller steps
+
+### SSE Connection Problems
+
+**Problem**: Events stop streaming or connection drops
+
+**Solutions**:
+- Check network connectivity and firewall settings
+- Verify SSE headers are correctly set (Content-Type: text/event-stream)
+- Ensure safe stream controller is being used to prevent double-close errors
+- Review browser console for SSE-related errors
+- Test with a simple SSE client to isolate frontend vs backend issues
+
+---
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Add More Actions" icon="plus">
-    Extend action handlers for file uploads, clipboard operations
+  <Card title="Multi-Provider Support" icon="brain-circuit" href="/quickstart/connect-llms">
+    Add support for Anthropic Claude or Google Gemini with computer use capabilities
   </Card>
-  <Card title="Improve UI" icon="palette">
-    Add more visual feedback, progress indicators, error boundaries
+  <Card title="Custom Templates" icon="layer-group" href="/templates/intro">
+    Pre-install specific software or configure the desktop environment for your use case
   </Card>
-  <Card title="Add Auth" icon="lock">
-    Implement authentication to secure sandbox access
+  <Card title="File Operations" icon="file-import" href="/filesystem">
+    Add file upload/download, implement clipboard operations, and export screenshots
   </Card>
-  <Card title="Monitor Usage" icon="chart-line">
-    Add analytics and usage tracking for sandboxes
+  <Card title="Production Deploy" icon="rocket" href="/guides/production">
+    Add authentication, database persistence, monitoring, and deploy to cloud platforms
+  </Card>
+  <Card title="Multi-User Support" icon="users">
+    Implement session management, sandbox pooling, and user isolation for SaaS applications
+  </Card>
+  <Card title="Cost Optimization" icon="dollar-sign">
+    Optimize screenshot compression, implement caching, and choose cost-effective AI models
+  </Card>
+  <Card title="Advanced Actions" icon="wand-magic-sparkles">
+    Extend with custom tools, web scraping, data extraction, and complex workflows
+  </Card>
+  <Card title="Monitoring & Analytics" icon="chart-line">
+    Track usage patterns, measure task success rates, and optimize agent performance
   </Card>
 </CardGroup>
+
+---
+
+## Build the Complete Project
+
+Now that you understand how everything works, you can build and run the complete working application from the `surf-starter_olddd` directory.
+
+<Steps>
+  <Step title="Navigate to Project Directory">
+    ```bash
+    cd surf-starter_olddd
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs all required packages including:
+    - `@e2b/desktop` - E2B Desktop SDK
+    - `openai` - OpenAI SDK
+    - `sharp` - Image processing
+    - `next` - Next.js framework
+    - `react` & `react-dom` - React libraries
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Copy the example environment file and add your API keys:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit the `.env` file with your actual API keys:
+
+    ```env
+    E2B_API_KEY=your_e2b_api_key_here
+    OPENAI_API_KEY=your_openai_api_key_here
+    ```
+
+    **Get your API keys:**
+    - E2B API Key: [https://e2b.dev/docs/api-key](https://e2b.dev/docs/api-key)
+    - OpenAI API Key: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+  </Step>
+
+  <Step title="Run Development Server">
+    Start the application in development mode:
+
+    ```bash
+    npm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) in your browser to see the live application.
+
+    **Try these example prompts:**
+    - "Open Firefox and search for E2B documentation"
+    - "Open VS Code and create a new file"
+    - "Open Terminal and run 'ls -la'"
+    - "Take a screenshot of the desktop"
+  </Step>
+
+  <Step title="Build for Production">
+    When ready to deploy, create a production build:
+
+    ```bash
+    npm run build
+    npm start
+    ```
+
+    Deploy to platforms like Vercel, Railway, or any Node.js hosting provider. Make sure to configure environment variables in your deployment platform's settings.
+  </Step>
+</Steps>
+
+### What You'll See
+
+1. **Sandbox Creation** - Takes 5-10 seconds on first request
+2. **Desktop Viewer** - Live VNC stream showing Ubuntu desktop
+3. **AI Reasoning** - Real-time messages showing AI's thought process
+4. **Action Execution** - Watch as the AI clicks, types, and navigates the desktop
+5. **Timeout Management** - Use the "+5 min" button to extend session time
+
+The complete source code is in the [surf-starter_olddd](../surf-starter_olddd/) directory with all files discussed in this guide.
