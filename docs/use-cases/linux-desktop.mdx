@@ -4,6 +4,832 @@ description: "Run full Linux desktop environments in E2B sandboxes with GUI supp
 icon: "desktop"
 ---
 
-# Linux Desktop
+## Setup Project
 
-Content coming soon.
+<Steps>
+  <Step title="Initialize Next.js App">
+    <CodeGroup>
+    ```bash Bash
+    npx create-next-app@latest surf-starter --typescript --app --no-tailwind
+    cd surf-starter
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Install Dependencies">
+    <CodeGroup>
+    ```bash Bash
+    npm install @e2b/desktop openai sharp
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Create Environment File">
+    <CodeGroup>
+    ```env Environment
+    # .env
+    E2B_API_KEY=your_e2b_api_key
+    OPENAI_API_KEY=your_openai_api_key
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Type Definitions
+
+<Steps>
+  <Step title="Create Type System">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // types/index.ts
+    export interface ChatMessage {
+      role: 'user' | 'assistant' | 'system' | 'action';
+      content: string;
+    }
+
+    export type ComputerAction =
+      | { type: 'click'; x: number; y: number; button: 'left' | 'right' | 'wheel' }
+      | { type: 'double_click'; x: number; y: number }
+      | { type: 'type'; text: string }
+      | { type: 'key' | 'keypress'; keys?: string[]; key?: string }
+      | { type: 'move'; x: number; y: number }
+      | { type: 'drag'; start_x: number; start_y: number; x: number; y: number }
+      | { type: 'scroll'; amount: number }
+      | { type: 'wait'; duration?: number }
+      | { type: 'screenshot' };
+
+    export interface SSEEvent {
+      type: 'sandbox_created' | 'reasoning' | 'action' | 'action_completed' | 'done' | 'error';
+      content?: string;
+      action?: string;
+      sandboxId?: string;
+      url?: string;
+      message?: string;
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Configuration
+
+<Steps>
+  <Step title="Define Constants">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/constants.ts
+    export const SANDBOX_CONFIG = {
+      TIMEOUT_MS: 300_000,
+      TIMEOUT_SECONDS: 300,
+      AUTO_EXTEND_THRESHOLD: 10,
+    } as const;
+
+    export const SCREENSHOT_CONFIG = {
+      MAX_WIDTH: 1024,
+      MAX_HEIGHT: 768,
+    } as const;
+
+    export const AI_CONFIG = {
+      MODEL: 'computer-use-preview',
+      MAX_ITERATIONS: 15,
+      MAX_WAIT_DURATION: 3000,
+      REASONING_EFFORT: 'medium',
+    } as const;
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Environment Validation">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/env.ts
+    export function getEnv() {
+      const E2B_API_KEY = process.env.E2B_API_KEY;
+      const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+      if (!E2B_API_KEY || !OPENAI_API_KEY) {
+        throw new Error('Missing required environment variables');
+      }
+
+      return { E2B_API_KEY, OPENAI_API_KEY };
+    }
+
+    export function isEnvironmentConfigured(): boolean {
+      return !!(process.env.E2B_API_KEY && process.env.OPENAI_API_KEY);
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Utilities
+
+<Steps>
+  <Step title="Screenshot Processing">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/utils/screenshot.ts
+    import sharp from 'sharp';
+    import { SCREENSHOT_CONFIG } from '@/lib/constants';
+
+    export async function processScreenshot(
+      screenshotBuffer: Uint8Array | Buffer
+    ): Promise<string> {
+      const processedBuffer = await sharp(screenshotBuffer)
+        .resize(SCREENSHOT_CONFIG.MAX_WIDTH, SCREENSHOT_CONFIG.MAX_HEIGHT, {
+          fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        })
+        .png()
+        .toBuffer();
+
+      return processedBuffer.toString('base64');
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Safe Stream Controller">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/utils/stream.ts
+    export function createSafeStreamController(
+      controller: ReadableStreamDefaultController
+    ) {
+      let isControllerClosed = false;
+
+      const safeEnqueue = (data: Uint8Array): void => {
+        if (!isControllerClosed) {
+          try {
+            controller.enqueue(data);
+          } catch (error) {
+            isControllerClosed = true;
+          }
+        }
+      };
+
+      const safeClose = (): void => {
+        if (!isControllerClosed) {
+          try {
+            controller.close();
+            isControllerClosed = true;
+          } catch (error) {
+            isControllerClosed = true;
+          }
+        }
+      };
+
+      return { enqueue: safeEnqueue, close: safeClose };
+    }
+
+    export function createSSEEvent(event: object): string {
+      return `data: ${JSON.stringify(event)}\n\n`;
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Action Execution">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/utils/actions.ts
+    import type { Sandbox } from '@e2b/desktop';
+    import type { ComputerAction } from '@/types';
+
+    export async function executeComputerAction(
+      sandbox: Sandbox,
+      action: ComputerAction
+    ): Promise<void> {
+      switch (action.type) {
+        case 'click':
+          if (action.button === 'left') {
+            await sandbox.leftClick(action.x, action.y);
+          } else if (action.button === 'right') {
+            await sandbox.rightClick(action.x, action.y);
+          }
+          break;
+
+        case 'double_click':
+          await sandbox.doubleClick(action.x, action.y);
+          break;
+
+        case 'type':
+          await sandbox.write(action.text);
+          break;
+
+        case 'key':
+        case 'keypress':
+          const key = action.keys?.[0] || action.key;
+          if (key) await sandbox.press(key);
+          break;
+
+        case 'move':
+          await sandbox.moveMouse(action.x, action.y);
+          break;
+
+        case 'scroll':
+          await sandbox.scroll(action.amount < 0 ? 'up' : 'down');
+          break;
+
+        case 'wait':
+          await new Promise(resolve =>
+            setTimeout(resolve, Math.min(action.duration || 1000, 3000))
+          );
+          break;
+      }
+    }
+
+    export function formatActionForDisplay(action: ComputerAction): string {
+      switch (action.type) {
+        case 'click':
+          return `Click ${action.button} at (${action.x}, ${action.y})`;
+        case 'type':
+          return `Type: "${action.text}"`;
+        case 'key':
+        case 'keypress':
+          return `Press key: ${action.keys?.[0] || action.key}`;
+        default:
+          return `Action: ${action.type}`;
+      }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## AI Instructions
+
+<Steps>
+  <Step title="System Prompt">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/ai/instructions.ts
+    export const SYSTEM_INSTRUCTIONS = `You are Surf, a helpful AI assistant that can control a computer.
+
+ENVIRONMENT:
+- Ubuntu 22.04 Linux desktop sandbox
+- Pre-installed: Firefox, VS Code, Terminal, File Manager
+- Desktop is READY - start immediately
+
+AVAILABLE ACTIONS:
+- click: Click at coordinates (left/right/middle)
+- double_click: Double-click at coordinates
+- type: Type text
+- key/keypress: Press keyboard keys (ENTER, ESC, TAB)
+- move: Move cursor without clicking
+- drag: Drag from one position to another
+- scroll: Scroll up or down
+- wait: Wait briefly (max 3 seconds)
+
+RULES:
+- Be AUTONOMOUS - execute without asking permission
+- When user says "yes" or "proceed" - take action immediately
+- Press ENTER after typing terminal commands
+- Never wait at start - desktop is ready
+- Only wait after opening apps (1-2 seconds max)
+
+REMEMBER: Execute tasks directly without asking "Should I proceed?"`;
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## OpenAI Service
+
+<Steps>
+  <Step title="Computer Use Loop">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // lib/services/openai.ts
+    import OpenAI from 'openai';
+    import type { Sandbox } from '@e2b/desktop';
+    import { AI_CONFIG, SCREENSHOT_CONFIG } from '@/lib/constants';
+    import { SYSTEM_INSTRUCTIONS } from '@/lib/ai/instructions';
+    import { processScreenshot } from '@/lib/utils/screenshot';
+    import { executeComputerAction, formatActionForDisplay } from '@/lib/utils/actions';
+    import { getEnv } from '@/lib/env';
+
+    export async function runComputerUseLoop(
+      sandbox: Sandbox,
+      userMessage: string,
+      sendEvent: (data: Uint8Array) => void
+    ): Promise<void> {
+      const { OPENAI_API_KEY } = getEnv();
+      const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+      const encoder = new TextEncoder();
+
+      // Take initial screenshot
+      const screenshotBuffer = await sandbox.screenshot();
+      const screenshotBase64 = await processScreenshot(screenshotBuffer);
+
+      // Define computer tool
+      const computerTool = {
+        type: 'computer-preview' as const,
+        display_width: SCREENSHOT_CONFIG.MAX_WIDTH,
+        display_height: SCREENSHOT_CONFIG.MAX_HEIGHT,
+        environment: 'linux' as const,
+      };
+
+      // Create initial request
+      let response = await openai.responses.create({
+        model: AI_CONFIG.MODEL,
+        tools: [computerTool],
+        input: [{
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: userMessage },
+            { type: 'input_image', image_url: `data:image/png;base64,${screenshotBase64}`, detail: 'high' },
+          ],
+        }],
+        instructions: SYSTEM_INSTRUCTIONS,
+        truncation: 'auto',
+        reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
+      });
+
+      let iterations = 0;
+
+      // Main loop
+      while (iterations < AI_CONFIG.MAX_ITERATIONS) {
+        iterations++;
+
+        const computerCalls = response.output.filter(
+          (item: any) => item.type === 'computer_call'
+        );
+
+        if (computerCalls.length === 0) {
+          sendEvent(encoder.encode(`data: ${JSON.stringify({
+            type: 'reasoning',
+            content: response.output_text || 'Task complete!'
+          })}\n\n`));
+          break;
+        }
+
+        const computerCall = computerCalls[0];
+        const action = computerCall.action;
+
+        // Send action to client
+        sendEvent(encoder.encode(`data: ${JSON.stringify({
+          type: 'action',
+          action: formatActionForDisplay(action)
+        })}\n\n`));
+
+        // Execute action
+        await executeComputerAction(sandbox, action);
+
+        sendEvent(encoder.encode(`data: ${JSON.stringify({
+          type: 'action_completed'
+        })}\n\n`));
+
+        // Take new screenshot
+        const newScreenshotBuffer = await sandbox.screenshot();
+        const newScreenshotBase64 = await processScreenshot(newScreenshotBuffer);
+
+        // Continue conversation
+        response = await openai.responses.create({
+          model: AI_CONFIG.MODEL,
+          previous_response_id: response.id,
+          instructions: SYSTEM_INSTRUCTIONS,
+          tools: [computerTool],
+          input: [{
+            call_id: computerCall.call_id,
+            type: 'computer_call_output',
+            output: {
+              type: 'computer_screenshot',
+              image_url: `data:image/png;base64,${newScreenshotBase64}`,
+            },
+          }],
+          truncation: 'auto',
+          reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
+        });
+      }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## API Route
+
+<Steps>
+  <Step title="Chat Endpoint">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // app/api/chat/route.ts
+    import { Sandbox } from '@e2b/desktop';
+    import { NextRequest } from 'next/server';
+    import { getEnv, isEnvironmentConfigured } from '@/lib/env';
+    import { SANDBOX_CONFIG } from '@/lib/constants';
+    import { createSafeStreamController, createSSEEvent } from '@/lib/utils/stream';
+    import { runComputerUseLoop } from '@/lib/services/openai';
+
+    const sandboxes = new Map<string, Sandbox>();
+
+    export async function POST(req: NextRequest) {
+      try {
+        const { message, sandboxId } = await req.json();
+
+        if (!message) {
+          return new Response(JSON.stringify({ error: 'Message required' }), { status: 400 });
+        }
+
+        if (!isEnvironmentConfigured()) {
+          return new Response(createSSEEvent({ type: 'error', message: 'Missing API keys' }), {
+            headers: { 'Content-Type': 'text/event-stream' },
+          });
+        }
+
+        const { E2B_API_KEY } = getEnv();
+        const encoder = new TextEncoder();
+
+        const stream = new ReadableStream({
+          async start(controller) {
+            const safeController = createSafeStreamController(controller);
+
+            try {
+              let sandbox = sandboxId ? sandboxes.get(sandboxId) : null;
+
+              if (!sandbox) {
+                safeController.enqueue(encoder.encode(createSSEEvent({
+                  type: 'reasoning',
+                  content: 'Creating sandbox...',
+                })));
+
+                sandbox = await Sandbox.create({
+                  apiKey: E2B_API_KEY,
+                  timeoutMs: SANDBOX_CONFIG.TIMEOUT_MS,
+                });
+
+                await sandbox.stream.start();
+                sandboxes.set(sandbox.sandboxId, sandbox);
+
+                safeController.enqueue(encoder.encode(createSSEEvent({
+                  type: 'sandbox_created',
+                  sandboxId: sandbox.sandboxId,
+                  url: sandbox.stream.getUrl(),
+                })));
+              } else {
+                await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
+              }
+
+              await runComputerUseLoop(sandbox, message, safeController.enqueue);
+
+              safeController.enqueue(encoder.encode(createSSEEvent({ type: 'done' })));
+              safeController.close();
+            } catch (error) {
+              safeController.enqueue(encoder.encode(createSSEEvent({
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Unknown error',
+              })));
+              safeController.close();
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: error instanceof Error ? error.message : 'Internal error' }),
+          { status: 500 }
+        );
+      }
+    }
+
+    export const runtime = 'nodejs';
+    export const maxDuration = 300;
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Server Actions">
+    <CodeGroup>
+    ```ts JavaScript & TypeScript
+    // app/actions.ts
+    'use server';
+
+    import { Sandbox } from '@e2b/desktop';
+    import { getEnv } from '@/lib/env';
+    import { SANDBOX_CONFIG } from '@/lib/constants';
+
+    export async function extendSandboxTimeout(sandboxId: string) {
+      try {
+        if (!sandboxId) {
+          return { success: false, error: 'Sandbox ID required' };
+        }
+
+        const { E2B_API_KEY } = getEnv();
+        const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
+        await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+
+    export async function stopSandbox(sandboxId: string) {
+      try {
+        if (!sandboxId) {
+          return { success: false, error: 'Sandbox ID required' };
+        }
+
+        const { E2B_API_KEY } = getEnv();
+        const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
+        await sandbox.kill();
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Frontend
+
+<Steps>
+  <Step title="Main UI Component">
+    <CodeGroup>
+    ```tsx TypeScript
+    // app/page.tsx
+    'use client';
+
+    import { useState, useRef, useEffect } from 'react';
+    import { extendSandboxTimeout, stopSandbox } from './actions';
+    import { SANDBOX_CONFIG } from '@/lib/constants';
+    import type { ChatMessage } from '@/types';
+
+    export default function Home() {
+      const [messages, setMessages] = useState<ChatMessage[]>([]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [sandboxUrl, setSandboxUrl] = useState<string>('');
+      const [sandboxId, setSandboxId] = useState<string>('');
+      const [timeRemaining, setTimeRemaining] = useState<number>(SANDBOX_CONFIG.TIMEOUT_SECONDS);
+
+      const sendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || loading) return;
+
+        setMessages(prev => [...prev, { role: 'user', content: input }]);
+        setInput('');
+        setLoading(true);
+
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: input, sandboxId: sandboxId || undefined }),
+          });
+
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader!.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                const parsed = JSON.parse(data);
+
+                if (parsed.type === 'sandbox_created') {
+                  setSandboxId(parsed.sandboxId);
+                  setSandboxUrl(parsed.url);
+                } else if (parsed.type === 'reasoning') {
+                  setMessages(prev => {
+                    const last = prev[prev.length - 1];
+                    if (last?.role === 'assistant') {
+                      return [...prev.slice(0, -1), { role: 'assistant', content: parsed.content }];
+                    }
+                    return [...prev, { role: 'assistant', content: parsed.content }];
+                  });
+                } else if (parsed.type === 'action') {
+                  setMessages(prev => [...prev, { role: 'action', content: parsed.action }]);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="container">
+          <header>
+            <h1>🏄 Surf Demo</h1>
+            <p>AI agent with E2B desktop sandbox</p>
+          </header>
+
+          <main>
+            <div className="desktop-view">
+              {sandboxUrl ? (
+                <iframe src={sandboxUrl} title="Desktop Sandbox" className="desktop-frame" />
+              ) : (
+                <div className="desktop-placeholder">
+                  <p>Desktop will appear here</p>
+                </div>
+              )}
+            </div>
+
+            <div className="chat-container">
+              <div className="messages">
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`message message-${msg.role}`}>
+                    <div className="message-content">{msg.content}</div>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={sendMessage} className="input-form">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Tell the AI what to do..."
+                  disabled={loading}
+                />
+                <button type="submit" disabled={loading || !input.trim()}>
+                  {loading ? 'Working...' : '▶️ Send'}
+                </button>
+              </form>
+            </div>
+          </main>
+        </div>
+      );
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Styling">
+    <CodeGroup>
+    ```css CSS
+    /* styles/globals.css */
+    :root {
+      --e2b-orange: hsl(32 100% 50%);
+      --e2b-bg: hsl(0 0% 7%);
+      --e2b-text: hsl(0 0% 98%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      background: var(--e2b-bg);
+      color: var(--e2b-text);
+    }
+
+    .container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .desktop-view {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .desktop-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+    }
+
+    .message {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .input-form {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    input {
+      flex: 1;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: var(--e2b-text);
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: var(--e2b-orange);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Run the App
+
+<Steps>
+  <Step title="Development Mode">
+    <CodeGroup>
+    ```bash Bash
+    npm run dev
+    # Visit http://localhost:3000
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Production Build">
+    <CodeGroup>
+    ```bash Bash
+    npm run build
+    npm start
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add More Actions" icon="plus">
+    Extend action handlers for file uploads, clipboard operations
+  </Card>
+  <Card title="Improve UI" icon="palette">
+    Add more visual feedback, progress indicators, error boundaries
+  </Card>
+  <Card title="Add Auth" icon="lock">
+    Implement authentication to secure sandbox access
+  </Card>
+  <Card title="Monitor Usage" icon="chart-line">
+    Add analytics and usage tracking for sandboxes
+  </Card>
+</CardGroup>
