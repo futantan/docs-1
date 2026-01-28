@@ -7,13 +7,13 @@ icon: "desktop"
 ## Related Guides
 
 <CardGroup cols={3}>
-  <Card title="Desktop Sandbox" icon="window" href="/desktop/intro">
+  <Card title="Desktop Sandbox" icon="window" href="/template/examples/desktop">
     Create virtual Linux desktops
   </Card>
   <Card title="Connect LLMs" icon="brain" href="/quickstart/connect-llms">
     Integrate AI models with sandboxes
   </Card>
-  <Card title="Sandbox Templates" icon="layer-group" href="/templates/intro">
+  <Card title="Sandbox Templates" icon="layer-group" href="/sandbox-template">
     Customize sandbox environments
   </Card>
   <Card title="Streaming" icon="stream" href="/code-interpreting/streaming">
@@ -1754,6 +1754,31 @@ Create `styles/globals.css` with E2B branding, animations, and responsive design
       }
       ```
 </Accordion>
+
+Create `app/layout.tsx` to import the global styles and configure metadata.
+
+```typescript
+// app/layout.tsx
+import type { Metadata } from 'next';
+import '../styles/globals.css';
+
+export const metadata: Metadata = {
+  title: 'Surf Demo - AI Desktop Control',
+  description: 'AI agent with E2B desktop sandbox',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
 
 ### Step 12: Running the Application
 
