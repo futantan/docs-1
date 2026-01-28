@@ -148,99 +148,91 @@ Set up your API keys and create environment validation utilities.
 
 Define TypeScript interfaces for type safety throughout the application.
 
-<Steps>
-  <Step title="Create Type System">
-    Create `types/index.ts` with core application types:
+Create `types/index.ts` with core application types:
 
-    ```typescript
-    // types/index.ts
+```typescript
+// types/index.ts
 
-    // Message structure for chat interface
-    export interface ChatMessage {
-      role: 'user' | 'assistant' | 'system' | 'action';
-      content: string;
-    }
+// Message structure for chat interface
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system' | 'action';
+  content: string;
+}
 
-    // Computer actions the AI can execute
-    export type ComputerAction =
-      | { type: 'click'; x: number; y: number; button: 'left' | 'right' | 'wheel' }
-      | { type: 'double_click'; x: number; y: number }
-      | { type: 'type'; text: string }
-      | { type: 'key' | 'keypress'; keys?: string[]; key?: string }
-      | { type: 'move'; x: number; y: number }
-      | { type: 'drag'; start_x: number; start_y: number; x: number; y: number }
-      | { type: 'scroll'; amount: number }
-      | { type: 'wait'; duration?: number }
-      | { type: 'screenshot' };
+// Computer actions the AI can execute
+export type ComputerAction =
+  | { type: 'click'; x: number; y: number; button: 'left' | 'right' | 'wheel' }
+  | { type: 'double_click'; x: number; y: number }
+  | { type: 'type'; text: string }
+  | { type: 'key' | 'keypress'; keys?: string[]; key?: string }
+  | { type: 'move'; x: number; y: number }
+  | { type: 'drag'; start_x: number; start_y: number; x: number; y: number }
+  | { type: 'scroll'; amount: number }
+  | { type: 'wait'; duration?: number }
+  | { type: 'screenshot' };
 
-    // SSE events for real-time updates
-    export interface SSEEvent {
-      type: 'sandbox_created' | 'reasoning' | 'action' | 'action_completed' | 'done' | 'error';
-      content?: string;
-      action?: string;
-      sandboxId?: string;
-      url?: string;
-      message?: string;
-    }
+// SSE events for real-time updates
+export interface SSEEvent {
+  type: 'sandbox_created' | 'reasoning' | 'action' | 'action_completed' | 'done' | 'error';
+  content?: string;
+  action?: string;
+  sandboxId?: string;
+  url?: string;
+  message?: string;
+}
 
-    // Conversation tracking for context
-    export interface ConversationTurn {
-      userMessage: string;
-      aiResponse: string;
-      timestamp: number;
-    }
-    ```
+// Conversation tracking for context
+export interface ConversationTurn {
+  userMessage: string;
+  aiResponse: string;
+  timestamp: number;
+}
+```
 
-    The `ComputerAction` discriminated union ensures type-safe action handling throughout the application.
-  </Step>
-</Steps>
+The `ComputerAction` discriminated union ensures type-safe action handling throughout the application.
 
 ### Step 4: Configuration Constants
 
 Centralize all configuration values for easy management.
 
-<Steps>
-  <Step title="Define Constants">
-    Create `lib/constants.ts` with application-wide constants:
+Create `lib/constants.ts` with application-wide constants:
 
-    ```typescript
-    // lib/constants.ts
+```typescript
+// lib/constants.ts
 
-    // Sandbox configuration
-    export const SANDBOX_CONFIG = {
-      TIMEOUT_MS: 300_000,              // 5 minutes initial timeout
-      TIMEOUT_SECONDS: 300,
-      AUTO_EXTEND_THRESHOLD: 10,
-      ACTIVE_WORK_TIMEOUT_MS: 600_000,  // 10 minutes during active work
-      MIN_EXTEND_INTERVAL_MS: 30_000,   // Minimum 30s between extensions
-    } as const;
+// Sandbox configuration
+export const SANDBOX_CONFIG = {
+  TIMEOUT_MS: 300_000,              // 5 minutes initial timeout
+  TIMEOUT_SECONDS: 300,
+  AUTO_EXTEND_THRESHOLD: 10,
+  ACTIVE_WORK_TIMEOUT_MS: 600_000,  // 10 minutes during active work
+  MIN_EXTEND_INTERVAL_MS: 30_000,   // Minimum 30s between extensions
+} as const;
 
-    // Screenshot processing
-    export const SCREENSHOT_CONFIG = {
-      MAX_WIDTH: 1024,
-      MAX_HEIGHT: 768,
-      MIN_WIDTH: 640,
-      MIN_HEIGHT: 480,
-    } as const;
+// Screenshot processing
+export const SCREENSHOT_CONFIG = {
+  MAX_WIDTH: 1024,
+  MAX_HEIGHT: 768,
+  MIN_WIDTH: 640,
+  MIN_HEIGHT: 480,
+} as const;
 
-    // AI model configuration
-    export const AI_CONFIG = {
-      MODEL: 'computer-use-preview',     // OpenAI computer use model
-      MAX_ITERATIONS: 15,                // Maximum loop iterations
-      MAX_WAIT_DURATION: 1500,           // Maximum wait time (ms)
-      REASONING_EFFORT: 'medium',        // AI reasoning level
-    } as const;
+// AI model configuration
+export const AI_CONFIG = {
+  MODEL: 'computer-use-preview',     // OpenAI computer use model
+  MAX_ITERATIONS: 15,                // Maximum loop iterations
+  MAX_WAIT_DURATION: 1500,           // Maximum wait time (ms)
+  REASONING_EFFORT: 'medium',        // AI reasoning level
+} as const;
 
-    // API configuration
-    export const API_CONFIG = {
-      MAX_DURATION: 300,                 // 5 minutes per request
-      RUNTIME: 'nodejs',
-    } as const;
-    ```
+// API configuration
+export const API_CONFIG = {
+  MAX_DURATION: 300,                 // 5 minutes per request
+  RUNTIME: 'nodejs',
+} as const;
+```
 
-    These constants make it easy to adjust timeouts, screenshot sizes, and AI behavior without hunting through code.
-  </Step>
-</Steps>
+These constants make it easy to adjust timeouts, screenshot sizes, and AI behavior without hunting through code.
 
 ### Step 5: Utility Functions
 
@@ -389,13 +381,11 @@ Build helper functions for screenshot processing, streaming, and action executio
 
 Define the system instructions that guide the AI agent's behavior.
 
-<Steps>
-  <Step title="System Instructions">
-    Create `lib/ai/instructions.ts` with the AI agent prompt:
+Create `lib/ai/instructions.ts` with the AI agent prompt:
 
-    ```typescript
-    // lib/ai/instructions.ts
-    export const SYSTEM_INSTRUCTIONS = `You are Surf, an AI assistant that controls a Linux desktop to help users with tasks.
+```typescript
+// lib/ai/instructions.ts
+export const SYSTEM_INSTRUCTIONS = `You are Surf, an AI assistant that controls a Linux desktop to help users with tasks.
 
 ENVIRONMENT:
 - Ubuntu 22.04 desktop with Firefox, VS Code, LibreOffice, Terminal, File Manager, Text Editor
@@ -430,410 +420,1342 @@ COMPLETION:
 - Stop taking actions once the goal is achieved
 
 Be helpful, precise, and efficient.`;
-    ```
+```
 
-    This prompt is crucial for effective agent behavior. It teaches the AI about the environment, available actions, and expected execution patterns.
-  </Step>
-</Steps>
+This prompt is crucial for effective agent behavior. It teaches the AI about the environment, available actions, and expected execution patterns.
 
 ### Step 7: Computer Use Loop
 
 Implement the core AI execution loop that powers desktop control.
 
-<Steps>
-  <Step title="OpenAI Service">
-    Create `lib/services/openai.ts` with the computer use loop:
+Create `lib/services/openai.ts` with the computer use loop:
 
-    ```typescript
-    // lib/services/openai.ts
-    import OpenAI from 'openai';
-    import type { Sandbox } from '@e2b/desktop';
-    import { AI_CONFIG, SCREENSHOT_CONFIG } from '@/lib/constants';
-    import { SYSTEM_INSTRUCTIONS } from '@/lib/ai/instructions';
-    import { processScreenshot } from '@/lib/utils/screenshot';
-    import { executeComputerAction, formatActionForDisplay } from '@/lib/utils/actions';
-    import { getEnv } from '@/lib/env';
+```typescript
+// lib/services/openai.ts
+import OpenAI from 'openai';
+import type { Sandbox } from '@e2b/desktop';
+import { AI_CONFIG, SCREENSHOT_CONFIG } from '@/lib/constants';
+import { SYSTEM_INSTRUCTIONS } from '@/lib/ai/instructions';
+import { processScreenshot } from '@/lib/utils/screenshot';
+import { executeComputerAction, formatActionForDisplay } from '@/lib/utils/actions';
+import { getEnv } from '@/lib/env';
 
-    export async function runComputerUseLoop(
-      sandbox: Sandbox,
-      userMessage: string,
-      sendEvent: (data: Uint8Array) => void
-    ): Promise<void> {
-      const { OPENAI_API_KEY } = getEnv();
-      const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-      const encoder = new TextEncoder();
+export async function runComputerUseLoop(
+  sandbox: Sandbox,
+  userMessage: string,
+  sendEvent: (data: Uint8Array) => void
+): Promise<void> {
+  const { OPENAI_API_KEY } = getEnv();
+  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+  const encoder = new TextEncoder();
 
-      // Take initial screenshot
-      const screenshotBuffer = await sandbox.screenshot();
-      const screenshotBase64 = await processScreenshot(screenshotBuffer);
+  // Take initial screenshot
+  const screenshotBuffer = await sandbox.screenshot();
+  const screenshotBase64 = await processScreenshot(screenshotBuffer);
 
-      // Define computer tool
-      const computerTool = {
-        type: 'computer_use_preview' as const,
-        display_width: SCREENSHOT_CONFIG.MAX_WIDTH,
-        display_height: SCREENSHOT_CONFIG.MAX_HEIGHT,
-        environment: 'linux' as const,
-      };
+  // Define computer tool
+  const computerTool = {
+    type: 'computer_use_preview' as const,
+    display_width: SCREENSHOT_CONFIG.MAX_WIDTH,
+    display_height: SCREENSHOT_CONFIG.MAX_HEIGHT,
+    environment: 'linux' as const,
+  };
 
-      // Create initial request with screenshot
-      let response = await openai.responses.create({
-        model: AI_CONFIG.MODEL,
-        tools: [computerTool],
-        input: [{
-          type: 'message',
-          role: 'user',
-          content: [
-            { type: 'input_text', text: userMessage },
-            { type: 'input_image', image_url: `data:image/png;base64,${screenshotBase64}`, detail: 'high' },
-          ],
-        }],
-        instructions: SYSTEM_INSTRUCTIONS,
-        truncation: 'auto',
-        reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
-      });
+  // Create initial request with screenshot
+  let response = await openai.responses.create({
+    model: AI_CONFIG.MODEL,
+    tools: [computerTool],
+    input: [{
+      type: 'message',
+      role: 'user',
+      content: [
+        { type: 'input_text', text: userMessage },
+        { type: 'input_image', image_url: `data:image/png;base64,${screenshotBase64}`, detail: 'high' },
+      ],
+    }],
+    instructions: SYSTEM_INSTRUCTIONS,
+    truncation: 'auto',
+    reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
+  });
 
-      let iterations = 0;
+  let iterations = 0;
 
-      // Main execution loop
-      while (iterations < AI_CONFIG.MAX_ITERATIONS) {
-        iterations++;
+  // Main execution loop
+  while (iterations < AI_CONFIG.MAX_ITERATIONS) {
+    iterations++;
 
-        // Extract computer actions from AI response
-        const computerCalls = response.output.filter(
-          (item: any) => item.type === 'computer_call'
-        );
+    // Extract computer actions from AI response
+    const computerCalls = response.output.filter(
+      (item: any) => item.type === 'computer_call'
+    );
 
-        // If no actions, task is complete
-        if (computerCalls.length === 0) {
-          sendEvent(encoder.encode(`data: ${JSON.stringify({
-            type: 'reasoning',
-            content: response.output_text || 'Task complete!'
-          })}\n\n`));
-          break;
-        }
-
-        const computerCall = computerCalls[0] as any;
-        const action = computerCall.action;
-
-        // Send action to client
-        sendEvent(encoder.encode(`data: ${JSON.stringify({
-          type: 'action',
-          action: formatActionForDisplay(action)
-        })}\n\n`));
-
-        // Execute action on sandbox
-        await executeComputerAction(sandbox, action);
-
-        sendEvent(encoder.encode(`data: ${JSON.stringify({
-          type: 'action_completed'
-        })}\n\n`));
-
-        // Take new screenshot
-        const newScreenshotBuffer = await sandbox.screenshot();
-        const newScreenshotBase64 = await processScreenshot(newScreenshotBuffer);
-
-        // Continue conversation with new screenshot
-        response = await openai.responses.create({
-          model: AI_CONFIG.MODEL,
-          previous_response_id: response.id,
-          instructions: SYSTEM_INSTRUCTIONS,
-          tools: [computerTool],
-          input: [{
-            call_id: computerCall.call_id,
-            type: 'computer_call_output',
-            output: {
-              type: 'computer_screenshot',
-              image_url: `data:image/png;base64,${newScreenshotBase64}`,
-            },
-          }],
-          truncation: 'auto',
-          reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
-        });
-      }
+    // If no actions, task is complete
+    if (computerCalls.length === 0) {
+      sendEvent(encoder.encode(`data: ${JSON.stringify({
+        type: 'reasoning',
+        content: response.output_text || 'Task complete!'
+      })}\n\n`));
+      break;
     }
-    ```
 
-    This is the heart of the application. The loop continuously:
-    1. Takes screenshots of the desktop
-    2. Sends them to OpenAI with context
-    3. Receives structured computer actions
-    4. Executes actions via E2B
-    5. Repeats until the task is complete
-  </Step>
-</Steps>
+    const computerCall = computerCalls[0] as any;
+    const action = computerCall.action;
+
+    // Send action to client
+    sendEvent(encoder.encode(`data: ${JSON.stringify({
+      type: 'action',
+      action: formatActionForDisplay(action)
+    })}\n\n`));
+
+    // Execute action on sandbox
+    await executeComputerAction(sandbox, action);
+
+    sendEvent(encoder.encode(`data: ${JSON.stringify({
+      type: 'action_completed'
+    })}\n\n`));
+
+    // Take new screenshot
+    const newScreenshotBuffer = await sandbox.screenshot();
+    const newScreenshotBase64 = await processScreenshot(newScreenshotBuffer);
+
+    // Continue conversation with new screenshot
+    response = await openai.responses.create({
+      model: AI_CONFIG.MODEL,
+      previous_response_id: response.id,
+      instructions: SYSTEM_INSTRUCTIONS,
+      tools: [computerTool],
+      input: [{
+        call_id: computerCall.call_id,
+        type: 'computer_call_output',
+        output: {
+          type: 'computer_screenshot',
+          image_url: `data:image/png;base64,${newScreenshotBase64}`,
+        },
+      }],
+      truncation: 'auto',
+      reasoning: { effort: AI_CONFIG.REASONING_EFFORT, generate_summary: 'concise' },
+    });
+  }
+}
+```
+
+This is the heart of the application. The loop continuously:
+1. Takes screenshots of the desktop
+2. Sends them to OpenAI with context
+3. Receives structured computer actions
+4. Executes actions via E2B
+5. Repeats until the task is complete
 
 ### Step 8: API Endpoint
 
 Create the backend API endpoint that orchestrates sandbox creation and AI execution.
 
-<Steps>
-  <Step title="Chat API Route">
-    Create `app/api/chat/route.ts` for the SSE streaming endpoint:
+Create `app/api/chat/route.ts` for the SSE streaming endpoint:
 
-    ```typescript
-    // app/api/chat/route.ts
-    import { Sandbox } from '@e2b/desktop';
-    import { NextRequest } from 'next/server';
-    import { getEnv, isEnvironmentConfigured } from '@/lib/env';
-    import { SANDBOX_CONFIG } from '@/lib/constants';
-    import { createSafeStreamController, createSSEEvent } from '@/lib/utils/stream';
-    import { runComputerUseLoop } from '@/lib/services/openai';
+```typescript
+// app/api/chat/route.ts
+import { Sandbox } from '@e2b/desktop';
+import { NextRequest } from 'next/server';
+import { getEnv, isEnvironmentConfigured } from '@/lib/env';
+import { SANDBOX_CONFIG } from '@/lib/constants';
+import { createSafeStreamController, createSSEEvent } from '@/lib/utils/stream';
+import { runComputerUseLoop } from '@/lib/services/openai';
 
-    // In-memory store for active sandboxes
-    const sandboxes = new Map<string, Sandbox>();
+// In-memory store for active sandboxes
+const sandboxes = new Map<string, Sandbox>();
 
-    export async function POST(req: NextRequest) {
-      try {
-        const { message, sandboxId } = await req.json();
+export async function POST(req: NextRequest) {
+  try {
+    const { message, sandboxId } = await req.json();
 
-        if (!message) {
-          return new Response(JSON.stringify({ error: 'Message required' }), { status: 400 });
-        }
-
-        if (!isEnvironmentConfigured()) {
-          return new Response(createSSEEvent({ type: 'error', message: 'Missing API keys' }), {
-            headers: { 'Content-Type': 'text/event-stream' },
-          });
-        }
-
-        const { E2B_API_KEY } = getEnv();
-        const encoder = new TextEncoder();
-
-        // Create SSE stream
-        const stream = new ReadableStream({
-          async start(controller) {
-            const safeController = createSafeStreamController(controller);
-
-            try {
-              // Reuse existing sandbox or create new one
-              let sandbox = sandboxId ? sandboxes.get(sandboxId) : null;
-
-              if (!sandbox) {
-                safeController.enqueue(encoder.encode(createSSEEvent({
-                  type: 'reasoning',
-                  content: 'Creating sandbox...',
-                })));
-
-                sandbox = await Sandbox.create({
-                  apiKey: E2B_API_KEY,
-                  timeoutMs: SANDBOX_CONFIG.TIMEOUT_MS,
-                });
-
-                await sandbox.stream.start();
-                sandboxes.set(sandbox.sandboxId, sandbox);
-
-                safeController.enqueue(encoder.encode(createSSEEvent({
-                  type: 'sandbox_created',
-                  sandboxId: sandbox.sandboxId,
-                  url: sandbox.stream.getUrl(),
-                })));
-              } else {
-                await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
-              }
-
-              // Run the AI loop
-              await runComputerUseLoop(sandbox, message, safeController.enqueue);
-
-              safeController.enqueue(encoder.encode(createSSEEvent({ type: 'done' })));
-              safeController.close();
-            } catch (error) {
-              safeController.enqueue(encoder.encode(createSSEEvent({
-                type: 'error',
-                message: error instanceof Error ? error.message : 'Unknown error',
-              })));
-              safeController.close();
-            }
-          },
-        });
-
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: error instanceof Error ? error.message : 'Internal error' }),
-          { status: 500 }
-        );
-      }
+    if (!message) {
+      return new Response(JSON.stringify({ error: 'Message required' }), { status: 400 });
     }
 
-    export const runtime = 'nodejs';
-    export const maxDuration = 300;
-    ```
+    if (!isEnvironmentConfigured()) {
+      return new Response(createSSEEvent({ type: 'error', message: 'Missing API keys' }), {
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    }
 
-    The endpoint:
-    - Validates environment and request
-    - Creates or reuses E2B sandboxes
-    - Starts VNC streaming
-    - Runs the computer use loop
-    - Streams events back to the client in real-time
-  </Step>
-</Steps>
+    const { E2B_API_KEY } = getEnv();
+    const encoder = new TextEncoder();
+
+    // Create SSE stream
+    const stream = new ReadableStream({
+      async start(controller) {
+        const safeController = createSafeStreamController(controller);
+
+        try {
+          // Reuse existing sandbox or create new one
+          let sandbox = sandboxId ? sandboxes.get(sandboxId) : null;
+
+          if (!sandbox) {
+            safeController.enqueue(encoder.encode(createSSEEvent({
+              type: 'reasoning',
+              content: 'Creating sandbox...',
+            })));
+
+            sandbox = await Sandbox.create({
+              apiKey: E2B_API_KEY,
+              timeoutMs: SANDBOX_CONFIG.TIMEOUT_MS,
+            });
+
+            await sandbox.stream.start();
+            sandboxes.set(sandbox.sandboxId, sandbox);
+
+            safeController.enqueue(encoder.encode(createSSEEvent({
+              type: 'sandbox_created',
+              sandboxId: sandbox.sandboxId,
+              url: sandbox.stream.getUrl(),
+            })));
+          } else {
+            await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
+          }
+
+          // Run the AI loop
+          await runComputerUseLoop(sandbox, message, safeController.enqueue);
+
+          safeController.enqueue(encoder.encode(createSSEEvent({ type: 'done' })));
+          safeController.close();
+        } catch (error) {
+          safeController.enqueue(encoder.encode(createSSEEvent({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          })));
+          safeController.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal error' }),
+      { status: 500 }
+    );
+  }
+}
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+```
+
+The endpoint:
+- Validates environment and request
+- Creates or reuses E2B sandboxes
+- Starts VNC streaming
+- Runs the computer use loop
+- Streams events back to the client in real-time
 
 ### Step 9: Server Actions
 
 Add Next.js server actions for sandbox management from the client.
 
-<Steps>
-  <Step title="Sandbox Management">
-    Create `app/actions.ts` for server-side operations:
+Create `app/actions.ts` for server-side operations:
 
-    ```typescript
-    // app/actions.ts
-    'use server';
+```typescript
+// app/actions.ts
+'use server';
 
-    import { Sandbox } from '@e2b/desktop';
-    import { getEnv } from '@/lib/env';
-    import { SANDBOX_CONFIG } from '@/lib/constants';
+import { Sandbox } from '@e2b/desktop';
+import { getEnv } from '@/lib/env';
+import { SANDBOX_CONFIG } from '@/lib/constants';
 
-    export async function extendSandboxTimeout(sandboxId: string) {
-      try {
-        if (!sandboxId) {
-          return { success: false, error: 'Sandbox ID required' };
-        }
-
-        const { E2B_API_KEY } = getEnv();
-        const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
-        await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
-
-        return { success: true };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
+export async function extendSandboxTimeout(sandboxId: string) {
+  try {
+    if (!sandboxId) {
+      return { success: false, error: 'Sandbox ID required' };
     }
 
-    export async function stopSandbox(sandboxId: string) {
-      try {
-        if (!sandboxId) {
-          return { success: false, error: 'Sandbox ID required' };
-        }
+    const { E2B_API_KEY } = getEnv();
+    const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
+    await sandbox.setTimeout(SANDBOX_CONFIG.TIMEOUT_MS);
 
-        const { E2B_API_KEY } = getEnv();
-        const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
-        await sandbox.kill();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
 
-        return { success: true };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
+export async function stopSandbox(sandboxId: string) {
+  try {
+    if (!sandboxId) {
+      return { success: false, error: 'Sandbox ID required' };
     }
-    ```
 
-    These server actions allow the client to:
-    - **Extend timeout**: Add 5 more minutes to prevent sandbox from expiring
-    - **Stop sandbox**: Immediately terminate and clean up resources
-  </Step>
-</Steps>
+    const { E2B_API_KEY } = getEnv();
+    const sandbox = await Sandbox.connect(sandboxId, { apiKey: E2B_API_KEY });
+    await sandbox.kill();
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+```
+
+These server actions allow the client to:
+- **Extend timeout**: Add 5 more minutes to prevent sandbox from expiring
+- **Stop sandbox**: Immediately terminate and clean up resources
 
 ### Step 10: Chat Interface
 
-Build the React frontend with sophisticated UI, status tracking, and real-time event handling.
+Create `app/page.tsx` with a chat interface, real-time status tracking, VNC viewer, and countdown timer with timeout management.
 
-<Steps>
-  <Step title="Main UI Component">
-    Create `app/page.tsx` with the full-featured interface. This is a comprehensive implementation with status tracking, timeout management, and conversation history. See the surf-starter directory for the complete 422-line implementation.
+<Accordion title="View complete app/page.tsx implementation">
+      ```typescript
+      'use client';
 
-    **Key features implemented:**
-    - Real-time status bar showing AI activity (thinking, executing, etc.)
-    - Countdown timer with color-coded urgency (green → yellow → red)
-    - Automatic timeout extension during active work
-    - Conversation history tracking for multi-turn context
-    - Welcome message with example prompts
-    - Typing indicators with animated dots
-    - Action pills for executed commands
-    - Sandbox status badge with pulsing animation
-    - Auto-scrolling to latest messages
-    - Comprehensive error handling
+      import { useState, useRef, useEffect, useCallback } from 'react';
+      import { extendSandboxTimeout, stopSandbox } from './actions';
+      import { SANDBOX_CONFIG } from '@/lib/constants';
+      import type { ChatMessage, ConversationTurn, SSEEventType } from '@/types';
 
-    **The implementation includes:**
-    - Header with gradient "🏄 Surf Demo" title
-    - Status bar that slides down when active
-    - Desktop viewer with floating timeout overlay
-    - Chat container with header, messages area, and input form
-    - Multiple state hooks for managing UI, sandbox, and conversation
-    - SSE event parsing with buffer handling
-    - Formatted time display (MM:SS)
-    - Color transitions based on time remaining
+      export default function Home() {
+        const [messages, setMessages] = useState<ChatMessage[]>([]);
+        const [input, setInput] = useState('');
+        const [loading, setLoading] = useState(false);
+        const [sandboxUrl, setSandboxUrl] = useState<string>('');
+        const [sandboxId, setSandboxId] = useState<string>('');
+        const [currentStatus, setCurrentStatus] = useState<string>('');
+        const [currentAction, setCurrentAction] = useState<string>('');
+        const [timeRemaining, setTimeRemaining] = useState<number>(
+          SANDBOX_CONFIG.TIMEOUT_SECONDS
+        );
+        const [isExtending, setIsExtending] = useState(false);
 
-    Refer to `/surf-starter/app/page.tsx` for the complete 422-line implementation with all handlers and UI logic.
-  </Step>
-</Steps>
+        // Conversation history tracking
+        const [conversationHistory, setConversationHistory] = useState<
+          ConversationTurn[]
+        >([]);
+        const [currentUserMessage, setCurrentUserMessage] = useState<string>('');
+        const [currentAiResponse, setCurrentAiResponse] = useState<string>('');
 
-### Step 11: Desktop Viewer
+        const messagesEndRef = useRef<HTMLDivElement>(null);
+        const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-The desktop viewer includes a sophisticated timeout overlay with visual feedback.
+        const scrollToBottom = () => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        };
 
-<Steps>
-  <Step title="VNC Integration with Timeout Overlay">
-    The desktop viewer features:
-    - **VNC iframe**: Live desktop stream from E2B (`sandbox.stream.getUrl()`)
-    - **Timeout overlay**: Floating widget positioned absolutely at top-right
-    - **Progress bar**: Visual countdown with smooth color transitions
-    - **Control buttons**: "+5 min" extend button and "⏹️" stop button
-    - **Placeholder state**: Helpful message with example prompt when no sandbox exists
-    - **Backdrop blur**: Glassmorphism effect on the timeout overlay
+        useEffect(() => {
+          scrollToBottom();
+        }, [messages]);
 
-    The overlay sits on top of the iframe using `position: absolute` with `z-index: 10` and uses `backdrop-filter: blur(8px)` for a modern glass effect.
-  </Step>
-</Steps>
+        const handleExtendTimeout = useCallback(async (isAutoExtend = false) => {
+          // Manual timeout extension by user
+          // Note: Server automatically extends timeout during active AI work
+          if (!sandboxId || isExtending) return;
 
-### Step 12: Styling
+          setIsExtending(true);
+          try {
+            console.log('Extending timeout for sandbox:', sandboxId);
+            const result = await extendSandboxTimeout(sandboxId);
+            console.log('Extend timeout result:', result);
 
-Create a polished, professional interface with E2B branding and smooth animations.
+            if (result.success) {
+              setTimeRemaining(SANDBOX_CONFIG.TIMEOUT_SECONDS);
+              if (!isAutoExtend) {
+                setMessages(prev => [
+                  ...prev,
+                  { role: 'system', content: '⏰ Sandbox timeout extended by 5 minutes' },
+                ]);
+              }
+            } else {
+              const errorMsg = result.error ? `: ${result.error}` : '';
+              setMessages(prev => [
+                ...prev,
+                { role: 'system', content: `❌ Failed to extend timeout${errorMsg}` },
+              ]);
+            }
+          } catch (error) {
+            console.error('Error extending timeout:', error);
+            setMessages(prev => [
+              ...prev,
+              { role: 'system', content: `❌ Error extending timeout: ${error}` },
+            ]);
+          } finally {
+            setIsExtending(false);
+          }
+        }, [sandboxId, isExtending]);
 
-<Steps>
-  <Step title="Global Styles">
-    Create `styles/globals.css` with the complete 606-line styling. Key features:
+        // Countdown timer
+        useEffect(() => {
+          if (!sandboxId) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            return;
+          }
 
-    **Styling:**
-    ```css
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+          // Start countdown timer
+          timerRef.current = setInterval(() => {
+            setTimeRemaining((prev) => {
+              const newTime = Math.max(0, prev - 1);
+              // Server now handles timeout extension during active work
+              return newTime;
+            });
+          }, 1000);
 
-    :root {
-      --e2b-orange: hsl(32 100% 50%);
-      --e2b-orange-dark: hsl(32 100% 45%);
-      --e2b-orange-light: hsl(32 95% 55%);
-      --e2b-bg: hsl(0 0% 7%);
-      --e2b-bg-elevated: hsl(0 0% 10%);
-      --e2b-border: hsl(0 0% 15%);
-      --e2b-text: hsl(0 0% 98%);
-      --e2b-text-muted: hsl(0 0% 70%);
-    }
+          return () => {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+          };
+        }, [sandboxId, isExtending, handleExtendTimeout]);
 
-    main {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
-      height: calc(100vh - 220px);
-    }
+        const handleStopSandbox = async () => {
+          if (!sandboxId) return;
 
-    .messages::-webkit-scrollbar {
-      width: 8px;
-    }
-    .messages::-webkit-scrollbar-thumb {
-      background: var(--e2b-border);
-      border-radius: 4px;
-    }
-    .messages::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 140, 0, 0.5);
-    }
-    ```
+          try {
+            const result = await stopSandbox(sandboxId);
+            if (result.success) {
+              setSandboxId('');
+              setSandboxUrl('');
+              setTimeRemaining(SANDBOX_CONFIG.TIMEOUT_SECONDS);
+              setMessages(prev => [
+                ...prev,
+                { role: 'system', content: '🛑 Sandbox stopped' },
+              ]);
+            }
+          } catch (error) {
+            console.error('Error stopping sandbox:', error);
+          }
+        };
 
-    The complete 606-line stylesheet is available in `/surf-starter/styles/globals.css` with all animations, hover states, and responsive breakpoints.
-  </Step>
-</Steps>
+        const sendMessage = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!input.trim() || loading) return;
 
-### Step 13: Running the Application
+          const userMessage: ChatMessage = { role: 'user', content: input };
+          setMessages((prev) => [...prev, userMessage]);
+          setCurrentUserMessage(input);
+          setCurrentAiResponse('');
+          setInput('');
+          setLoading(true);
+          setCurrentStatus('Sending request...');
+
+          try {
+            const response = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: input,
+                sandboxId: sandboxId || undefined,
+                conversationHistory: conversationHistory,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Error: ${response.statusText}`);
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+              throw new Error('No response body');
+            }
+
+            let buffer = '';
+            let currentThinking = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') continue;
+
+                  try {
+                    const parsed = JSON.parse(data);
+
+                    if (parsed.type === 'sandbox_created') {
+                      setSandboxId(parsed.sandboxId);
+                      setSandboxUrl(parsed.url);
+                      setTimeRemaining(SANDBOX_CONFIG.TIMEOUT_SECONDS);
+                      setCurrentStatus('✅ Sandbox ready');
+                      setMessages(prev => [
+                        ...prev,
+                        { role: 'system', content: '✅ Sandbox created and connected!' },
+                      ]);
+                      setTimeout(() => setCurrentStatus(''), 2000);
+                    } else if (parsed.type === 'reasoning') {
+                      currentThinking = parsed.content;
+                      setCurrentStatus('🤔 Thinking...');
+                      setMessages(prev => {
+                        const newMessages = [...prev];
+                        const lastMessage = newMessages[newMessages.length - 1];
+                        if (lastMessage?.role === 'assistant') {
+                          lastMessage.content = currentThinking;
+                        } else {
+                          newMessages.push({ role: 'assistant', content: currentThinking });
+                        }
+                        return newMessages;
+                      });
+                    } else if (parsed.type === 'action') {
+                      setCurrentStatus('⚡ Executing action...');
+                      setCurrentAction(parsed.action);
+                      setMessages(prev => [
+                        ...prev,
+                        { role: 'action', content: parsed.action },
+                      ]);
+                    } else if (parsed.type === 'action_completed') {
+                      setCurrentStatus('✓ Action completed');
+                      setCurrentAction('');
+                      setTimeout(() => setCurrentStatus(''), 1000);
+                    } else if (parsed.type === 'response') {
+                      // Capture final AI response for history
+                      const aiResponse = parsed.content;
+                      setCurrentAiResponse(aiResponse);
+
+                      // Add completed turn to history
+                      setConversationHistory((prev) => [
+                        ...prev,
+                        {
+                          userMessage: currentUserMessage,
+                          aiResponse: aiResponse,
+                          timestamp: Date.now(),
+                        },
+                      ]);
+                    } else if (parsed.type === 'done') {
+                      setCurrentStatus('✅ Task complete!');
+                      setTimeout(() => setCurrentStatus(''), 3000);
+                    } else if (parsed.type === 'error') {
+                      setCurrentStatus('❌ Error occurred');
+                      setMessages(prev => [
+                        ...prev,
+                        { role: 'system', content: `❌ Error: ${parsed.message}` },
+                      ]);
+                    }
+                  } catch (e) {
+                    console.error('Failed to parse SSE data:', e);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error sending message:', error);
+            setCurrentStatus('❌ Error');
+            setMessages(prev => [
+              ...prev,
+              { role: 'system', content: `❌ Error: ${error}` },
+            ]);
+          } finally {
+            setLoading(false);
+            setCurrentAction('');
+          }
+        };
+
+        const formatTime = (seconds: number): string => {
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const getTimeColor = (): string => {
+          if (timeRemaining > 60) return 'var(--e2b-orange)';
+          if (timeRemaining > 30) return 'hsl(45 100% 50%)'; // Yellow
+          return 'hsl(0 75% 60%)'; // Red
+        };
+
+        const getTimePercentage = (): number => {
+          return (timeRemaining / SANDBOX_CONFIG.TIMEOUT_SECONDS) * 100;
+        };
+
+        return (
+          <div className="container">
+            <header>
+              <h1>🏄 Surf Demo</h1>
+              <p>AI agent with E2B desktop sandbox</p>
+            </header>
+
+            {/* Status Bar */}
+            {(loading || currentStatus) && (
+              <div className="status-bar">
+                <div className="status-content">
+                  {loading && <div className="spinner"></div>}
+                  <span className="status-text">{currentStatus || 'Processing...'}</span>
+                </div>
+                {currentAction && (
+                  <div className="current-action">
+                    <span className="action-label">Current action:</span>
+                    <span className="action-text">{currentAction}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <main>
+              <div className="desktop-view">
+                {sandboxUrl ? (
+                  <>
+                    <iframe
+                      src={sandboxUrl}
+                      title="Desktop Sandbox"
+                      className="desktop-frame"
+                    />
+                    {/* Timeout overlay */}
+                    <div className="timeout-overlay">
+                      <div className="timeout-info">
+                        <span className="timeout-label">⏱️ Time:</span>
+                        <span className="timeout-value" style={{ color: getTimeColor() }}>
+                          {formatTime(timeRemaining)}
+                        </span>
+                        <button
+                          onClick={() => handleExtendTimeout(false)}
+                          className="extend-button"
+                          disabled={isExtending}
+                        >
+                          +5 min
+                        </button>
+                        <button
+                          onClick={handleStopSandbox}
+                          className="stop-button"
+                          title="Stop sandbox"
+                        >
+                          ⏹️
+                        </button>
+                      </div>
+                      <div className="timeout-bar">
+                        <div
+                          className="timeout-bar-fill"
+                          style={{
+                            width: `${getTimePercentage()}%`,
+                            backgroundColor: getTimeColor()
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="desktop-placeholder">
+                    <div className="placeholder-content">
+                      <div className="placeholder-icon">🖥️</div>
+                      <p>Desktop will appear here when you send a message</p>
+                      <div className="placeholder-hint">Try: "Open Firefox and search for cats"</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="chat-container">
+                <div className="chat-header">
+                  <h3>💬 Chat</h3>
+                  {sandboxId && (
+                    <div className="sandbox-badge">
+                      <span className="badge-dot"></span>
+                      Sandbox Active
+                    </div>
+                  )}
+                </div>
+
+                <div className="messages">
+                  {messages.length === 0 && (
+                    <div className="welcome-message">
+                      <h4>👋 Welcome to Surf Demo!</h4>
+                      <p>Ask the AI to perform tasks on the virtual desktop.</p>
+                      <div className="example-prompts">
+                        <p><strong>Example prompts:</strong></p>
+                        <ul>
+                          <li>Open Firefox and go to google.com</li>
+                          <li>Search for cute cat images</li>
+                          <li>Open the terminal and run 'ls'</li>
+                          <li>Create a text file on the desktop</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`message message-${msg.role}`}>
+                      <div className="message-role">
+                        {msg.role === 'user' ? '👤 You' :
+                         msg.role === 'assistant' ? '🤖 AI Thinking' :
+                         msg.role === 'action' ? '⚡ Action' :
+                         '⚙️ System'}
+                      </div>
+                      <div className="message-content">
+                        {msg.role === 'action' ? (
+                          <div className="action-pill">{msg.content}</div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {loading && messages.length > 0 && (
+                    <div className="typing-indicator">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                <form onSubmit={sendMessage} className="input-form">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Tell the AI what to do..."
+                    disabled={loading}
+                    className="message-input"
+                  />
+                  <button type="submit" disabled={loading || !input.trim()} className="send-button">
+                    {loading ? (
+                      <>
+                        <span className="button-spinner"></span>
+                        Working...
+                      </>
+                    ) : (
+                      <>▶️ Send</>
+                    )}
+                  </button>
+                </form>
+              </div>
+            </main>
+          </div>
+        );
+      }
+      ```
+</Accordion>
+
+### Step 11: Styling
+
+Create `styles/globals.css` with E2B branding, animations, and responsive design.
+
+<Accordion title="View complete styles/globals.css implementation">
+      ```css
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --e2b-orange: hsl(32 100% 50%);
+        --e2b-orange-dark: hsl(32 100% 45%);
+        --e2b-orange-light: hsl(32 95% 55%);
+        --e2b-bg: hsl(0 0% 7%);
+        --e2b-bg-elevated: hsl(0 0% 10%);
+        --e2b-border: hsl(0 0% 15%);
+        --e2b-text: hsl(0 0% 98%);
+        --e2b-text-muted: hsl(0 0% 70%);
+      }
+
+      body {
+        font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: var(--e2b-bg);
+        color: var(--e2b-text);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        color: var(--e2b-text);
+        margin-bottom: 20px;
+        padding: 20px 0;
+      }
+
+      header h1 {
+        font-size: 3em;
+        margin-bottom: 10px;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--e2b-orange) 0%, var(--e2b-orange-light) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      header p {
+        font-size: 1.1em;
+        color: var(--e2b-text-muted);
+        font-weight: 400;
+      }
+
+      /* Status Bar */
+      .status-bar {
+        background: var(--e2b-bg-elevated);
+        border: 1px solid var(--e2b-border);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .status-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 600;
+        color: var(--e2b-orange);
+        font-size: 1.05em;
+      }
+
+      .current-action {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--e2b-border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95em;
+      }
+
+      .action-label {
+        color: var(--e2b-text-muted);
+        font-weight: 500;
+      }
+
+      .action-text {
+        color: var(--e2b-orange);
+        font-weight: 600;
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        background: rgba(255, 140, 0, 0.1);
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 140, 0, 0.2);
+      }
+
+      /* Spinner */
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(255, 140, 0, 0.2);
+        border-top: 3px solid var(--e2b-orange);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .button-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(0, 0, 0, 0.3);
+        border-top: 2px solid rgba(0, 0, 0, 0.8);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+        height: calc(100vh - 220px);
+      }
+
+      @media (max-width: 768px) {
+        main {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+      }
+
+      /* Desktop View */
+      .desktop-view {
+        background: var(--e2b-bg-elevated);
+        border: 1px solid var(--e2b-border);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        position: relative;
+      }
+
+      .desktop-frame {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+
+      /* Timeout Overlay */
+      .timeout-overlay {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid var(--e2b-border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        backdrop-filter: blur(8px);
+        z-index: 10;
+        min-width: 240px;
+      }
+
+      .timeout-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .timeout-label {
+        font-size: 0.9em;
+        color: var(--e2b-text-muted);
+        font-weight: 600;
+        font-family: 'IBM Plex Mono', monospace;
+      }
+
+      .timeout-value {
+        font-size: 1.1em;
+        font-weight: 700;
+        font-family: 'IBM Plex Mono', monospace;
+        min-width: 50px;
+      }
+
+      .extend-button {
+        padding: 4px 12px;
+        background: var(--e2b-orange);
+        color: hsl(0 0% 5%);
+        border: none;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'IBM Plex Mono', monospace;
+      }
+
+      .extend-button:hover:not(:disabled) {
+        background: var(--e2b-orange-dark);
+        transform: translateY(-1px);
+      }
+
+      .extend-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .stop-button {
+        padding: 4px 8px;
+        background: rgba(255, 50, 50, 0.2);
+        color: hsl(0 75% 60%);
+        border: 1px solid rgba(255, 50, 50, 0.3);
+        border-radius: 4px;
+        font-size: 1em;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .stop-button:hover {
+        background: rgba(255, 50, 50, 0.3);
+        transform: translateY(-1px);
+      }
+
+      .timeout-bar {
+        width: 100%;
+        height: 4px;
+        background: var(--e2b-bg);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .timeout-bar-fill {
+        height: 100%;
+        transition: width 0.3s linear, background-color 0.3s;
+        border-radius: 2px;
+      }
+
+      .desktop-placeholder {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px;
+      }
+
+      .placeholder-content {
+        max-width: 400px;
+      }
+
+      .placeholder-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+      }
+
+      .placeholder-content p {
+        font-size: 1.2em;
+        margin-bottom: 15px;
+        color: var(--e2b-text-muted);
+      }
+
+      .placeholder-hint {
+        font-size: 0.9em;
+        color: var(--e2b-orange);
+        font-style: italic;
+        background: rgba(255, 140, 0, 0.1);
+        padding: 12px;
+        border-radius: 6px;
+        margin-top: 20px;
+        border: 1px solid rgba(255, 140, 0, 0.2);
+        font-family: 'IBM Plex Mono', monospace;
+      }
+
+      /* Chat Container */
+      .chat-container {
+        background: var(--e2b-bg-elevated);
+        border: 1px solid var(--e2b-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .chat-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--e2b-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--e2b-bg);
+      }
+
+      .chat-header h3 {
+        margin: 0;
+        font-size: 1.2em;
+        font-weight: 600;
+        color: var(--e2b-text);
+      }
+
+      .sandbox-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 140, 0, 0.15);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+        color: var(--e2b-orange);
+        border: 1px solid rgba(255, 140, 0, 0.3);
+      }
+
+      .badge-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--e2b-orange);
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+        box-shadow: 0 0 8px var(--e2b-orange);
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      /* Messages */
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .welcome-message {
+        background: var(--e2b-bg);
+        border-radius: 8px;
+        padding: 25px;
+        text-align: left;
+        border: 1px solid rgba(255, 140, 0, 0.3);
+      }
+
+      .welcome-message h4 {
+        color: var(--e2b-orange);
+        margin-bottom: 10px;
+        font-size: 1.3em;
+        font-weight: 600;
+      }
+
+      .welcome-message p {
+        color: var(--e2b-text-muted);
+        margin-bottom: 15px;
+      }
+
+      .example-prompts {
+        background: var(--e2b-bg-elevated);
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 15px;
+        border: 1px solid var(--e2b-border);
+      }
+
+      .example-prompts strong {
+        color: var(--e2b-orange);
+        font-weight: 600;
+      }
+
+      .example-prompts ul {
+        margin-top: 10px;
+        margin-left: 20px;
+      }
+
+      .example-prompts li {
+        margin: 8px 0;
+        color: var(--e2b-text-muted);
+        font-size: 0.95em;
+      }
+
+      .message {
+        padding: 12px 16px;
+        border-radius: 8px;
+        max-width: 100%;
+        animation: fadeIn 0.3s ease-out;
+        border: 1px solid transparent;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message-user {
+        background: var(--e2b-orange);
+        color: hsl(0 0% 5%);
+        align-self: flex-end;
+        font-weight: 500;
+      }
+
+      .message-assistant {
+        background: var(--e2b-bg);
+        color: var(--e2b-text);
+        align-self: flex-start;
+        border-color: var(--e2b-border);
+      }
+
+      .message-action {
+        background: rgba(255, 140, 0, 0.1);
+        color: var(--e2b-orange);
+        align-self: flex-start;
+        border-left: 3px solid var(--e2b-orange);
+      }
+
+      .message-system {
+        background: rgba(100, 200, 255, 0.1);
+        color: hsl(200 85% 65%);
+        text-align: center;
+        font-size: 0.9em;
+        border-left: 3px solid hsl(200 85% 65%);
+      }
+
+      .message-role {
+        font-weight: 600;
+        font-size: 0.85em;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        opacity: 0.8;
+        font-family: 'IBM Plex Mono', monospace;
+        letter-spacing: 0.5px;
+      }
+
+      .message-content {
+        white-space: pre-wrap;
+        line-height: 1.6;
+        font-size: 0.95em;
+      }
+
+      .action-pill {
+        display: inline-block;
+        background: rgba(255, 140, 0, 0.2);
+        color: var(--e2b-orange);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+        font-family: 'IBM Plex Mono', monospace;
+        border: 1px solid rgba(255, 140, 0, 0.3);
+      }
+
+      /* Typing Indicator */
+      .typing-indicator {
+        display: flex;
+        gap: 6px;
+        padding: 12px 16px;
+        background: var(--e2b-bg);
+        border-radius: 8px;
+        width: fit-content;
+        border: 1px solid var(--e2b-border);
+      }
+
+      .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: var(--e2b-orange);
+        border-radius: 50%;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+
+      .typing-indicator span:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+
+      .typing-indicator span:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+
+      @keyframes bounce {
+        0%, 80%, 100% {
+          transform: scale(0);
+        }
+        40% {
+          transform: scale(1);
+        }
+      }
+
+      /* Input Form */
+      .input-form {
+        padding: 20px;
+        border-top: 1px solid var(--e2b-border);
+        display: flex;
+        gap: 10px;
+        background: var(--e2b-bg);
+      }
+
+      .message-input {
+        flex: 1;
+        padding: 12px 16px;
+        border: 1px solid var(--e2b-border);
+        background: var(--e2b-bg-elevated);
+        color: var(--e2b-text);
+        border-radius: 8px;
+        font-size: 1em;
+        outline: none;
+        transition: all 0.2s;
+        font-family: 'IBM Plex Sans', sans-serif;
+      }
+
+      .message-input:focus {
+        border-color: var(--e2b-orange);
+        box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.1);
+      }
+
+      .message-input:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .message-input::placeholder {
+        color: var(--e2b-text-muted);
+        opacity: 0.6;
+      }
+
+      .send-button {
+        padding: 12px 28px;
+        background: var(--e2b-orange);
+        color: hsl(0 0% 5%);
+        border: none;
+        border-radius: 8px;
+        font-size: 1em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 120px;
+        font-family: 'IBM Plex Sans', sans-serif;
+      }
+
+      .send-button:hover:not(:disabled) {
+        background: var(--e2b-orange-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+      }
+
+      .send-button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      .send-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* Scrollbar styling */
+      .messages::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .messages::-webkit-scrollbar-track {
+        background: var(--e2b-bg);
+      }
+
+      .messages::-webkit-scrollbar-thumb {
+        background: var(--e2b-border);
+        border-radius: 4px;
+      }
+
+      .messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 140, 0, 0.5);
+      }
+      ```
+</Accordion>
+
+### Step 12: Running the Application
 
 Start the development server and test your AI desktop control application.
 
@@ -844,23 +1766,6 @@ Start the development server and test your AI desktop control application.
     ```
 
     Visit [http://localhost:3000](http://localhost:3000) in your browser.
-  </Step>
-
-  <Step title="Test with Example Prompts">
-    Try these commands to test the application:
-
-    - "Open Firefox and search for E2B documentation"
-    - "Open VS Code and create a new file called hello.py"
-    - "Open Terminal and run 'ls -la'"
-    - "Take a screenshot of the desktop"
-    - "Open File Manager and navigate to the Documents folder"
-
-    **What to expect:**
-    1. Sandbox creation (takes 5-10 seconds on first request)
-    2. VNC desktop viewer appears showing Ubuntu desktop
-    3. AI reasoning messages appear in chat
-    4. Actions execute in real-time on the desktop
-    5. You see live feedback of mouse clicks, typing, and application launches
   </Step>
 
   <Step title="Production Build">
@@ -877,76 +1782,55 @@ Start the development server and test your AI desktop control application.
 
 ---
 
-## Build the Complete Project
+## Troubleshooting
 
-Now that you understand how everything works, you can build and run the complete working application.
+<AccordionGroup>
+  <Accordion title="Sandbox creation is slow">
+    Sandbox creation typically takes 5-10 seconds on the first request. This is normal. Subsequent requests reuse the sandbox and are instant (if using a long-running server).
 
-<Steps>
-  <Step title="Create Project from Scratch">
-    Follow all the implementation steps above to create each file, or clone from the completed example:
+    To improve perceived performance:
+    - Show a loading indicator during sandbox creation
+    - Pre-create sandboxes for expected users
+    - Use E2B's [template system](/templates/intro) to pre-install dependencies
+  </Accordion>
 
-    ```bash
-    # If you have the completed example
-    cd surf-starter
+  <Accordion title="Sandboxes not being reused">
+    If you're deploying to serverless platforms (Vercel, Netlify), the in-memory Map won't persist between requests. Solutions:
+    - Deploy to a long-running Node.js server (Railway, Render)
+    - Use a distributed cache (Redis, Vercel KV) to store sandbox IDs
+    - Create a new sandbox for each request (simpler but slower)
+  </Accordion>
+
+  <Accordion title="OpenAI API errors">
+    **"Invalid model" or "Model not found"**: The `computer-use-preview` model may have changed names or require beta access. Check the [OpenAI documentation](https://platform.openai.com/docs/) for the current model name.
+
+    **API structure errors**: The OpenAI Computer Use API may have changed. Verify the current API structure in the official docs.
+  </Accordion>
+
+  <Accordion title="E2B Desktop SDK errors">
+    **"Method not found"**: Verify the method names (`leftClick`, `scroll`, etc.) against the latest [E2B Desktop SDK documentation](https://e2b.dev/docs/desktop).
+
+    **Stream not starting**: Ensure you're calling `await sandbox.stream.start()` before accessing `sandbox.stream.getUrl()`.
+  </Accordion>
+
+  <Accordion title="Screenshot quality issues">
+    Adjust the screenshot dimensions in `lib/constants.ts`:
+    ```typescript
+    export const SCREENSHOT_CONFIG = {
+      MAX_WIDTH: 1280,   // Increase for better quality
+      MAX_HEIGHT: 960,   // Increase for better quality
+      // ...
+    }
     ```
-  </Step>
+    Note: Larger screenshots increase API costs and latency.
+  </Accordion>
 
-  <Step title="Install Dependencies">
-    ```bash
-    npm install
-    ```
+  <Accordion title="Timeout errors">
+    If sandboxes are timing out too quickly:
+    - Increase `TIMEOUT_MS` in `lib/constants.ts`
+    - Implement automatic timeout extension during active work
+    - Add user controls to manually extend timeouts
+  </Accordion>
+</AccordionGroup>
 
-    This installs all required packages including:
-    - `@e2b/desktop` - E2B Desktop SDK
-    - `openai` - OpenAI SDK
-    - `sharp` - Image processing
-    - `next` - Next.js framework
-    - `react` & `react-dom` - React libraries
-  </Step>
-
-  <Step title="Configure Environment Variables">
-    Copy the example environment file and add your API keys:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    Edit the `.env` file with your actual API keys:
-
-    ```env
-    E2B_API_KEY=your_e2b_api_key_here
-    OPENAI_API_KEY=your_openai_api_key_here
-    ```
-
-    **Get your API keys:**
-    - E2B API Key: [https://e2b.dev/docs/api-key](https://e2b.dev/docs/api-key)
-    - OpenAI API Key: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-  </Step>
-
-  <Step title="Run Development Server">
-    Start the application in development mode:
-
-    ```bash
-    npm run dev
-    ```
-
-    Open [http://localhost:3000](http://localhost:3000) in your browser to see the live application.
-
-    **Try these example prompts:**
-    - "Open Firefox and search for E2B documentation"
-    - "Open VS Code and create a new file"
-    - "Open Terminal and run 'ls -la'"
-    - "Take a screenshot of the desktop"
-  </Step>
-
-  <Step title="Build for Production">
-    When ready to deploy, create a production build:
-
-    ```bash
-    npm run build
-    npm start
-    ```
-
-    Deploy to platforms like Vercel, Railway, or any Node.js hosting provider. Make sure to configure environment variables in your deployment platform's settings.
-  </Step>
-</Steps>
+---
