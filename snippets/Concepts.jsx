@@ -2,17 +2,10 @@ export const Concepts = () => {
   const concepts = [
     {
       href: "/docs/sandbox",
-      title: "Sandbox overview",
+      title: "Sandbox",
       description:
         "Learn about sandboxes - isolated cloud VMs for running AI-generated code.",
       icon: "box",
-    },
-    {
-      href: "/docs/sandbox/lifecycle",
-      title: "Sandbox lifecycle",
-      description:
-        "Manage sandbox timeout, retrieve info, and shutdown.",
-      icon: "hourglass",
     },
     {
       href: "/docs/sandbox/persistence",
