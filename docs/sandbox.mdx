@@ -11,15 +11,15 @@ A sandbox is an isolated cloud VM that starts in **~100ms**. Each sandbox has it
 import { Sandbox } from '@e2b/code-interpreter'
 
 const sbx = await Sandbox.create()
-const result = await sbx.runCode('print(1 + 1)')
+const result = await sbx.runCode('1 + 1')
 console.log(result.text) // 2
 await sbx.kill()
 ```
 ```python Python
 from e2b_code_interpreter import Sandbox
 
-sbx = Sandbox()
-result = sbx.run_code('print(1 + 1)')
+sbx = Sandbox.create()
+result = sbx.run_code('1 + 1')
 print(result.text)  # 2
 sbx.kill()
 ```
