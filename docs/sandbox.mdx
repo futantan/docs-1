@@ -1,141 +1,73 @@
 ---
-title: "Sandbox lifecycle"
-sidebarTitle: Lifecycle
+title: "Sandbox overview"
+sidebarTitle: Overview
+description: "Isolated cloud environments for running AI-generated code"
 ---
 
-When you start the sandbox, it stays alive for 5 minutes by default but you can change it by passing the `timeout` parameter.
-After the time passes, the sandbox will be automatically shutdown.
-
-<Warning>
-The maximum time sandbox can be kept running without being paused is 
-- 24 hours on the Pro Tier
-- 1 hour on the Base Tier
-
-For more details, please refer to [sandbox persistance page](/docs/sandbox/persistence#limitations-while-in-beta).
-</Warning>
-
-<CodeGroup>
-```js JavaScript & TypeScript highlight={6}
-import { Sandbox } from '@e2b/code-interpreter'
-
-// Create sandbox with and keep it running for 60 seconds.
-// 🚨 Note: The units are milliseconds.
-const sandbox = await Sandbox.create({
-  timeoutMs: 60_000,
-})
-```
-```python Python highlight={6}
-from e2b_code_interpreter import Sandbox
-
-# Create sandbox with and keep it running for 60 seconds.
-# 🚨 Note: The units are seconds.
-sandbox = Sandbox.create(
-  timeout=60,
-)
-```
-</CodeGroup>
-
-
-## Change sandbox timeout during runtime
-
-You can change the sandbox timeout when it's running by calling the `setTimeout` method in JavaScript or `set_timeout` method in Python.
-
-When you call the set timeout method, the sandbox timeout will be reset to the new value that you specified.
-
-This can be useful if you want to extend the sandbox lifetime when it's already running.
-You can for example start with a sandbox with 1 minute timeout and then periodically call set timeout every time user interacts with it in your app.
+A sandbox is an isolated cloud VM that starts in **~100ms**. Each sandbox has its own filesystem, can run processes, and has internet access. Sandboxes are designed to run AI-generated code safely.
 
 <CodeGroup>
 ```js JavaScript & TypeScript
 import { Sandbox } from '@e2b/code-interpreter'
 
-// Create sandbox with and keep it running for 60 seconds.
-const sandbox = await Sandbox.create({ timeoutMs: 60_000 })
-
-// Change the sandbox timeout to 30 seconds.
-// 🚨 The new timeout will be 30 seconds from now.
-await sandbox.setTimeout(30_000)
+const sbx = await Sandbox.create()
+const result = await sbx.runCode('print(1 + 1)')
+console.log(result.text) // 2
+await sbx.kill()
 ```
 ```python Python
 from e2b_code_interpreter import Sandbox
 
-# Create sandbox with and keep it running for 60 seconds.
-sandbox = Sandbox.create(timeout=60)
-
-# Change the sandbox timeout to 30 seconds.
-# 🚨 The new timeout will be 30 seconds from now.
-sandbox.set_timeout(30)
+sbx = Sandbox()
+result = sbx.run_code('print(1 + 1)')
+print(result.text)  # 2
+sbx.kill()
 ```
 </CodeGroup>
 
-## Retrieve sandbox information
+## Key features
 
-You can retrieve sandbox information like sandbox ID, template, metadata, started at/end at date by calling the `getInfo` method in JavaScript or `get_info` method in Python.
+<CardGroup cols={2}>
+  <Card title="Filesystem" icon="folder-tree" href="/docs/filesystem">
+    Read, write, upload, and download files
+  </Card>
+  <Card title="Commands" icon="terminal" href="/docs/commands">
+    Run shell commands and start processes
+  </Card>
+  <Card title="Lifecycle" icon="hourglass" href="/docs/sandbox/lifecycle">
+    Manage timeout, get info, and shutdown
+  </Card>
+  <Card title="Persistence" icon="rotate-reverse" href="/docs/sandbox/persistence">
+    Pause and resume sandboxes with full state
+  </Card>
+</CardGroup>
 
-<CodeGroup>
-```js JavaScript & TypeScript
-import { Sandbox } from '@e2b/code-interpreter'
+## Default configuration
 
-// Create sandbox with and keep it running for 60 seconds.
-const sandbox = await Sandbox.create({ timeoutMs: 60_000 })
+| Property | Value |
+|----------|-------|
+| vCPUs | 2 |
+| RAM | 2 GiB |
+| Storage | 22 GiB |
+| Internet | Enabled |
 
-// Retrieve sandbox information.
-const info = await sandbox.getInfo()
+<Note>
+These are defaults for the [code-interpreter](https://github.com/e2b-dev/code-interpreter) template. Custom templates can have different CPU/RAM configurations.
+</Note>
 
-console.log(info)
+See [lifecycle](/docs/sandbox/lifecycle) for timeout configuration.
 
-// {
-//   "sandboxId": "iiny0783cype8gmoawzmx-ce30bc46",
-//   "templateId": "rki5dems9wqfm4r03t7g",
-//   "name": "base",
-//   "metadata": {},
-//   "startedAt": "2025-03-24T15:37:58.076Z",
-//   "endAt": "2025-03-24T15:42:58.076Z"
-// }
-```
+## Sandbox capabilities
 
-```python Python
-from e2b_code_interpreter import Sandbox
+| Capability | Description |
+|------------|-------------|
+| [Run code](/docs/code-interpreting/analyze-data-with-ai) | Execute Python, JavaScript, R, Java, Bash |
+| [Filesystem](/docs/filesystem) | Full read/write access to isolated filesystem |
+| [Commands](/docs/commands) | Run any shell command or process |
+| [Internet](/docs/sandbox/internet-access) | Outbound HTTP/HTTPS requests |
+| [Persistence](/docs/sandbox/persistence) | Pause/resume with full memory state |
+| [Metadata](/docs/sandbox/metadata) | Attach custom key-value data |
+| [Environment variables](/docs/sandbox/environment-variables) | Pass secrets and configuration |
+| [Webhooks](/docs/sandbox/lifecycle-events-webhooks) | Get notified on lifecycle events |
 
-# Create sandbox with and keep it running for 60 seconds.
-sandbox = Sandbox.create(timeout=60)
-
-# Retrieve sandbox information.
-info = sandbox.get_info()
-
-print(info)
-
-# SandboxInfo(sandbox_id='ig6f1yt6idvxkxl562scj-419ff533',
-#   template_id='u7nqkmpn3jjf1tvftlsu',
-#   name='base',
-#   metadata={},
-#   started_at=datetime.datetime(2025, 3, 24, 15, 42, 59, 255612, tzinfo=tzutc()),
-#   end_at=datetime.datetime(2025, 3, 24, 15, 47, 59, 255612, tzinfo=tzutc())
-# )
-```
-</CodeGroup>
-
-## Shutdown sandbox
-
-You can shutdown the sandbox any time even before the timeout is up by calling the `kill` method.
-
-<CodeGroup>
-```js JavaScript & TypeScript
-import { Sandbox } from '@e2b/code-interpreter'
-
-// Create sandbox with and keep it running for 60 seconds.
-const sandbox = await Sandbox.create({ timeoutMs: 60_000 })
-
-// Shutdown the sandbox immediately.
-await sandbox.kill()
-```
-```python Python
-from e2b_code_interpreter import Sandbox
-
-# Create sandbox with and keep it running for 60 seconds.
-sandbox = Sandbox.create(timeout=60)
-
-# Shutdown the sandbox immediately.
-sandbox.kill()
-```
-</CodeGroup>
+For pricing details, see [Billing](/docs/billing).

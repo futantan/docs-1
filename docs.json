@@ -79,6 +79,7 @@
             "group": "Sandbox",
             "pages": [
               "docs/sandbox",
+              "docs/sandbox/lifecycle",
               "docs/sandbox/lifecycle-events-api",
               "docs/sandbox/lifecycle-events-webhooks",
               "docs/sandbox/persistence",
