@@ -212,6 +212,14 @@
         "anchor": "SDK Reference",
         "icon": "brackets-curly",
         "href": "https://e2b.dev/docs/sdk-reference"
+      },
+      {
+        "anchor": "REST API",
+        "icon": "code",
+        "openapi": {
+          "source": "https://raw.githubusercontent.com/e2b-dev/infra/main/spec/openapi.yml",
+          "directory": "docs/api-reference"
+        }
       }
     ],
     "global": {}
