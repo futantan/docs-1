@@ -3,24 +3,24 @@ title: "Expo App"
 description: "Expo web app running in the sandbox using Node.js"
 ---
 
-Basic Expo app.
+Expo app with the dev server running on port 8081.
 
-<Note>
-    The development server runs on port 8081 as soon as the sandbox is ready.
-</Note>
+## Create the Expo project
+
+Scaffold a fresh Expo app. The dev server starts automatically when the sandbox boots.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
 // template.ts
-import { defaultBuildLogger, waitForURL } from "e2b";
+import { Template, waitForURL } from 'e2b'
 
 export const template = Template()
   .fromNodeImage()
-  .setWorkdir("/home/user/expo-app")
-  .runCmd("npx create-expo-app@latest . --yes")
-  .runCmd("mv /home/user/expo-app/* /home/user/ && rm -rf /home/user/expo-app")
-  .setWorkdir("/home/user")
-  .setStartCmd("npx expo start", waitForURL("http://localhost:8081"));
+  .setWorkdir('/home/user/expo-app')
+  .runCmd('npx create-expo-app@latest . --yes')
+  .runCmd('mv /home/user/expo-app/* /home/user/ && rm -rf /home/user/expo-app')
+  .setWorkdir('/home/user')
+  .setStartCmd('npx expo start', waitForURL('http://localhost:8081'))
 ```
 
 ```python Python
@@ -39,13 +39,17 @@ template = (
 ```
 </CodeGroup>
 
+## Build and publish
+
+Build the template with enough memory for the Expo bundler.
+
 <CodeGroup>
 ```typescript JavaScript & TypeScript
 // build.ts
 import { Template, defaultBuildLogger } from 'e2b'
 import { template as expoTemplate } from './template'
 
-Template.build(expoTemplate, 'expo-app', {
+await Template.build(expoTemplate, 'expo-app', {
   cpuCount: 4,
   memoryMB: 8192,
   onBuildLogs: defaultBuildLogger(),
@@ -62,5 +66,29 @@ Template.build(expoTemplate, 'expo-app',
     memory_mb=8192,
     on_build_logs=default_build_logger(),
 )
+```
+</CodeGroup>
+
+## Access the dev server
+
+Create a sandbox and get the URL. Open it in your browser to see the Expo web preview on port 8081.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const sandbox = await Sandbox.create('expo-app', { timeoutMs: 60_000 })
+
+const url = sandbox.getHost(8081)
+console.log('Expo app running at:', url)
+```
+
+```python Python
+from e2b import Sandbox
+
+sandbox = Sandbox.create('expo-app', timeout=60)
+
+url = sandbox.get_host(8081)
+print('Expo app running at:', url)
 ```
 </CodeGroup>

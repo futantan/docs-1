@@ -3,11 +3,11 @@ title: "Next.js App (Bun)"
 description: "Next.js web app running in the sandbox using Bun"
 ---
 
-Basic Next.js app with Tailwind and shadcn UI using Bun.
+Next.js app with Tailwind and shadcn UI using Bun. The dev server starts automatically on port 3000.
 
-<Note>
-    The development server runs on port 3000 as soon as the sandbox is ready.
-</Note>
+## Set up Next.js with Bun
+
+Use Bun for faster installs and hot reloads. This template includes TypeScript, Tailwind, and all shadcn components.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
@@ -47,13 +47,17 @@ template = (
 ```
 </CodeGroup>
 
+## Build and publish
+
+Build the template. Bun makes the initial setup noticeably faster than npm.
+
 <CodeGroup>
 ```typescript JavaScript & TypeScript
 // build.ts
 import { Template, defaultBuildLogger } from 'e2b'
 import { template as nextJSTemplate } from './template'
 
-Template.build(nextJSTemplate, 'nextjs-app-bun', {
+await Template.build(nextJSTemplate, 'nextjs-app-bun', {
   cpuCount: 4,
   memoryMB: 4096,
   onBuildLogs: defaultBuildLogger(),
@@ -70,5 +74,29 @@ Template.build(nextjsTemplate, 'nextjs-app-bun',
     memory_mb=4096,
     on_build_logs=default_build_logger(),
 )
+```
+</CodeGroup>
+
+## Access your app
+
+Create a sandbox and grab the URL. The dev server with Turbopack is already running on port 3000.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const sandbox = await Sandbox.create('nextjs-app-bun', { timeoutMs: 60_000 })
+
+const url = sandbox.getHost(3000)
+console.log('Next.js app running at:', url)
+```
+
+```python Python
+from e2b import Sandbox
+
+sandbox = Sandbox.create('nextjs-app-bun', timeout=60)
+
+url = sandbox.get_host(3000)
+print('Next.js app running at:', url)
 ```
 </CodeGroup>

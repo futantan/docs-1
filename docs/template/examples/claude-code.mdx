@@ -3,6 +3,11 @@ title: "Claude Code"
 description: "Claude Code Agent available in a sandbox"
 ---
 
+Run Claude Code in a sandbox to execute AI-generated code safely.
+
+## Install Claude Code
+
+Set up Node.js with Claude Code and the tools it needs: curl for fetching, git for repos, and ripgrep for fast code search.
 
 <CodeGroup>
 
@@ -13,7 +18,6 @@ import { Template } from 'e2b'
 export const template = Template()
   .fromNodeImage('24')
   .aptInstall(['curl', 'git', 'ripgrep'])
-  // Claude Code will be available globally as "claude"
   .npmInstall('@anthropic-ai/claude-code@latest', { g: true })
 
 ```
@@ -26,13 +30,15 @@ template = (
     Template()
     .from_node_image("24")
     .apt_install(["curl", "git", "ripgrep"])
-    # Claude Code will be available globally as "claude"
     .npm_install("@anthropic-ai/claude-code@latest", g=True)
 )
 ```
 
 </CodeGroup>
 
+## Build and publish
+
+Build the template. Claude Code itself is lightweight, so minimal resources work fine.
 
 <CodeGroup>
 
@@ -41,7 +47,7 @@ template = (
 import { Template, defaultBuildLogger } from 'e2b'
 import { template as claudeCodeTemplate } from './template'
 
-Template.build(claudeCodeTemplate, 'claude-code', {
+await Template.build(claudeCodeTemplate, 'claude-code', {
   cpuCount: 1,
   memoryMB: 1024,
   onBuildLogs: defaultBuildLogger(),
@@ -62,59 +68,45 @@ Template.build(claudeCodeTemplate, 'claude-code',
 
 </CodeGroup>
 
+## Run AI prompts
+
+Create a sandbox with your Anthropic API key and pipe prompts to Claude. It can write files, run commands, and build whatever you describe.
+
 <CodeGroup>
 
 ```typescript JavaScript & TypeScript
-// sandbox.ts
 import { Sandbox } from 'e2b'
 
-const sbx = await Sandbox.create('claude-code', {
+const sandbox = await Sandbox.create('claude-code', {
+  timeoutMs: 60_000,
   envs: {
     ANTHROPIC_API_KEY: '<your api key>',
   },
 })
 
-console.log('Sandbox created', sbx.sandboxId)
-
-// Print help for Claude Code
-// const result = await sbx.commands.run('claude --help')
-// console.log(result.stdout)
-
-// Run a prompt with Claude Code
-const result = await sbx.commands.run(
+const result = await sandbox.commands.run(
   `echo 'Create a hello world index.html' | claude -p --dangerously-skip-permissions`,
   { timeoutMs: 0 }
 )
-
 console.log(result.stdout)
-
-sbx.kill()
 ```
 
 ```python Python
-# sandbox.py
 from e2b import Sandbox
 
-sbx = Sandbox(
+sandbox = Sandbox.create(
     'claude-code',
+    timeout=60,
     envs={
         'ANTHROPIC_API_KEY': '<your api key>',
     },
 )
-print("Sandbox created", sbx.sandbox_id)
 
-# Print help for Claude Code
-# result = sbx.commands.run('claude --help')
-# print(result.stdout)
-
-# Run a prompt with Claude Code
-result = sbx.commands.run(
+result = sandbox.commands.run(
     "echo 'Create a hello world index.html' | claude -p --dangerously-skip-permissions",
     timeout=0,
 )
 print(result.stdout)
-
-sbx.kill()
 ```
 
 </CodeGroup>
