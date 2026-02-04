@@ -18,6 +18,7 @@ import { Template } from 'e2b'
 export const template = Template()
   .fromNodeImage('24')
   .aptInstall(['curl', 'git', 'ripgrep'])
+  // Claude Code will be available globally as "claude"
   .npmInstall('@anthropic-ai/claude-code@latest', { g: true })
 
 ```
@@ -30,6 +31,7 @@ template = (
     Template()
     .from_node_image("24")
     .apt_install(["curl", "git", "ripgrep"])
+    # Claude Code will be available globally as "claude"
     .npm_install("@anthropic-ai/claude-code@latest", g=True)
 )
 ```
@@ -70,7 +72,9 @@ Template.build(claudeCodeTemplate, 'claude-code',
 
 ## Run AI prompts
 
-Create a sandbox with your Anthropic API key and pipe prompts to Claude. It can write files, run commands, and build whatever you describe.
+Create a sandbox with your Anthropic API key and pipe prompts to Claude. It can write files, run commands, and build whatever you describe. Get your API key from the [Anthropic Console](https://console.anthropic.com/).
+
+The `-p` flag runs Claude in non-interactive pipe mode. The `--dangerously-skip-permissions` flag allows Claude to execute file and command operations without confirmation prompts—this is safe since the sandbox is isolated. Setting `timeout=0` disables the command timeout, letting Claude run as long as needed.
 
 <CodeGroup>
 
