@@ -4,7 +4,7 @@ export const Concepts = () => {
       href: "/docs/sandbox",
       title: "Sandbox",
       description:
-        "Learn about sandboxes - isolated cloud VMs for running AI-generated code.",
+        "Learn about sandboxes - isolated runtime environments for AI agents.",
       icon: "box",
     },
     {

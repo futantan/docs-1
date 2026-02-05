@@ -6,7 +6,9 @@ description: "Secure runtime environments for AI agents"
 
 A sandbox is an agentic runtime which is an isolated cloud VM under the hood. Sandboxes can start in as little as **~100ms**. Each sandbox has its own [filesystem](/docs/filesystem), can start [processes](/docs/commands), and has internet access with [configurable firewall](/docs/sandbox/internet-access#fine-grained-network-control).
 
-Sandboxes are designed to run thousands of AI agents safely with access to the real-world tools as on your own computer.
+Sandboxes are designed to run thousands of AI agents safely with access to the same tools available on your own computer.
+
+Here's a basic example of creating a sandbox, running Python code, and shutting it down:
 
 <CodeGroup>
 ```js JavaScript & TypeScript
@@ -56,8 +58,6 @@ sbx.kill()
 <Note>
 These are defaults for the [code-interpreter](https://github.com/e2b-dev/code-interpreter) template. [Custom templates](/docs/template/quickstart) can have different CPU/RAM configurations.
 </Note>
-
-See [lifecycle](/docs/sandbox/lifecycle) for timeout configuration.
 
 ## Sandbox capabilities
 
