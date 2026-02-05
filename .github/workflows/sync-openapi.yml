@@ -1,0 +1,61 @@
+name: Sync OpenAPI Specs
+
+on:
+  # Run every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+  # Re-run if sync script changes
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sync-openapi.js'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup buf (for proto generation)
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install protoc-gen-connect-openapi
+        run: |
+          go install github.com/sudorandom/protoc-gen-connect-openapi@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Sync OpenAPI specs
+        run: node scripts/sync-openapi.js
+
+      - name: Validate specs
+        run: |
+          npx mintlify openapi-check openapi-public.yml
+          npx mintlify openapi-check openapi-sandbox.yml
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add openapi-public.yml openapi-sandbox.yml
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: sync OpenAPI specs from infra"
+            git push
+          fi

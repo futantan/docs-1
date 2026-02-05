@@ -1,0 +1,12 @@
+{
+  "name": "e2b-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2B Documentation",
+  "scripts": {
+    "sync-openapi": "node scripts/sync-openapi.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

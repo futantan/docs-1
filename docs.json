@@ -217,8 +217,16 @@
         "anchor": "REST API",
         "icon": "code",
         "openapi": {
-          "source": "https://raw.githubusercontent.com/e2b-dev/infra/main/spec/openapi.yml",
+          "source": "openapi-public.yml",
           "directory": "docs/api-reference"
+        }
+      },
+      {
+        "anchor": "Sandbox API",
+        "icon": "server",
+        "openapi": {
+          "source": "openapi-sandbox.yml",
+          "directory": "docs/sandbox-api"
         }
       }
     ],
