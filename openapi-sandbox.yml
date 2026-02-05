@@ -28,19 +28,6 @@ paths:
       responses:
         '204':
           description: The service is healthy
-  /envs:
-    get:
-      summary: Get the environment variables
-      security:
-        - AccessTokenAuth: []
-        - {}
-      responses:
-        '200':
-          description: Environment variables
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvVars'
   /files:
     get:
       summary: Download a file

@@ -89,7 +89,8 @@ https://{sandboxID}.e2b.app
   // Internal endpoints to exclude (SDK initialization, not user-facing)
   excludePaths: [
     '/init',
-    '/metrics'
+    '/metrics',
+    '/envs'
   ],
   // Connect RPC schemas to remove (protocol-level, not user-facing)
   removeSchemas: [
