@@ -86,6 +86,11 @@ https://{sandboxID}.e2b.app
 3. Use \`envdAccessToken\` as \`X-Access-Token\` header for all Sandbox API calls
 `
   },
+  // Internal endpoints to exclude (SDK initialization, not user-facing)
+  excludePaths: [
+    '/init',
+    '/metrics'
+  ],
   // Connect RPC schemas to remove (protocol-level, not user-facing)
   removeSchemas: [
     'connect-protocol-version',
@@ -230,6 +235,15 @@ async function generateSandboxApiSpec() {
   } catch (e) {
     console.warn(`Warning: Could not generate proto specs: ${e.message}`);
     console.warn('Sandbox API will only include REST endpoints (/files, /health, etc.)');
+  }
+
+  // Filter out internal endpoints
+  const excludePaths = SANDBOX_API_CONFIG.excludePaths || [];
+  for (const excludePath of excludePaths) {
+    if (spec.paths[excludePath]) {
+      delete spec.paths[excludePath];
+      console.log(`Excluded internal endpoint: ${excludePath}`);
+    }
   }
 
   // Apply fixes
