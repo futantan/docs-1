@@ -90,7 +90,8 @@ https://{sandboxID}.e2b.app
   excludePaths: [
     '/init',
     '/metrics',
-    '/envs'
+    '/envs',
+    '/health'
   ],
   // Connect RPC schemas to remove (protocol-level, not user-facing)
   removeSchemas: [
@@ -246,6 +247,29 @@ async function generateSandboxApiSpec() {
       console.log(`Excluded internal endpoint: ${excludePath}`);
     }
   }
+
+  // Clean up tags - rename to user-friendly names
+  const tagRenames = {
+    'filesystem.Filesystem': 'Filesystem',
+    'process.Process': 'Process',
+    'files': 'Files'
+  };
+
+  // Update tags in paths
+  for (const [path, methods] of Object.entries(spec.paths || {})) {
+    for (const [method, operation] of Object.entries(methods)) {
+      if (operation.tags) {
+        operation.tags = operation.tags.map(tag => tagRenames[tag] || tag);
+      }
+    }
+  }
+
+  // Update top-level tags list
+  spec.tags = [
+    { name: 'Files', description: 'Upload and download files' },
+    { name: 'Filesystem', description: 'Filesystem operations (list, create, move, delete)' },
+    { name: 'Process', description: 'Process management (start, stop, send input)' }
+  ];
 
   // Apply fixes
   applySchemaFixes(spec);

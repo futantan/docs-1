@@ -18,21 +18,18 @@ info:
     2. Response includes `sandboxID` and `envdAccessToken`
     3. Use `envdAccessToken` as `X-Access-Token` header for all Sandbox API calls
 tags:
-  - name: files
-  - name: filesystem.Filesystem
-  - name: process.Process
+  - name: Files
+    description: Upload and download files
+  - name: Filesystem
+    description: Filesystem operations (list, create, move, delete)
+  - name: Process
+    description: Process management (start, stop, send input)
 paths:
-  /health:
-    get:
-      summary: Check the health of the service
-      responses:
-        '204':
-          description: The service is healthy
   /files:
     get:
       summary: Download a file
       tags:
-        - files
+        - Files
       security:
         - AccessTokenAuth: []
         - {}
@@ -55,7 +52,7 @@ paths:
     post:
       summary: Upload a file and ensure the parent directories exist. If the file exists, it will be overwritten.
       tags:
-        - files
+        - Files
       security:
         - AccessTokenAuth: []
         - {}
@@ -80,7 +77,7 @@ paths:
   /filesystem.Filesystem/CreateWatcher:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: CreateWatcher
       description: Non-streaming versions of WatchDir
       operationId: filesystem.Filesystem.CreateWatcher
@@ -107,7 +104,7 @@ paths:
   /filesystem.Filesystem/GetWatcherEvents:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: GetWatcherEvents
       operationId: filesystem.Filesystem.GetWatcherEvents
       parameters: []
@@ -133,7 +130,7 @@ paths:
   /filesystem.Filesystem/ListDir:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: ListDir
       operationId: filesystem.Filesystem.ListDir
       parameters: []
@@ -159,7 +156,7 @@ paths:
   /filesystem.Filesystem/MakeDir:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: MakeDir
       operationId: filesystem.Filesystem.MakeDir
       parameters: []
@@ -185,7 +182,7 @@ paths:
   /filesystem.Filesystem/Move:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: Move
       operationId: filesystem.Filesystem.Move
       parameters: []
@@ -211,7 +208,7 @@ paths:
   /filesystem.Filesystem/Remove:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: Remove
       operationId: filesystem.Filesystem.Remove
       parameters: []
@@ -237,7 +234,7 @@ paths:
   /filesystem.Filesystem/RemoveWatcher:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: RemoveWatcher
       operationId: filesystem.Filesystem.RemoveWatcher
       parameters: []
@@ -263,7 +260,7 @@ paths:
   /filesystem.Filesystem/Stat:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: Stat
       operationId: filesystem.Filesystem.Stat
       parameters: []
@@ -289,7 +286,7 @@ paths:
   /filesystem.Filesystem/WatchDir:
     post:
       tags:
-        - filesystem.Filesystem
+        - Filesystem
       summary: WatchDir
       operationId: filesystem.Filesystem.WatchDir
       parameters: []
@@ -378,7 +375,7 @@ paths:
   /process.Process/Connect:
     post:
       tags:
-        - process.Process
+        - Process
       summary: Connect
       operationId: process.Process.Connect
       parameters: []
@@ -467,7 +464,7 @@ paths:
   /process.Process/List:
     post:
       tags:
-        - process.Process
+        - Process
       summary: List
       operationId: process.Process.List
       parameters: []
@@ -493,7 +490,7 @@ paths:
   /process.Process/SendInput:
     post:
       tags:
-        - process.Process
+        - Process
       summary: SendInput
       operationId: process.Process.SendInput
       parameters: []
@@ -519,7 +516,7 @@ paths:
   /process.Process/SendSignal:
     post:
       tags:
-        - process.Process
+        - Process
       summary: SendSignal
       operationId: process.Process.SendSignal
       parameters: []
@@ -545,7 +542,7 @@ paths:
   /process.Process/Start:
     post:
       tags:
-        - process.Process
+        - Process
       summary: Start
       operationId: process.Process.Start
       parameters: []
@@ -634,7 +631,7 @@ paths:
   /process.Process/StreamInput:
     post:
       tags:
-        - process.Process
+        - Process
       summary: StreamInput
       description: Client input stream ensures ordering of messages
       operationId: process.Process.StreamInput
@@ -724,7 +721,7 @@ paths:
   /process.Process/Update:
     post:
       tags:
-        - process.Process
+        - Process
       summary: Update
       operationId: process.Process.Update
       parameters: []
