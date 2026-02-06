@@ -951,6 +951,136 @@ paths:
         '404':
           $ref: '#/components/responses/404'
 
+  /v2/sandboxes:
+    get:
+      summary: List all sandboxes (v2)
+      description: |
+        Returns all sandboxes, including paused ones. Supports filtering by
+        state and metadata, and pagination.
+      operationId: listSandboxesV2
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: metadata
+          in: query
+          description: Filter by metadata (e.g., `user=abc&app=prod`)
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Filter by one or more states
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [running, paused]
+          style: form
+          explode: false
+        - $ref: '#/components/parameters/paginationNextToken'
+        - $ref: '#/components/parameters/paginationLimit'
+      responses:
+        '200':
+          description: List of sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListedSandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/metrics:
+    get:
+      summary: Get metrics for multiple sandboxes
+      description: |
+        Returns the latest metrics for a batch of sandboxes. Useful for
+        monitoring dashboards.
+      operationId: getSandboxesMetrics
+      tags:
+        - Metrics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: sandbox_ids
+          in: query
+          required: true
+          description: Comma-separated list of sandbox IDs (max 100)
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+            maxItems: 100
+            uniqueItems: true
+      responses:
+        '200':
+          description: Metrics per sandbox
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sandboxes:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/SandboxMetric'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/resume:
+    post:
+      summary: Resume a paused sandbox
+      deprecated: true
+      description: |
+        Resumes a previously paused sandbox.
+
+        **Deprecated:** Use `POST /sandboxes/{sandboxID}/connect` instead,
+        which handles both running and paused sandboxes.
+      operationId: resumeSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeout:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  default: 15
+                  description: Time to live in seconds
+      responses:
+        '201':
+          description: Sandbox resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        '500':
+          $ref: '#/components/responses/500'
+
   /sandboxes/{sandboxID}/logs:
     get:
       summary: Get sandbox logs
@@ -1266,6 +1396,419 @@ paths:
           description: Template deleted successfully
         '401':
           $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+    patch:
+      summary: Update template
+      deprecated: true
+      description: |
+        Updates template properties (e.g., public/private visibility).
+
+        **Deprecated:** Use `PATCH /v2/templates/{templateID}` instead.
+      operationId: updateTemplate
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public:
+                  type: boolean
+                  description: Whether the template is public
+      responses:
+        '200':
+          description: Template updated
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /v3/templates:
+    post:
+      summary: Create a new template
+      description: |
+        Creates a new template and initiates a build. Returns the template ID
+        and build ID to track the build progress.
+      operationId: createTemplateV3
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - dockerfile
+              properties:
+                dockerfile:
+                  type: string
+                  description: Dockerfile content for the template
+                name:
+                  type: string
+                  description: Template name/alias
+                startCmd:
+                  type: string
+                  description: Command to run on sandbox start
+                cpuCount:
+                  type: integer
+                  description: Default CPU cores
+                memoryMB:
+                  type: integer
+                  description: Default memory in MB
+                diskSizeMB:
+                  type: integer
+                  description: Default disk size in MB
+      responses:
+        '202':
+          description: Build started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templateID:
+                    type: string
+                  buildID:
+                    type: string
+                  public:
+                    type: boolean
+                  names:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /v2/templates:
+    post:
+      summary: Create a new template (v2)
+      deprecated: true
+      description: |
+        Creates a new template.
+
+        **Deprecated:** Use `POST /v3/templates` instead.
+      operationId: createTemplateV2
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Build started
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /v2/templates/{templateID}:
+    patch:
+      summary: Update template (v2)
+      description: |
+        Updates template properties such as visibility (public/private).
+      operationId: updateTemplateV2
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public:
+                  type: boolean
+                  description: Whether the template is public
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/{templateID}/files/{hash}:
+    get:
+      summary: Get build file upload link
+      description: |
+        Returns a pre-signed upload URL for uploading build layer files
+        as a tar archive.
+      operationId: getTemplateFileUploadLink
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+        - name: hash
+          in: path
+          required: true
+          description: SHA256 hash of the tar file
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Upload link
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                    description: Pre-signed URL for uploading the tar file
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /v2/templates/{templateID}/builds/{buildID}:
+    post:
+      summary: Start a template build
+      description: |
+        Triggers the build process for a template. The build must have been
+        previously created and files uploaded.
+      operationId: startTemplateBuild
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+        - $ref: '#/components/parameters/buildID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Build started
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/{templateID}/builds/{buildID}/status:
+    get:
+      summary: Get build status
+      description: |
+        Returns the current status and logs for a template build.
+      operationId: getTemplateBuildStatus
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+        - $ref: '#/components/parameters/buildID'
+        - name: logsOffset
+          in: query
+          description: Starting log index
+          schema:
+            type: integer
+            format: int32
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of logs to return
+          schema:
+            type: integer
+            format: int32
+            default: 100
+            minimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: Build status and logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [pending, building, ready, failed]
+                  logs:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/{templateID}/builds/{buildID}/logs:
+    get:
+      summary: Get build logs
+      description: |
+        Returns logs from a template build with pagination and filtering options.
+      operationId: getTemplateBuildLogs
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+        - $ref: '#/components/parameters/buildID'
+        - name: cursor
+          in: query
+          description: Starting timestamp in milliseconds for pagination
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of logs to return
+          schema:
+            type: integer
+            format: int32
+            default: 100
+            minimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: Build logs
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/tags:
+    post:
+      summary: Assign tags to a template build
+      description: |
+        Assigns one or more tags to a specific template build. Tags can be used
+        to version and identify specific builds (e.g., "latest", "v1.0").
+      operationId: assignTemplateTags
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - templateID
+                - buildID
+                - tags
+              properties:
+                templateID:
+                  type: string
+                buildID:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["latest", "v1.0"]
+      responses:
+        '201':
+          description: Tags assigned
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+    delete:
+      summary: Delete tags from templates
+      description: |
+        Removes tags from template builds.
+      operationId: deleteTemplateTags
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: Tags deleted
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/aliases/{alias}:
+    get:
+      summary: Check template by alias
+      description: |
+        Checks if a template with the given alias exists and returns its ID.
+      operationId: getTemplateByAlias
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: alias
+          in: path
+          required: true
+          description: Template alias to look up
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templateID:
+                    type: string
+        '404':
+          $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
 
@@ -1606,6 +2149,174 @@ paths:
                   permissions:
                     type: string
 
+  /filesystem.Filesystem/CreateWatcher:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Create a filesystem watcher
+      description: |
+        Creates a watcher that monitors a directory for changes. Use
+        `GetWatcherEvents` to poll for events. This is the non-streaming
+        alternative to `WatchDir`.
+      operationId: createWatcher
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Directory path to watch
+                  example: "/home/user/project"
+      responses:
+        '200':
+          description: Watcher created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  watcherID:
+                    type: string
+                    description: ID to use with GetWatcherEvents and RemoveWatcher
+
+  /filesystem.Filesystem/GetWatcherEvents:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Get filesystem watcher events
+      description: |
+        Retrieves pending filesystem change events from a watcher created
+        with `CreateWatcher`. Returns events since the last poll.
+      operationId: getWatcherEvents
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - watcherID
+              properties:
+                watcherID:
+                  type: string
+                  description: Watcher ID from CreateWatcher
+      responses:
+        '200':
+          description: Watcher events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [create, write, remove, rename]
+                        path:
+                          type: string
+
+  /filesystem.Filesystem/RemoveWatcher:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Remove a filesystem watcher
+      description: |
+        Stops and removes a filesystem watcher. No more events will be
+        generated after this call.
+      operationId: removeWatcher
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - watcherID
+              properties:
+                watcherID:
+                  type: string
+                  description: Watcher ID to remove
+      responses:
+        '200':
+          description: Watcher removed
+
+  /filesystem.Filesystem/WatchDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Watch directory (streaming)
+      description: |
+        Streams filesystem change events for a directory in real-time.
+        This is the streaming alternative to CreateWatcher + GetWatcherEvents.
+
+        Uses server-sent events (SSE) to push changes as they happen.
+      operationId: watchDir
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Directory path to watch
+                  example: "/home/user/project"
+      responses:
+        '200':
+          description: Stream of filesystem events
+
   # ============================================
   # SANDBOX PROCESS ENDPOINTS (Data Plane)
   # ============================================
@@ -1814,6 +2525,112 @@ paths:
       responses:
         '200':
           description: Input sent
+
+  /process.Process/Connect:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Connect to a running process
+      description: |
+        Connects to an existing running process to stream its output
+        (stdout/stderr). Use this to monitor long-running processes.
+      operationId: connectProcess
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID to connect to
+      responses:
+        '200':
+          description: Stream of process output
+
+  /process.Process/StreamInput:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Stream input to a process
+      description: |
+        Opens a streaming connection to send continuous input to a process's
+        stdin. Use this for interactive sessions where you need to send
+        multiple inputs over time.
+      operationId: streamInput
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID
+      responses:
+        '200':
+          description: Streaming input connection established
+
+  /process.Process/Update:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Update a running process
+      description: |
+        Updates properties of a running process, such as its environment
+        variables or resource limits.
+      operationId: updateProcess
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID to update
+      responses:
+        '200':
+          description: Process updated
 
   # ============================================
   # SANDBOX INIT ENDPOINT (Data Plane)
