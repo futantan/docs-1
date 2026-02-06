@@ -1,18 +1,19 @@
 openapi: 3.0.0
 info:
   version: 0.1.0
-  title: E2B REST API
+  title: E2B API
   description: |
-    REST API for managing E2B sandboxes and templates.
+    API for managing and interacting with E2B sandboxes.
 
-    ## Authentication
-    All endpoints require authentication via API key passed in the `X-API-Key` header.
-    Get your API key from the [E2B Dashboard](https://e2b.dev/dashboard?tab=keys).
+    ## REST API (api.e2b.app)
+    Endpoints for creating and managing sandboxes and templates.
+    - **Authentication**: `X-API-Key` header with your API key from the [E2B Dashboard](https://e2b.dev/dashboard?tab=keys)
+    - **Base URL**: `https://api.e2b.app`
 
-    ## Base URL
-    ```
-    https://api.e2b.app
-    ```
+    ## Sandbox API ({sandboxID}.e2b.app)
+    Endpoints for interacting with files and processes inside a running sandbox.
+    - **Authentication**: `X-Access-Token` header with the access token received when creating a sandbox
+    - **Base URL**: `https://{sandboxID}.e2b.app`
 servers:
   - url: https://api.e2b.app
 components:
@@ -21,6 +22,11 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+    AccessTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Access-Token
+      description: Access token received when creating a sandbox (for Sandbox API endpoints)
   parameters:
     templateID:
       name: templateID
@@ -89,6 +95,34 @@ components:
       required: false
       schema:
         type: string
+    SandboxFilePath:
+      name: path
+      in: query
+      required: false
+      description: Path to the file, URL encoded. Can be relative to user's home directory.
+      schema:
+        type: string
+    SandboxUser:
+      name: username
+      in: query
+      required: false
+      description: User used for setting the owner, or resolving relative paths.
+      schema:
+        type: string
+    SandboxSignature:
+      name: signature
+      in: query
+      required: false
+      description: Signature used for file access permission verification.
+      schema:
+        type: string
+    SandboxSignatureExpiration:
+      name: signature_expiration
+      in: query
+      required: false
+      description: Signature expiration used for defining the expiration time of the signature.
+      schema:
+        type: integer
   responses:
     '400':
       description: Bad request
@@ -122,6 +156,52 @@ components:
             $ref: '#/components/schemas/Error'
     '500':
       description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SandboxUploadSuccess:
+      description: The file was uploaded successfully.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/SandboxEntryInfo'
+    SandboxDownloadSuccess:
+      description: Entire file downloaded successfully.
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: The file content
+    SandboxInvalidPath:
+      description: Invalid path
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SandboxInternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SandboxFileNotFound:
+      description: File not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SandboxInvalidUser:
+      description: Invalid user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SandboxNotEnoughDiskSpace:
+      description: Not enough disk space
       content:
         application/json:
           schema:
@@ -257,7 +337,7 @@ components:
           type: string
           description: Log message content
         level:
-          $ref: '#/components/schemas/LogLevel'
+          $ref: '#/components/schemas/SandboxLogLevel'
         fields:
           type: object
           additionalProperties:
@@ -271,12 +351,12 @@ components:
           description: Logs of the sandbox
           type: array
           items:
-            $ref: '#/components/schemas/SandboxLog'
+            $ref: '#/components/schemas/SandboxSandboxLog'
         logEntries:
           description: Structured logs of the sandbox
           type: array
           items:
-            $ref: '#/components/schemas/SandboxLogEntry'
+            $ref: '#/components/schemas/SandboxSandboxLogEntry'
     SandboxMetric:
       description: Metric entry with timestamp and line
       required:
@@ -343,7 +423,7 @@ components:
           deprecated: true
           description: Identifier of the client
         envdVersion:
-          $ref: '#/components/schemas/EnvdVersion'
+          $ref: '#/components/schemas/SandboxEnvdVersion'
         envdAccessToken:
           type: string
           description: Access token used for envd communication
@@ -390,7 +470,7 @@ components:
           format: date-time
           description: Time when the sandbox will expire
         envdVersion:
-          $ref: '#/components/schemas/EnvdVersion'
+          $ref: '#/components/schemas/SandboxEnvdVersion'
         envdAccessToken:
           type: string
           description: Access token used for envd communication
@@ -399,15 +479,15 @@ components:
           nullable: true
           description: Base domain where the sandbox traffic is accessible
         cpuCount:
-          $ref: '#/components/schemas/CPUCount'
+          $ref: '#/components/schemas/SandboxCPUCount'
         memoryMB:
-          $ref: '#/components/schemas/MemoryMB'
+          $ref: '#/components/schemas/SandboxMemoryMB'
         diskSizeMB:
-          $ref: '#/components/schemas/DiskSizeMB'
+          $ref: '#/components/schemas/SandboxDiskSizeMB'
         metadata:
-          $ref: '#/components/schemas/SandboxMetadata'
+          $ref: '#/components/schemas/SandboxSandboxMetadata'
         state:
-          $ref: '#/components/schemas/SandboxState'
+          $ref: '#/components/schemas/SandboxSandboxState'
     ListedSandbox:
       required:
         - templateID
@@ -460,7 +540,7 @@ components:
       properties:
         sandboxes:
           additionalProperties:
-            $ref: '#/components/schemas/SandboxMetric'
+            $ref: '#/components/schemas/SandboxSandboxMetric'
     NewSandbox:
       required:
         - templateID
@@ -1530,6 +1610,796 @@ components:
         maskedValueSuffix:
           type: string
           description: Suffix used in masked version of the token or key
+    SandboxError:
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: Error code
+    SandboxEntryInfo:
+      required:
+        - path
+        - name
+        - type
+      properties:
+        path:
+          type: string
+          description: Path to the file
+        name:
+          type: string
+          description: Name of the file
+        type:
+          type: string
+          description: Type of the file
+          enum:
+            - file
+    SandboxEnvVars:
+      type: object
+      description: Environment variables to set
+      additionalProperties:
+        type: string
+    SandboxMetrics:
+      type: object
+      description: Resource usage metrics
+      properties:
+        ts:
+          type: integer
+          format: int64
+          description: Unix timestamp in UTC for current sandbox time
+        cpu_count:
+          type: integer
+          description: Number of CPU cores
+        cpu_used_pct:
+          type: number
+          format: float
+          description: CPU usage percentage
+        mem_total:
+          type: integer
+          description: Total virtual memory in bytes
+        mem_used:
+          type: integer
+          description: Used virtual memory in bytes
+        disk_used:
+          type: integer
+          description: Used disk space in bytes
+        disk_total:
+          type: integer
+          description: Total disk space in bytes
+    Sandboxconnect.error_details.Any:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'A URL that acts as a globally unique identifier for the type of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`. This is used to determine the schema of the data in the `value` field and is the discriminator for the `debug` field.'
+        value:
+          type: string
+          format: binary
+          description: The Protobuf message, serialized as bytes and base64-encoded. The specific message type is identified by the `type` field.
+        debug:
+          oneOf:
+            - type: object
+              title: Any
+              additionalProperties: true
+              description: Detailed error information.
+          discriminator:
+            propertyName: type
+          title: Debug
+          description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    Sandboxfilesystem.CreateWatcherRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: CreateWatcherRequest
+      additionalProperties: false
+    Sandboxfilesystem.CreateWatcherResponse:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: CreateWatcherResponse
+      additionalProperties: false
+    Sandboxfilesystem.EntryInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/Sandboxfilesystem.FileType'
+        path:
+          type: string
+          title: path
+        size:
+          type: integer
+          title: size
+          format: int64
+        mode:
+          type: integer
+          title: mode
+        permissions:
+          type: string
+          title: permissions
+        owner:
+          type: string
+          title: owner
+        group:
+          type: string
+          title: group
+        modifiedTime:
+          title: modified_time
+          $ref: '#/components/schemas/Sandboxgoogle.protobuf.Timestamp'
+        symlinkTarget:
+          type: string
+          title: symlink_target
+          description: If the entry is a symlink, this field contains the target of the symlink.
+      title: EntryInfo
+      additionalProperties: false
+    Sandboxfilesystem.EventType:
+      type: string
+      title: EventType
+      enum:
+        - EVENT_TYPE_UNSPECIFIED
+        - EVENT_TYPE_CREATE
+        - EVENT_TYPE_WRITE
+        - EVENT_TYPE_REMOVE
+        - EVENT_TYPE_RENAME
+        - EVENT_TYPE_CHMOD
+    Sandboxfilesystem.FileType:
+      type: string
+      title: FileType
+      enum:
+        - FILE_TYPE_UNSPECIFIED
+        - FILE_TYPE_FILE
+        - FILE_TYPE_DIRECTORY
+    Sandboxfilesystem.FilesystemEvent:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/Sandboxfilesystem.EventType'
+      title: FilesystemEvent
+      additionalProperties: false
+    Sandboxfilesystem.GetWatcherEventsRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: GetWatcherEventsRequest
+      additionalProperties: false
+    Sandboxfilesystem.GetWatcherEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sandboxfilesystem.FilesystemEvent'
+          title: events
+      title: GetWatcherEventsResponse
+      additionalProperties: false
+    Sandboxfilesystem.ListDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        depth:
+          type: integer
+          title: depth
+      title: ListDirRequest
+      additionalProperties: false
+    Sandboxfilesystem.ListDirResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sandboxfilesystem.EntryInfo'
+          title: entries
+      title: ListDirResponse
+      additionalProperties: false
+    Sandboxfilesystem.MakeDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: MakeDirRequest
+      additionalProperties: false
+    Sandboxfilesystem.MakeDirResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/Sandboxfilesystem.EntryInfo'
+      title: MakeDirResponse
+      additionalProperties: false
+    Sandboxfilesystem.MoveRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          title: source
+        destination:
+          type: string
+          title: destination
+      title: MoveRequest
+      additionalProperties: false
+    Sandboxfilesystem.MoveResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/Sandboxfilesystem.EntryInfo'
+      title: MoveResponse
+      additionalProperties: false
+    Sandboxfilesystem.RemoveRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: RemoveRequest
+      additionalProperties: false
+    Sandboxfilesystem.RemoveResponse:
+      type: object
+      title: RemoveResponse
+      additionalProperties: false
+    Sandboxfilesystem.RemoveWatcherRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: RemoveWatcherRequest
+      additionalProperties: false
+    Sandboxfilesystem.RemoveWatcherResponse:
+      type: object
+      title: RemoveWatcherResponse
+      additionalProperties: false
+    Sandboxfilesystem.StatRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: StatRequest
+      additionalProperties: false
+    Sandboxfilesystem.StatResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/Sandboxfilesystem.EntryInfo'
+      title: StatResponse
+      additionalProperties: false
+    Sandboxfilesystem.WatchDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: WatchDirRequest
+      additionalProperties: false
+    Sandboxfilesystem.WatchDirResponse:
+      type: object
+      oneOf:
+        - properties:
+            filesystem:
+              title: filesystem
+              $ref: '#/components/schemas/Sandboxfilesystem.FilesystemEvent'
+          title: filesystem
+          required:
+            - filesystem
+        - properties:
+            keepalive:
+              title: keepalive
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse.KeepAlive'
+          title: keepalive
+          required:
+            - keepalive
+        - properties:
+            start:
+              title: start
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse.StartEvent'
+          title: start
+          required:
+            - start
+      title: WatchDirResponse
+      additionalProperties: false
+    Sandboxfilesystem.WatchDirResponse.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    Sandboxfilesystem.WatchDirResponse.StartEvent:
+      type: object
+      title: StartEvent
+      additionalProperties: false
+    Sandboxgoogle.protobuf.Timestamp:
+      type: string
+      format: date-time
+      description: |-
+        A Timestamp represents a point in time independent of any time zone or local
+         calendar, encoded as a count of seconds and fractions of seconds at
+         nanosecond resolution. The count is relative to an epoch at UTC midnight on
+         January 1, 1970, in the proleptic Gregorian calendar which extends the
+         Gregorian calendar backwards to year one.
+
+         All minutes are 60 seconds long. Leap seconds are "smeared" so that no leap
+         second table is needed for interpretation, using a [24-hour linear
+         smear](https://developers.google.com/time/smear).
+
+         The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By
+         restricting to that range, we ensure that we can convert to and from [RFC
+         3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
+
+         # Examples
+
+         Example 1: Compute Timestamp from POSIX `time()`.
+
+             Timestamp timestamp;
+             timestamp.set_seconds(time(NULL));
+             timestamp.set_nanos(0);
+
+         Example 2: Compute Timestamp from POSIX `gettimeofday()`.
+
+             struct timeval tv;
+             gettimeofday(&tv, NULL);
+
+             Timestamp timestamp;
+             timestamp.set_seconds(tv.tv_sec);
+             timestamp.set_nanos(tv.tv_usec * 1000);
+
+         Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.
+
+             FILETIME ft;
+             GetSystemTimeAsFileTime(&ft);
+             UINT64 ticks = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+
+             // A Windows tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z
+             // is 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.
+             Timestamp timestamp;
+             timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));
+             timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));
+
+         Example 4: Compute Timestamp from Java `System.currentTimeMillis()`.
+
+             long millis = System.currentTimeMillis();
+
+             Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
+                 .setNanos((int) ((millis % 1000) * 1000000)).build();
+
+         Example 5: Compute Timestamp from Java `Instant.now()`.
+
+             Instant now = Instant.now();
+
+             Timestamp timestamp =
+                 Timestamp.newBuilder().setSeconds(now.getEpochSecond())
+                     .setNanos(now.getNano()).build();
+
+         Example 6: Compute Timestamp from current time in Python.
+
+             timestamp = Timestamp()
+             timestamp.GetCurrentTime()
+
+         # JSON Mapping
+
+         In JSON format, the Timestamp type is encoded as a string in the
+         [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is, the
+         format is "{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z"
+         where {year} is always expressed using four digits while {month}, {day},
+         {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional
+         seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),
+         are optional. The "Z" suffix indicates the timezone ("UTC"); the timezone
+         is required. A proto3 JSON serializer should always use UTC (as indicated by
+         "Z") when printing the Timestamp type and a proto3 JSON parser should be
+         able to accept both UTC and other timezones (as indicated by an offset).
+
+         For example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past
+         01:30 UTC on January 15, 2017.
+
+         In JavaScript, one can convert a Date object to this format using the
+         standard
+         [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)
+         method. In Python, a standard `datetime.datetime` object can be converted
+         to this format using
+         [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
+         the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
+         the Joda Time's [`ISODateTimeFormat.dateTime()`](
+         http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()
+         ) to obtain a formatter capable of generating timestamps in this format.
+      example: '2023-01-15T01:30:15.01Z'
+    Sandboxprocess.ConnectRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessSelector'
+      title: ConnectRequest
+      additionalProperties: false
+    Sandboxprocess.ConnectResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/Sandboxprocess.ProcessEvent'
+      title: ConnectResponse
+      additionalProperties: false
+    Sandboxprocess.ListRequest:
+      type: object
+      title: ListRequest
+      additionalProperties: false
+    Sandboxprocess.ListResponse:
+      type: object
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sandboxprocess.ProcessInfo'
+          title: processes
+      title: ListResponse
+      additionalProperties: false
+    Sandboxprocess.PTY:
+      type: object
+      properties:
+        size:
+          title: size
+          $ref: '#/components/schemas/Sandboxprocess.PTY.Size'
+      title: PTY
+      additionalProperties: false
+    Sandboxprocess.PTY.Size:
+      type: object
+      properties:
+        cols:
+          type: integer
+          title: cols
+        rows:
+          type: integer
+          title: rows
+      title: Size
+      additionalProperties: false
+    Sandboxprocess.ProcessConfig:
+      type: object
+      properties:
+        cmd:
+          type: string
+          title: cmd
+        args:
+          type: array
+          items:
+            type: string
+          title: args
+        envs:
+          type: object
+          title: envs
+          additionalProperties:
+            type: string
+            title: value
+        cwd:
+          type: string
+          title: cwd
+      title: ProcessConfig
+      additionalProperties: false
+    Sandboxprocess.ProcessConfig.EnvsEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+        value:
+          type: string
+          title: value
+      title: EnvsEntry
+      additionalProperties: false
+    Sandboxprocess.ProcessEvent:
+      type: object
+      oneOf:
+        - properties:
+            data:
+              title: data
+              $ref: '#/components/schemas/Sandboxprocess.ProcessEvent.DataEvent'
+          title: data
+          required:
+            - data
+        - properties:
+            end:
+              title: end
+              $ref: '#/components/schemas/Sandboxprocess.ProcessEvent.EndEvent'
+          title: end
+          required:
+            - end
+        - properties:
+            keepalive:
+              title: keepalive
+              $ref: '#/components/schemas/Sandboxprocess.ProcessEvent.KeepAlive'
+          title: keepalive
+          required:
+            - keepalive
+        - properties:
+            start:
+              title: start
+              $ref: '#/components/schemas/Sandboxprocess.ProcessEvent.StartEvent'
+          title: start
+          required:
+            - start
+      title: ProcessEvent
+      additionalProperties: false
+    Sandboxprocess.ProcessEvent.DataEvent:
+      type: object
+      oneOf:
+        - properties:
+            pty:
+              type: string
+              title: pty
+              format: byte
+          title: pty
+          required:
+            - pty
+        - properties:
+            stderr:
+              type: string
+              title: stderr
+              format: byte
+          title: stderr
+          required:
+            - stderr
+        - properties:
+            stdout:
+              type: string
+              title: stdout
+              format: byte
+          title: stdout
+          required:
+            - stdout
+      title: DataEvent
+      additionalProperties: false
+    Sandboxprocess.ProcessEvent.EndEvent:
+      type: object
+      properties:
+        exitCode:
+          type: integer
+          title: exit_code
+          format: int32
+        exited:
+          type: boolean
+          title: exited
+        status:
+          type: string
+          title: status
+        error:
+          type: string
+          title: error
+      title: EndEvent
+      additionalProperties: false
+    Sandboxprocess.ProcessEvent.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    Sandboxprocess.ProcessEvent.StartEvent:
+      type: object
+      properties:
+        pid:
+          type: integer
+          title: pid
+      title: StartEvent
+      additionalProperties: false
+    Sandboxprocess.ProcessInfo:
+      type: object
+      properties:
+        config:
+          title: config
+          $ref: '#/components/schemas/Sandboxprocess.ProcessConfig'
+        pid:
+          type: integer
+          title: pid
+        tag:
+          type: string
+          title: tag
+      title: ProcessInfo
+      additionalProperties: false
+    Sandboxprocess.ProcessInput:
+      type: object
+      oneOf:
+        - properties:
+            pty:
+              type: string
+              title: pty
+              format: byte
+          title: pty
+          required:
+            - pty
+        - properties:
+            stdin:
+              type: string
+              title: stdin
+              format: byte
+          title: stdin
+          required:
+            - stdin
+      title: ProcessInput
+      additionalProperties: false
+    Sandboxprocess.ProcessSelector:
+      type: object
+      oneOf:
+        - properties:
+            pid:
+              type: integer
+              title: pid
+          title: pid
+          required:
+            - pid
+        - properties:
+            tag:
+              type: string
+              title: tag
+          title: tag
+          required:
+            - tag
+      title: ProcessSelector
+      additionalProperties: false
+    Sandboxprocess.SendInputRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessSelector'
+        input:
+          title: input
+          $ref: '#/components/schemas/Sandboxprocess.ProcessInput'
+      title: SendInputRequest
+      additionalProperties: false
+    Sandboxprocess.SendInputResponse:
+      type: object
+      title: SendInputResponse
+      additionalProperties: false
+    Sandboxprocess.SendSignalRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessSelector'
+        signal:
+          title: signal
+          $ref: '#/components/schemas/Sandboxprocess.Signal'
+      title: SendSignalRequest
+      additionalProperties: false
+    Sandboxprocess.SendSignalResponse:
+      type: object
+      title: SendSignalResponse
+      additionalProperties: false
+    Sandboxprocess.Signal:
+      type: string
+      title: Signal
+      enum:
+        - SIGNAL_UNSPECIFIED
+        - SIGNAL_SIGTERM
+        - SIGNAL_SIGKILL
+    Sandboxprocess.StartRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessConfig'
+        pty:
+          title: pty
+          nullable: true
+          $ref: '#/components/schemas/Sandboxprocess.PTY'
+        tag:
+          type: string
+          title: tag
+        stdin:
+          type: boolean
+          title: stdin
+          description: |-
+            This is optional for backwards compatibility.
+             We default to true. New SDK versions will set this to false by default.
+      title: StartRequest
+      additionalProperties: false
+    Sandboxprocess.StartResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/Sandboxprocess.ProcessEvent'
+      title: StartResponse
+      additionalProperties: false
+    Sandboxprocess.StreamInputRequest:
+      type: object
+      oneOf:
+        - properties:
+            data:
+              title: data
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest.DataEvent'
+          title: data
+          required:
+            - data
+        - properties:
+            keepalive:
+              title: keepalive
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest.KeepAlive'
+          title: keepalive
+          required:
+            - keepalive
+        - properties:
+            start:
+              title: start
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest.StartEvent'
+          title: start
+          required:
+            - start
+      title: StreamInputRequest
+      additionalProperties: false
+    Sandboxprocess.StreamInputRequest.DataEvent:
+      type: object
+      properties:
+        input:
+          title: input
+          $ref: '#/components/schemas/Sandboxprocess.ProcessInput'
+      title: DataEvent
+      additionalProperties: false
+    Sandboxprocess.StreamInputRequest.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    Sandboxprocess.StreamInputRequest.StartEvent:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessSelector'
+      title: StartEvent
+      additionalProperties: false
+    Sandboxprocess.StreamInputResponse:
+      type: object
+      title: StreamInputResponse
+      additionalProperties: false
+    Sandboxprocess.UpdateRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/Sandboxprocess.ProcessSelector'
+        pty:
+          title: pty
+          nullable: true
+          $ref: '#/components/schemas/Sandboxprocess.PTY'
+      title: UpdateRequest
+      additionalProperties: false
+    Sandboxprocess.UpdateResponse:
+      type: object
+      title: UpdateResponse
+      additionalProperties: false
+  requestBodies:
+    SandboxFile:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
 tags:
   - name: templates
   - name: sandboxes
@@ -1537,15 +2407,15 @@ tags:
   - name: access-tokens
   - name: api-keys
   - name: tags
+  - name: Sandbox
+    description: Sandbox initialization
+  - name: Sandbox Files
+    description: Upload and download files in sandbox
+  - name: Sandbox Filesystem
+    description: Filesystem operations (list, create, move, delete)
+  - name: Sandbox Process
+    description: Process management (start, stop, send input)
 paths:
-  /health:
-    get:
-      description: Health check
-      responses:
-        '200':
-          description: Request was successful
-        '401':
-          $ref: '#/components/responses/401'
   /teams/{teamID}/metrics:
     get:
       description: Get metrics for the team
@@ -2422,3 +3292,967 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+  /init:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      summary: Set initial vars, ensure the time and metadata is synced with the host
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hyperloopIP:
+                  type: string
+                  description: IP address of the hyperloop server to connect to
+                envVars:
+                  $ref: '#/components/schemas/SandboxEnvVars'
+                accessToken:
+                  type: string
+                  description: Access token for secure access to envd service
+                  x-go-type: SecureToken
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: The current timestamp in RFC3339 format
+                defaultUser:
+                  type: string
+                  description: The default user to use for operations
+                defaultWorkdir:
+                  type: string
+                  description: The default working directory to use for operations
+      responses:
+        '204':
+          description: Env vars set, the time and metadata is synced with the host
+      tags:
+        - Sandbox
+  /files:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    get:
+      summary: Download a file
+      tags:
+        - Sandbox Files
+      security:
+        - AccessTokenAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxFilePath'
+        - $ref: '#/components/parameters/SandboxUser'
+        - $ref: '#/components/parameters/SandboxSignature'
+        - $ref: '#/components/parameters/SandboxSignatureExpiration'
+      responses:
+        '200':
+          $ref: '#/components/responses/SandboxDownloadSuccess'
+        '400':
+          $ref: '#/components/responses/SandboxInvalidPath'
+        '401':
+          $ref: '#/components/responses/SandboxInvalidUser'
+        '404':
+          $ref: '#/components/responses/SandboxFileNotFound'
+        '500':
+          $ref: '#/components/responses/SandboxInternalServerError'
+    post:
+      summary: Upload a file and ensure the parent directories exist. If the file exists, it will be overwritten.
+      tags:
+        - Sandbox Files
+      security:
+        - AccessTokenAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxFilePath'
+        - $ref: '#/components/parameters/SandboxUser'
+        - $ref: '#/components/parameters/SandboxSignature'
+        - $ref: '#/components/parameters/SandboxSignatureExpiration'
+      requestBody:
+        $ref: '#/components/requestBodies/SandboxFile'
+      responses:
+        '200':
+          $ref: '#/components/responses/SandboxUploadSuccess'
+        '400':
+          $ref: '#/components/responses/SandboxInvalidPath'
+        '401':
+          $ref: '#/components/responses/SandboxInvalidUser'
+        '500':
+          $ref: '#/components/responses/SandboxInternalServerError'
+        '507':
+          $ref: '#/components/responses/SandboxNotEnoughDiskSpace'
+  /filesystem.Filesystem/CreateWatcher:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: CreateWatcher
+      description: Non-streaming versions of WatchDir
+      operationId: filesystem.Filesystem.CreateWatcher
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.CreateWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.CreateWatcherResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/GetWatcherEvents:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: GetWatcherEvents
+      operationId: filesystem.Filesystem.GetWatcherEvents
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.GetWatcherEventsRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.GetWatcherEventsResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/ListDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: ListDir
+      operationId: filesystem.Filesystem.ListDir
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.ListDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.ListDirResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/MakeDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: MakeDir
+      operationId: filesystem.Filesystem.MakeDir
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.MakeDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.MakeDirResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/Move:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: Move
+      operationId: filesystem.Filesystem.Move
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.MoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.MoveResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/Remove:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: Remove
+      operationId: filesystem.Filesystem.Remove
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.RemoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.RemoveResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/RemoveWatcher:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: RemoveWatcher
+      operationId: filesystem.Filesystem.RemoveWatcher
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.RemoveWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.RemoveWatcherResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/Stat:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: Stat
+      operationId: filesystem.Filesystem.Stat
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.StatRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.StatResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /filesystem.Filesystem/WatchDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Filesystem
+      summary: WatchDir
+      operationId: filesystem.Filesystem.WatchDir
+      parameters: []
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/connect+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc-web:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc-web+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+          application/grpc-web+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxfilesystem.WatchDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxfilesystem.WatchDirResponse'
+        default:
+          description: Error
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/Connect:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: Connect
+      operationId: process.Process.Connect
+      parameters: []
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/connect+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc-web:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc-web+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+          application/grpc-web+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ConnectRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ConnectResponse'
+        default:
+          description: Error
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/List:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: List
+      operationId: process.Process.List
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.ListRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.ListResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/SendInput:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: SendInput
+      operationId: process.Process.SendInput
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.SendInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.SendInputResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/SendSignal:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: SendSignal
+      operationId: process.Process.SendSignal
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.SendSignalRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.SendSignalResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/Start:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: Start
+      operationId: process.Process.Start
+      parameters: []
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/connect+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc-web:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc-web+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+          application/grpc-web+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StartRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StartResponse'
+        default:
+          description: Error
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/StreamInput:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: StreamInput
+      description: Client input stream ensures ordering of messages
+      operationId: process.Process.StreamInput
+      parameters: []
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/connect+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc-web:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc-web+proto:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+          application/grpc-web+json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.StreamInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.StreamInputResponse'
+        default:
+          description: Error
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/connect+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+proto:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+            application/grpc-web+json:
+              schema:
+                $ref: '#/components/schemas/Sandboxconnect.error'
+      security:
+        - AccessTokenAuth: []
+  /process.Process/Update:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox API
+        variables:
+          port:
+            default: '49982'
+            description: Port number for the sandbox API
+          sandboxId:
+            default: sandbox-id
+            description: Sandbox ID returned when creating a sandbox
+    post:
+      tags:
+        - Sandbox Process
+      summary: Update
+      operationId: process.Process.Update
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sandboxprocess.UpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandboxprocess.UpdateResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - AccessTokenAuth: []

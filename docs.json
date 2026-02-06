@@ -214,7 +214,7 @@
         "href": "https://e2b.dev/docs/sdk-reference"
       },
       {
-        "anchor": "REST API",
+        "anchor": "API Reference",
         "icon": "code",
         "openapi": {
           "source": "openapi-public.yml",
@@ -222,11 +222,11 @@
         }
       },
       {
-        "anchor": "Sandbox API",
-        "icon": "server",
+        "anchor": "API Reference (Edited)",
+        "icon": "code",
         "openapi": {
-          "source": "openapi-sandbox.yml",
-          "directory": "docs/sandbox-api"
+          "source": "openapi-public-edited.yml",
+          "directory": "docs/api-reference-edited"
         }
       }
     ],

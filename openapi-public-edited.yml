@@ -1,0 +1,1869 @@
+openapi: 3.0.0
+info:
+  version: 0.1.0
+  title: E2B API
+  description: |
+    The E2B API allows you to programmatically create, manage, and interact with cloud sandboxes - secure, isolated environments for running code.
+
+    ## Overview
+
+    The API is split into two parts:
+
+    ### Control Plane API (`api.e2b.app`)
+    Use this API to manage the lifecycle of sandboxes and templates:
+    - **Sandboxes**: Create, list, pause, resume, and terminate sandboxes
+    - **Templates**: Build and manage custom sandbox templates
+    - **Metrics**: Monitor usage and resource consumption
+
+    ### Data Plane API (`{port}-{sandboxId}.e2b.app`)
+    Use this API to interact with a running sandbox:
+    - **Files**: Upload and download files
+    - **Filesystem**: Create directories, list contents, move and delete files
+    - **Processes**: Start, monitor, and control processes
+
+    ## Authentication
+
+    ### Control Plane (X-API-Key)
+    All Control Plane endpoints require your API key in the `X-API-Key` header.
+    Get your API key from the [E2B Dashboard](https://e2b.dev/dashboard?tab=keys).
+
+    ```bash
+    curl -H "X-API-Key: e2b_YOUR_API_KEY" https://api.e2b.app/sandboxes
+    ```
+
+    ### Data Plane (X-Access-Token)
+    Data Plane endpoints require the `X-Access-Token` header with the access token
+    returned when you create a sandbox.
+
+    ```bash
+    # 1. Create a sandbox (returns sandboxId and envdAccessToken)
+    curl -X POST -H "X-API-Key: e2b_YOUR_API_KEY" \
+      -d '{"templateID": "base"}' \
+      https://api.e2b.app/sandboxes
+
+    # 2. Use the token to interact with the sandbox
+    curl -H "X-Access-Token: YOUR_ACCESS_TOKEN" \
+      https://49982-YOUR_SANDBOX_ID.e2b.app/files?path=/home/user/file.txt
+    ```
+
+    ## Quick Start
+
+    1. **Create a sandbox** from a template using `POST /sandboxes`
+    2. **Get the access token** from the response (`envdAccessToken`)
+    3. **Interact with the sandbox** using the Data Plane API
+    4. **Clean up** by deleting the sandbox with `DELETE /sandboxes/{sandboxID}`
+
+    ## Rate Limits
+
+    API requests are rate limited. Contact support if you need higher limits.
+
+    ## SDKs
+
+    We provide official SDKs for Python, JavaScript/TypeScript, and Go.
+    See [SDK Reference](https://e2b.dev/docs/sdk-reference) for details.
+
+servers:
+  - url: https://api.e2b.app
+    description: E2B Control Plane API
+
+tags:
+  - name: Sandboxes
+    description: |
+      Create and manage sandbox instances. Sandboxes are isolated cloud environments
+      where you can safely run code, install packages, and execute processes.
+
+      **Common workflows:**
+      - Create a sandbox → Run code → Delete sandbox
+      - Create a sandbox → Pause → Resume later → Delete
+      - List running sandboxes → Get metrics → Clean up idle ones
+  - name: Templates
+    description: |
+      Build and manage custom templates. Templates are pre-configured sandbox images
+      with your preferred tools, packages, and configurations pre-installed.
+
+      **Use templates to:**
+      - Speed up sandbox creation by pre-installing dependencies
+      - Ensure consistent environments across sandboxes
+      - Share configurations across your team
+  - name: Metrics
+    description: |
+      Monitor resource usage and track sandbox activity. Use metrics to understand
+      your usage patterns and optimize costs.
+  - name: Sandbox Files
+    description: |
+      Upload and download files to/from a running sandbox. Use these endpoints for
+      simple file transfer operations.
+
+      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
+
+      **Note:** For more complex filesystem operations (creating directories, listing
+      contents, etc.), use the Sandbox Filesystem endpoints.
+  - name: Sandbox Filesystem
+    description: |
+      Perform filesystem operations inside a running sandbox. Create directories,
+      list contents, move files, delete files, and watch for changes.
+
+      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
+
+      These endpoints use Connect RPC protocol over HTTP.
+  - name: Sandbox Process
+    description: |
+      Start and manage processes inside a running sandbox. Execute commands,
+      stream output, send input, and control running processes.
+
+      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
+
+      These endpoints use Connect RPC protocol over HTTP.
+  - name: Sandbox Init
+    description: |
+      Internal endpoints for sandbox initialization. These are typically called
+      by the SDK automatically.
+
+      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    AccessTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Access-Token
+
+  parameters:
+    templateID:
+      name: templateID
+      in: path
+      required: true
+      description: Unique identifier of the template (e.g., `base`, `python`, or a custom template ID)
+      schema:
+        type: string
+      example: "base"
+    buildID:
+      name: buildID
+      in: path
+      required: true
+      description: Unique identifier of a template build (UUID format)
+      schema:
+        type: string
+        format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    sandboxID:
+      name: sandboxID
+      in: path
+      required: true
+      description: Unique identifier of the sandbox
+      schema:
+        type: string
+      example: "sandbox-abc123"
+    teamID:
+      name: teamID
+      in: path
+      required: true
+      description: Unique identifier of your team
+      schema:
+        type: string
+    paginationLimit:
+      name: limit
+      in: query
+      description: Maximum number of items to return per page (1-100)
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 100
+        maximum: 100
+      example: 50
+    paginationNextToken:
+      name: nextToken
+      in: query
+      description: Cursor for pagination. Use the value from the previous response to get the next page.
+      required: false
+      schema:
+        type: string
+    SandboxFilePath:
+      name: path
+      in: query
+      required: true
+      description: |
+        Path to the file inside the sandbox. Can be absolute (e.g., `/home/user/file.txt`)
+        or relative to the user's home directory (e.g., `file.txt`).
+        Must be URL encoded.
+      schema:
+        type: string
+      example: "/home/user/data.json"
+    SandboxUser:
+      name: username
+      in: query
+      required: false
+      description: Username for file ownership and resolving relative paths. Defaults to `user`.
+      schema:
+        type: string
+        default: "user"
+      example: "user"
+
+  responses:
+    '400':
+      description: Bad Request - The request was malformed or missing required parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 400
+            message: "Invalid request: templateID is required"
+    '401':
+      description: Unauthorized - Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 401
+            message: "Invalid API key"
+    '403':
+      description: Forbidden - You don't have permission to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 403
+            message: "Access denied"
+    '404':
+      description: Not Found - The requested resource doesn't exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 404
+            message: "Sandbox not found"
+    '409':
+      description: Conflict - The request conflicts with the current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 409
+            message: "Sandbox is already paused"
+    '500':
+      description: Internal Server Error - Something went wrong on our end
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 500
+            message: "Internal server error"
+
+  schemas:
+    Error:
+      type: object
+      description: Error response returned when a request fails
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP status code
+          example: 400
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request parameters"
+
+    NewSandbox:
+      type: object
+      description: Request body for creating a new sandbox
+      required:
+        - templateID
+      properties:
+        templateID:
+          type: string
+          description: |
+            ID of the template to use. Can be a built-in template (`base`, `python`, `node`)
+            or a custom template ID.
+          example: "base"
+        timeout:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 15
+          description: |
+            How long the sandbox should stay alive in seconds, measured from creation time.
+            The sandbox will automatically terminate after this duration unless extended.
+            Maximum: 24 hours (86400 seconds).
+          example: 300
+        autoPause:
+          type: boolean
+          default: false
+          description: |
+            If true, the sandbox will automatically pause instead of terminating when
+            the timeout expires. Paused sandboxes can be resumed later but don't consume
+            compute resources while paused.
+          example: true
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Custom key-value metadata to attach to the sandbox. Useful for filtering
+            and organizing sandboxes. Keys and values must be strings.
+          example:
+            user: "user-123"
+            project: "code-review"
+            environment: "staging"
+        envVars:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Environment variables to set in the sandbox. These will be available
+            to all processes running in the sandbox.
+          example:
+            NODE_ENV: "production"
+            API_URL: "https://api.example.com"
+
+    Sandbox:
+      type: object
+      description: A sandbox instance that was just created
+      required:
+        - templateID
+        - sandboxID
+        - clientID
+        - envdVersion
+      properties:
+        sandboxID:
+          type: string
+          description: Unique identifier of the sandbox. Use this to interact with the sandbox.
+          example: "sandbox-abc123xyz"
+        templateID:
+          type: string
+          description: ID of the template this sandbox was created from
+          example: "base"
+        envdAccessToken:
+          type: string
+          description: |
+            Access token for Data Plane API calls. Use this as the `X-Access-Token`
+            header when calling sandbox endpoints (files, filesystem, process).
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        clientID:
+          type: string
+          deprecated: true
+          description: Legacy field, use sandboxID instead
+        envdVersion:
+          type: string
+          description: Version of the sandbox runtime
+          example: "0.1.0"
+        domain:
+          type: string
+          nullable: true
+          description: Base domain for accessing the sandbox
+          example: "e2b.app"
+
+    SandboxDetail:
+      type: object
+      description: Detailed information about a sandbox
+      required:
+        - templateID
+        - sandboxID
+        - clientID
+        - startedAt
+        - cpuCount
+        - memoryMB
+        - diskSizeMB
+        - endAt
+        - state
+        - envdVersion
+      properties:
+        sandboxID:
+          type: string
+          description: Unique identifier of the sandbox
+          example: "sandbox-abc123xyz"
+        templateID:
+          type: string
+          description: ID of the template this sandbox was created from
+          example: "base"
+        alias:
+          type: string
+          description: Human-readable alias for the template
+          example: "my-python-template"
+        startedAt:
+          type: string
+          format: date-time
+          description: When the sandbox was created
+          example: "2024-01-15T10:30:00Z"
+        endAt:
+          type: string
+          format: date-time
+          description: When the sandbox will automatically terminate (can be extended)
+          example: "2024-01-15T10:45:00Z"
+        state:
+          type: string
+          enum: [running, paused]
+          description: Current state of the sandbox
+          example: "running"
+        cpuCount:
+          type: integer
+          description: Number of CPU cores allocated
+          example: 2
+        memoryMB:
+          type: integer
+          description: Memory allocated in megabytes
+          example: 512
+        diskSizeMB:
+          type: integer
+          description: Disk space allocated in megabytes
+          example: 1024
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom metadata attached to the sandbox
+          example:
+            user: "user-123"
+        envdVersion:
+          type: string
+          description: Version of the sandbox runtime
+        envdAccessToken:
+          type: string
+          description: Access token for Data Plane API calls
+        clientID:
+          type: string
+          deprecated: true
+        domain:
+          type: string
+          nullable: true
+
+    ListedSandbox:
+      type: object
+      description: Summary information about a sandbox in a list
+      required:
+        - templateID
+        - sandboxID
+        - clientID
+        - startedAt
+        - cpuCount
+        - memoryMB
+        - diskSizeMB
+        - endAt
+        - state
+        - envdVersion
+      properties:
+        sandboxID:
+          type: string
+          description: Unique identifier of the sandbox
+        templateID:
+          type: string
+          description: ID of the template
+        alias:
+          type: string
+          description: Template alias
+        startedAt:
+          type: string
+          format: date-time
+          description: When the sandbox was created
+        endAt:
+          type: string
+          format: date-time
+          description: When the sandbox will terminate
+        state:
+          type: string
+          enum: [running, paused]
+          description: Current state
+        cpuCount:
+          type: integer
+        memoryMB:
+          type: integer
+        diskSizeMB:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        envdVersion:
+          type: string
+        clientID:
+          type: string
+          deprecated: true
+
+    SandboxMetric:
+      type: object
+      description: Resource usage metrics for a sandbox at a point in time
+      required:
+        - timestampUnix
+        - cpuCount
+        - cpuUsedPct
+        - memUsed
+        - memTotal
+        - diskUsed
+        - diskTotal
+      properties:
+        timestampUnix:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds since epoch)
+          example: 1705315800
+        cpuCount:
+          type: integer
+          description: Number of CPU cores
+          example: 2
+        cpuUsedPct:
+          type: number
+          format: float
+          description: CPU usage as a percentage (0-100 per core, so max is cpuCount * 100)
+          example: 45.5
+        memUsed:
+          type: integer
+          format: int64
+          description: Memory used in bytes
+          example: 268435456
+        memTotal:
+          type: integer
+          format: int64
+          description: Total memory available in bytes
+          example: 536870912
+        diskUsed:
+          type: integer
+          format: int64
+          description: Disk space used in bytes
+          example: 104857600
+        diskTotal:
+          type: integer
+          format: int64
+          description: Total disk space in bytes
+          example: 1073741824
+
+    Template:
+      type: object
+      description: A sandbox template with pre-installed tools and configurations
+      required:
+        - templateID
+        - buildID
+        - public
+        - createdAt
+        - updatedAt
+      properties:
+        templateID:
+          type: string
+          description: Unique identifier of the template
+          example: "tpl-abc123"
+        buildID:
+          type: string
+          description: ID of the current (latest successful) build
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        names:
+          type: array
+          items:
+            type: string
+          description: Human-readable names/aliases for the template
+          example: ["my-python-env", "team/python-ml"]
+        public:
+          type: boolean
+          description: Whether the template is publicly accessible
+          example: false
+        cpuCount:
+          type: integer
+          description: Default CPU cores for sandboxes
+          example: 2
+        memoryMB:
+          type: integer
+          description: Default memory in MB
+          example: 512
+        diskSizeMB:
+          type: integer
+          description: Default disk size in MB
+          example: 1024
+        createdAt:
+          type: string
+          format: date-time
+          description: When the template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the template was last modified
+        lastSpawnedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a sandbox was last created from this template
+        spawnCount:
+          type: integer
+          format: int64
+          description: Total number of sandboxes created from this template
+          example: 1542
+        buildCount:
+          type: integer
+          description: Number of builds for this template
+          example: 5
+        envdVersion:
+          type: string
+          description: Runtime version
+
+paths:
+  # ============================================
+  # SANDBOX ENDPOINTS (Control Plane)
+  # ============================================
+
+  /sandboxes:
+    get:
+      summary: List running sandboxes
+      description: |
+        Returns a list of all currently running sandboxes for your team.
+        Use the `metadata` parameter to filter sandboxes by custom metadata.
+
+        **Note:** This endpoint only returns running sandboxes. Paused sandboxes
+        are not included. Use `GET /v2/sandboxes` with state filter for more options.
+      operationId: listSandboxes
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: metadata
+          in: query
+          description: |
+            Filter sandboxes by metadata. Format: `key=value&key2=value2`
+            Each key and value must be URL encoded.
+          required: false
+          schema:
+            type: string
+          example: "user=user-123&project=demo"
+      responses:
+        '200':
+          description: List of running sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListedSandbox'
+              example:
+                - sandboxID: "sandbox-abc123"
+                  templateID: "base"
+                  state: "running"
+                  startedAt: "2024-01-15T10:30:00Z"
+                  endAt: "2024-01-15T10:45:00Z"
+                  cpuCount: 2
+                  memoryMB: 512
+                  diskSizeMB: 1024
+                  metadata:
+                    user: "user-123"
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+    post:
+      summary: Create a sandbox
+      description: |
+        Creates a new sandbox from the specified template. The sandbox starts
+        immediately and is ready to use within a few seconds.
+
+        **Returns:**
+        - `sandboxID`: Use this to identify the sandbox in subsequent API calls
+        - `envdAccessToken`: Use this as `X-Access-Token` for Data Plane API calls
+
+        **Example workflow:**
+        ```bash
+        # Create sandbox
+        response=$(curl -X POST -H "X-API-Key: $API_KEY" \
+          -d '{"templateID": "base", "timeout": 300}' \
+          https://api.e2b.app/sandboxes)
+
+        # Extract sandboxID and token
+        SANDBOX_ID=$(echo $response | jq -r '.sandboxID')
+        ACCESS_TOKEN=$(echo $response | jq -r '.envdAccessToken')
+
+        # Now use the sandbox...
+        curl -H "X-Access-Token: $ACCESS_TOKEN" \
+          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/hello.txt"
+        ```
+      operationId: createSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewSandbox'
+            example:
+              templateID: "base"
+              timeout: 300
+              metadata:
+                user: "user-123"
+                project: "code-review"
+              envVars:
+                NODE_ENV: "development"
+      responses:
+        '201':
+          description: Sandbox created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+              example:
+                sandboxID: "sandbox-abc123xyz"
+                templateID: "base"
+                envdAccessToken: "eyJhbGciOiJIUzI1NiIs..."
+                envdVersion: "0.1.0"
+                domain: "e2b.app"
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}:
+    get:
+      summary: Get sandbox details
+      description: |
+        Returns detailed information about a specific sandbox, including its
+        current state, resource allocation, and metadata.
+      operationId: getSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '200':
+          description: Sandbox details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxDetail'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+    delete:
+      summary: Terminate a sandbox
+      description: |
+        Immediately terminates and deletes a sandbox. All data in the sandbox
+        is permanently lost.
+
+        **Warning:** This action cannot be undone. If you want to preserve the
+        sandbox state for later, use `POST /sandboxes/{sandboxID}/pause` instead.
+      operationId: deleteSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: Sandbox terminated successfully
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/pause:
+    post:
+      summary: Pause a sandbox
+      description: |
+        Pauses a running sandbox. The sandbox state is preserved and can be
+        resumed later with `POST /sandboxes/{sandboxID}/connect`.
+
+        **Benefits of pausing:**
+        - No compute charges while paused
+        - State is preserved (files, installed packages, etc.)
+        - Resume in seconds instead of creating a new sandbox
+
+        **Limitations:**
+        - Running processes are stopped
+        - Network connections are closed
+        - Paused sandboxes have a maximum retention period
+      operationId: pauseSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: Sandbox paused successfully
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          description: Sandbox is already paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/connect:
+    post:
+      summary: Connect to or resume a sandbox
+      description: |
+        Returns sandbox connection details. If the sandbox is paused, it will
+        be automatically resumed.
+
+        Use this endpoint to:
+        - Resume a paused sandbox
+        - Get connection details for a running sandbox
+        - Extend the sandbox timeout
+
+        **Note:** The timeout is extended from the current time, not added to
+        the existing timeout.
+      operationId: connectSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - timeout
+              properties:
+                timeout:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  description: New timeout in seconds from now
+                  example: 300
+            example:
+              timeout: 300
+      responses:
+        '200':
+          description: Sandbox was already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '201':
+          description: Sandbox was resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/timeout:
+    post:
+      summary: Set sandbox timeout
+      description: |
+        Sets a new timeout for the sandbox. The sandbox will automatically
+        terminate after the specified number of seconds from now.
+
+        **Note:** This replaces any existing timeout. Each call resets the
+        countdown from the current time.
+      operationId: setSandboxTimeout
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - timeout
+              properties:
+                timeout:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  description: Timeout in seconds from now
+                  example: 600
+            example:
+              timeout: 600
+      responses:
+        '204':
+          description: Timeout updated successfully
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/refreshes:
+    post:
+      summary: Extend sandbox lifetime
+      description: |
+        Extends the sandbox lifetime by the specified duration. Unlike
+        `/timeout`, this adds time to the existing expiration.
+      operationId: refreshSandbox
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration:
+                  type: integer
+                  minimum: 0
+                  maximum: 3600
+                  description: Duration to add in seconds (max 1 hour)
+                  example: 300
+            example:
+              duration: 300
+      responses:
+        '204':
+          description: Sandbox lifetime extended
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+
+  /sandboxes/{sandboxID}/logs:
+    get:
+      summary: Get sandbox logs
+      description: |
+        Returns system logs from the sandbox. These include sandbox startup logs
+        and system-level events, not application output.
+
+        For process output, use the Process API to stream stdout/stderr.
+      operationId: getSandboxLogs
+      tags:
+        - Sandboxes
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+        - name: start
+          in: query
+          description: Start timestamp in milliseconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of log entries to return
+          schema:
+            type: integer
+            format: int32
+            default: 1000
+            minimum: 0
+      responses:
+        '200':
+          description: Sandbox logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        line:
+                          type: string
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /sandboxes/{sandboxID}/metrics:
+    get:
+      summary: Get sandbox metrics
+      description: |
+        Returns resource usage metrics (CPU, memory, disk) for a specific sandbox
+        over a time range.
+      operationId: getSandboxMetrics
+      tags:
+        - Metrics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/sandboxID'
+        - name: start
+          in: query
+          description: Start timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: end
+          in: query
+          description: End timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Sandbox metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SandboxMetric'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /teams/{teamID}/metrics:
+    get:
+      summary: Get team metrics
+      description: |
+        Returns usage metrics for your team over a time range, including
+        concurrent sandbox count and sandbox start rate.
+      operationId: getTeamMetrics
+      tags:
+        - Metrics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/teamID'
+        - name: start
+          in: query
+          description: Start timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: end
+          in: query
+          description: End timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Team metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    timestampUnix:
+                      type: integer
+                      format: int64
+                      description: Unix timestamp
+                    concurrentSandboxes:
+                      type: integer
+                      description: Number of sandboxes running at this time
+                    sandboxStartRate:
+                      type: number
+                      format: float
+                      description: Sandboxes started per second
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /teams/{teamID}/metrics/max:
+    get:
+      summary: Get max team metrics
+      description: |
+        Returns the maximum value of a specific metric for your team
+        over a time range.
+      operationId: getTeamMetricsMax
+      tags:
+        - Metrics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/teamID'
+        - name: start
+          in: query
+          description: Start timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: end
+          in: query
+          description: End timestamp in seconds (Unix epoch)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: metric
+          in: query
+          required: true
+          description: Which metric to get the maximum value for
+          schema:
+            type: string
+            enum:
+              - concurrent_sandboxes
+              - sandbox_start_rate
+      responses:
+        '200':
+          description: Maximum metric value
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestampUnix:
+                    type: integer
+                    format: int64
+                    description: When the max value occurred
+                  value:
+                    type: number
+                    description: The maximum value
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # ============================================
+  # TEMPLATE ENDPOINTS (Control Plane)
+  # ============================================
+
+  /templates:
+    get:
+      summary: List templates
+      description: |
+        Returns all templates accessible to your team, including both custom
+        templates you've created and public templates.
+      operationId: listTemplates
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: teamID
+          in: query
+          required: false
+          description: Filter templates by team ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /templates/{templateID}:
+    get:
+      summary: Get template details
+      description: |
+        Returns detailed information about a template, including all its builds.
+      operationId: getTemplate
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+        - $ref: '#/components/parameters/paginationNextToken'
+        - $ref: '#/components/parameters/paginationLimit'
+      responses:
+        '200':
+          description: Template details with builds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templateID:
+                    type: string
+                  public:
+                    type: boolean
+                  names:
+                    type: array
+                    items:
+                      type: string
+                  builds:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        buildID:
+                          type: string
+                        status:
+                          type: string
+                          enum: [pending, building, ready, failed]
+                        createdAt:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+    delete:
+      summary: Delete a template
+      description: |
+        Permanently deletes a template and all its builds.
+
+        **Warning:** This action cannot be undone. Existing sandboxes created
+        from this template will continue to work, but no new sandboxes can be
+        created from it.
+      operationId: deleteTemplate
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/templateID'
+      responses:
+        '204':
+          description: Template deleted successfully
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # ============================================
+  # SANDBOX FILES ENDPOINTS (Data Plane)
+  # ============================================
+
+  /files:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+            description: API port (always 49982)
+          sandboxId:
+            default: 'your-sandbox-id'
+            description: Your sandbox ID from the create response
+    get:
+      summary: Download a file
+      description: |
+        Downloads a file from the sandbox. The file is returned as binary data.
+
+        **Example:**
+        ```bash
+        curl -H "X-Access-Token: $ACCESS_TOKEN" \
+          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/output.json" \
+          -o output.json
+        ```
+      operationId: downloadFile
+      tags:
+        - Sandbox Files
+      security:
+        - AccessTokenAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxFilePath'
+        - $ref: '#/components/parameters/SandboxUser'
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid path
+        '404':
+          description: File not found
+        '500':
+          description: Server error
+
+    post:
+      summary: Upload a file
+      description: |
+        Uploads a file to the sandbox. Parent directories are created automatically
+        if they don't exist. If the file already exists, it will be overwritten.
+
+        **Example:**
+        ```bash
+        curl -X POST -H "X-Access-Token: $ACCESS_TOKEN" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @local-file.txt \
+          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/uploaded.txt"
+        ```
+      operationId: uploadFile
+      tags:
+        - Sandbox Files
+      security:
+        - AccessTokenAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxFilePath'
+        - $ref: '#/components/parameters/SandboxUser'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: File name
+                    type:
+                      type: string
+                      enum: [file, dir]
+                    path:
+                      type: string
+                      description: Full path to the file
+        '400':
+          description: Invalid path
+        '507':
+          description: Not enough disk space
+
+  # ============================================
+  # SANDBOX FILESYSTEM ENDPOINTS (Data Plane)
+  # ============================================
+
+  /filesystem.Filesystem/ListDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: List directory contents
+      description: |
+        Lists files and subdirectories in the specified directory.
+
+        **Request body:**
+        ```json
+        {
+          "path": "/home/user",
+          "depth": 1
+        }
+        ```
+      operationId: listDirectory
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Directory path to list
+                  example: "/home/user"
+                depth:
+                  type: integer
+                  description: How many levels deep to list (1 = immediate children only)
+                  default: 1
+                  example: 1
+      responses:
+        '200':
+          description: Directory listing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum: [file, dir]
+                        path:
+                          type: string
+                        size:
+                          type: integer
+                          format: int64
+
+  /filesystem.Filesystem/MakeDir:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Create a directory
+      description: |
+        Creates a directory at the specified path. Parent directories are
+        created automatically if they don't exist (like `mkdir -p`).
+      operationId: makeDirectory
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Path for the new directory
+                  example: "/home/user/projects/new-project"
+      responses:
+        '200':
+          description: Directory created
+
+  /filesystem.Filesystem/Remove:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Delete a file or directory
+      description: |
+        Deletes a file or directory. For directories, all contents are
+        deleted recursively (like `rm -rf`).
+
+        **Warning:** This action cannot be undone.
+      operationId: removeFile
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Path to delete
+                  example: "/home/user/temp-file.txt"
+      responses:
+        '200':
+          description: File or directory deleted
+
+  /filesystem.Filesystem/Move:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Move or rename a file
+      description: |
+        Moves a file or directory to a new location. Can also be used to rename.
+      operationId: moveFile
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source
+                - destination
+              properties:
+                source:
+                  type: string
+                  description: Current path
+                  example: "/home/user/old-name.txt"
+                destination:
+                  type: string
+                  description: New path
+                  example: "/home/user/new-name.txt"
+      responses:
+        '200':
+          description: File moved
+
+  /filesystem.Filesystem/Stat:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Get file information
+      description: |
+        Returns metadata about a file or directory (size, type, permissions, etc.).
+      operationId: statFile
+      tags:
+        - Sandbox Filesystem
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Path to inspect
+                  example: "/home/user/file.txt"
+      responses:
+        '200':
+          description: File information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                    enum: [file, dir]
+                  size:
+                    type: integer
+                    format: int64
+                  permissions:
+                    type: string
+
+  # ============================================
+  # SANDBOX PROCESS ENDPOINTS (Data Plane)
+  # ============================================
+
+  /process.Process/Start:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Start a process
+      description: |
+        Starts a new process in the sandbox. Returns a process ID that can be
+        used to monitor, send input to, or terminate the process.
+
+        **Example - Run a Python script:**
+        ```json
+        {
+          "cmd": "python",
+          "args": ["script.py"],
+          "cwd": "/home/user",
+          "envVars": {
+            "PYTHONPATH": "/home/user/lib"
+          }
+        }
+        ```
+
+        **Example - Run a shell command:**
+        ```json
+        {
+          "cmd": "/bin/bash",
+          "args": ["-c", "echo 'Hello World' && sleep 5"]
+        }
+        ```
+      operationId: startProcess
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cmd
+              properties:
+                cmd:
+                  type: string
+                  description: Command to execute
+                  example: "python"
+                args:
+                  type: array
+                  items:
+                    type: string
+                  description: Command arguments
+                  example: ["script.py", "--verbose"]
+                cwd:
+                  type: string
+                  description: Working directory
+                  example: "/home/user"
+                envVars:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Environment variables
+                  example:
+                    NODE_ENV: "production"
+      responses:
+        '200':
+          description: Process started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pid:
+                    type: string
+                    description: Process ID for subsequent operations
+
+  /process.Process/List:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: List running processes
+      description: |
+        Returns a list of all processes currently running in the sandbox.
+      operationId: listProcesses
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        pid:
+                          type: string
+                        cmd:
+                          type: string
+
+  /process.Process/SendSignal:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Send a signal to a process
+      description: |
+        Sends a Unix signal to a process. Common signals:
+        - `SIGTERM` (15): Request graceful termination
+        - `SIGKILL` (9): Force immediate termination
+        - `SIGINT` (2): Interrupt (like Ctrl+C)
+      operationId: sendSignal
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pid
+                - signal
+              properties:
+                pid:
+                  type: string
+                  description: Process ID
+                signal:
+                  type: integer
+                  description: Signal number (e.g., 9 for SIGKILL, 15 for SIGTERM)
+                  example: 15
+      responses:
+        '200':
+          description: Signal sent
+
+  /process.Process/SendInput:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Send input to a process
+      description: |
+        Sends input to the stdin of a running process. Useful for interactive
+        programs that expect user input.
+      operationId: sendInput
+      tags:
+        - Sandbox Process
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pid
+                - input
+              properties:
+                pid:
+                  type: string
+                  description: Process ID
+                input:
+                  type: string
+                  description: Input to send (will be written to stdin)
+                  example: "yes\n"
+      responses:
+        '200':
+          description: Input sent
+
+  # ============================================
+  # SANDBOX INIT ENDPOINT (Data Plane)
+  # ============================================
+
+  /init:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Initialize sandbox connection
+      description: |
+        Initializes the sandbox connection and syncs environment variables,
+        time, and other metadata with the host.
+
+        **Note:** This endpoint is typically called automatically by the SDK
+        when connecting to a sandbox. You usually don't need to call it directly.
+      operationId: initSandbox
+      tags:
+        - Sandbox Init
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                envVars:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Environment variables to set
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Current timestamp for time sync
+                defaultUser:
+                  type: string
+                  description: Default user for operations
+                  example: "user"
+                defaultWorkdir:
+                  type: string
+                  description: Default working directory
+                  example: "/home/user"
+      responses:
+        '204':
+          description: Sandbox initialized successfully

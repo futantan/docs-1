@@ -27,83 +27,73 @@ const INFRA_RAW_BASE = 'https://raw.githubusercontent.com/e2b-dev/infra/main';
 
 // === CONFIGURATION ===
 
-const REST_API_CONFIG = {
-  source: `${INFRA_RAW_BASE}/spec/openapi.yml`,
+const CONFIG = {
   output: 'openapi-public.yml',
-  excludePaths: [
-    '/access-tokens',
-    '/access-tokens/{accessTokenID}',
-    '/admin/teams/{teamID}/sandboxes/kill',
-    '/api-keys',
-    '/api-keys/{apiKeyID}',
-    '/nodes',
-    '/nodes/{nodeID}',
-    '/teams',
-  ],
-  // Security schemes to remove from endpoints (keep only ApiKeyAuth)
-  removeSecuritySchemes: [
-    'Supabase1TokenAuth',
-    'Supabase2TeamAuth',
-    'AccessTokenAuth',
-    'AdminTokenAuth',
-  ],
+
+  // REST API configuration
+  restApi: {
+    source: `${INFRA_RAW_BASE}/spec/openapi.yml`,
+    excludePaths: [
+      '/access-tokens',
+      '/access-tokens/{accessTokenID}',
+      '/admin/teams/{teamID}/sandboxes/kill',
+      '/api-keys',
+      '/api-keys/{apiKeyID}',
+      '/health',
+      '/nodes',
+      '/nodes/{nodeID}',
+      '/teams',
+    ],
+    removeSecuritySchemes: [
+      'Supabase1TokenAuth',
+      'Supabase2TeamAuth',
+      'AccessTokenAuth',
+      'AdminTokenAuth',
+    ],
+  },
+
+  // Sandbox API configuration
+  sandboxApi: {
+    envdSource: `${INFRA_RAW_BASE}/packages/envd/spec/envd.yaml`,
+    filesystemProto: `${INFRA_RAW_BASE}/packages/envd/spec/filesystem/filesystem.proto`,
+    processProto: `${INFRA_RAW_BASE}/packages/envd/spec/process/process.proto`,
+    excludePaths: [
+      '/metrics',
+      '/envs',
+      '/health'
+    ],
+    removeSchemas: [
+      'connect-protocol-version',
+      'connect-timeout-header',
+      'connect.error'
+    ],
+    removeHeaders: [
+      'Connect-Protocol-Version',
+      'Connect-Timeout-Ms'
+    ],
+    // Tag renames for sandbox endpoints
+    tagRenames: {
+      'filesystem.Filesystem': 'Sandbox Filesystem',
+      'process.Process': 'Sandbox Process',
+      'files': 'Sandbox Files'
+    }
+  },
+
   info: {
-    title: 'E2B REST API',
-    description: `REST API for managing E2B sandboxes and templates.
+    title: 'E2B API',
+    description: `API for managing and interacting with E2B sandboxes.
 
-## Authentication
-All endpoints require authentication via API key passed in the \`X-API-Key\` header.
-Get your API key from the [E2B Dashboard](https://e2b.dev/dashboard?tab=keys).
+## REST API (api.e2b.app)
+Endpoints for creating and managing sandboxes and templates.
+- **Authentication**: \`X-API-Key\` header with your API key from the [E2B Dashboard](https://e2b.dev/dashboard?tab=keys)
+- **Base URL**: \`https://api.e2b.app\`
 
-## Base URL
-\`\`\`
-https://api.e2b.app
-\`\`\`
+## Sandbox API ({sandboxID}.e2b.app)
+Endpoints for interacting with files and processes inside a running sandbox.
+- **Authentication**: \`X-Access-Token\` header with the access token received when creating a sandbox
+- **Base URL**: \`https://{sandboxID}.e2b.app\`
 `
   }
-};
-
-const SANDBOX_API_CONFIG = {
-  envdSource: `${INFRA_RAW_BASE}/packages/envd/spec/envd.yaml`,
-  filesystemProto: `${INFRA_RAW_BASE}/packages/envd/spec/filesystem/filesystem.proto`,
-  processProto: `${INFRA_RAW_BASE}/packages/envd/spec/process/process.proto`,
-  output: 'openapi-sandbox.yml',
-  info: {
-    title: 'E2B Sandbox API',
-    description: `API for interacting with files and processes inside E2B sandboxes.
-
-## Authentication
-All endpoints require the \`X-Access-Token\` header with the access token received when creating a sandbox.
-
-## Base URL
-\`\`\`
-https://{sandboxID}.e2b.app
-\`\`\`
-
-## Getting the Access Token
-1. Create a sandbox via REST API: \`POST https://api.e2b.app/sandboxes\`
-2. Response includes \`sandboxID\` and \`envdAccessToken\`
-3. Use \`envdAccessToken\` as \`X-Access-Token\` header for all Sandbox API calls
-`
-  },
-  // Internal endpoints to exclude (SDK initialization, not user-facing)
-  excludePaths: [
-    '/init',
-    '/metrics',
-    '/envs',
-    '/health'
-  ],
-  // Connect RPC schemas to remove (protocol-level, not user-facing)
-  removeSchemas: [
-    'connect-protocol-version',
-    'connect-timeout-header',
-    'connect.error'
-  ],
-  // Connect headers to remove from endpoint parameters
-  removeHeaders: [
-    'Connect-Protocol-Version',
-    'Connect-Timeout-Ms'
-  ]
 };
 
 // === UTILITY FUNCTIONS ===
@@ -133,48 +123,42 @@ function saveYaml(filename, data) {
   console.log(`Saved: ${outputPath}`);
 }
 
-// === REST API SPEC GENERATION ===
+// === REST API PROCESSING ===
 
-async function generateRestApiSpec() {
-  console.log('\n=== Generating REST API Spec ===\n');
+async function fetchRestApiSpec() {
+  console.log('\n=== Fetching REST API Spec ===\n');
 
-  const spec = await fetchYaml(REST_API_CONFIG.source);
+  const spec = await fetchYaml(CONFIG.restApi.source);
 
   // Filter out excluded paths AND endpoints that only use Supabase tokens
   const filteredPaths = {};
   for (const [path, methods] of Object.entries(spec.paths || {})) {
-    // Skip explicitly excluded paths
-    if (REST_API_CONFIG.excludePaths.includes(path)) {
+    if (CONFIG.restApi.excludePaths.includes(path)) {
       continue;
     }
 
-    // Check each method in this path
     const filteredMethods = {};
     for (const [method, operation] of Object.entries(methods)) {
-      // Skip non-operation properties like 'parameters'
       if (!operation.security && !operation.responses) {
         filteredMethods[method] = operation;
         continue;
       }
 
-      // Check if this endpoint has ApiKeyAuth
       const hasApiKeyAuth = operation.security?.some(secObj =>
         Object.keys(secObj).includes('ApiKeyAuth')
       );
 
-      // Keep endpoint only if it has ApiKeyAuth (or no security = public)
       if (hasApiKeyAuth || !operation.security) {
         filteredMethods[method] = operation;
       }
     }
 
-    // Only add path if it has any methods left
     if (Object.keys(filteredMethods).length > 0) {
       filteredPaths[path] = filteredMethods;
     }
   }
   spec.paths = filteredPaths;
-  console.log(`Filtered paths: ${Object.keys(filteredPaths).length} remaining`);
+  console.log(`REST API: ${Object.keys(filteredPaths).length} endpoints`);
 
   // Keep only ApiKeyAuth security scheme
   if (spec.components?.securitySchemes?.ApiKeyAuth) {
@@ -183,17 +167,14 @@ async function generateRestApiSpec() {
     };
   }
 
-  // Clean up security references in endpoints - remove Supabase/AccessToken refs
+  // Clean up security references
   for (const [path, methods] of Object.entries(spec.paths || {})) {
     for (const [method, operation] of Object.entries(methods)) {
       if (operation.security) {
-        // Filter out security schemes we don't want
         operation.security = operation.security.filter(secObj => {
           const schemes = Object.keys(secObj);
-          // Keep only if it has ApiKeyAuth or is empty (public endpoint)
           return schemes.length === 0 || schemes.includes('ApiKeyAuth');
         });
-        // If no security left, remove the property (makes it use global security)
         if (operation.security.length === 0) {
           delete operation.security;
         }
@@ -201,23 +182,17 @@ async function generateRestApiSpec() {
     }
   }
 
-  // Update info section
-  spec.info.title = REST_API_CONFIG.info.title;
-  spec.info.description = REST_API_CONFIG.info.description;
-
-  saveYaml(REST_API_CONFIG.output, spec);
   return spec;
 }
 
-// === SANDBOX API SPEC GENERATION ===
+// === SANDBOX API PROCESSING ===
 
-async function generateSandboxApiSpec() {
-  console.log('\n=== Generating Sandbox API Spec ===\n');
+async function fetchSandboxApiSpec() {
+  console.log('\n=== Fetching Sandbox API Spec ===\n');
 
-  // Fetch base envd.yaml
-  const spec = await fetchYaml(SANDBOX_API_CONFIG.envdSource);
+  const spec = await fetchYaml(CONFIG.sandboxApi.envdSource);
 
-  // Fix security scheme (scheme: header -> in: header)
+  // Fix security scheme
   if (spec.components?.securitySchemes?.AccessTokenAuth) {
     spec.components.securitySchemes.AccessTokenAuth = {
       type: 'apiKey',
@@ -227,59 +202,43 @@ async function generateSandboxApiSpec() {
     };
   }
 
-  // Update info section
-  spec.info.title = SANDBOX_API_CONFIG.info.title;
-  spec.info.description = SANDBOX_API_CONFIG.info.description;
-
-  // Try to generate and merge proto-based specs
+  // Try to merge proto-based specs
   try {
     await mergeProtoSpecs(spec);
   } catch (e) {
     console.warn(`Warning: Could not generate proto specs: ${e.message}`);
-    console.warn('Sandbox API will only include REST endpoints (/files, /health, etc.)');
   }
 
   // Filter out internal endpoints
-  const excludePaths = SANDBOX_API_CONFIG.excludePaths || [];
-  for (const excludePath of excludePaths) {
+  for (const excludePath of CONFIG.sandboxApi.excludePaths) {
     if (spec.paths[excludePath]) {
       delete spec.paths[excludePath];
-      console.log(`Excluded internal endpoint: ${excludePath}`);
+      console.log(`Excluded: ${excludePath}`);
     }
   }
 
-  // Clean up tags - rename to user-friendly names
-  const tagRenames = {
-    'filesystem.Filesystem': 'Filesystem',
-    'process.Process': 'Process',
-    'files': 'Files'
-  };
-
-  // Update tags in paths
+  // Rename tags to include "Sandbox" prefix
   for (const [path, methods] of Object.entries(spec.paths || {})) {
     for (const [method, operation] of Object.entries(methods)) {
       if (operation.tags) {
-        operation.tags = operation.tags.map(tag => tagRenames[tag] || tag);
+        operation.tags = operation.tags.map(tag =>
+          CONFIG.sandboxApi.tagRenames[tag] || `Sandbox ${tag}`
+        );
+      } else {
+        // Add default tag for untagged endpoints
+        operation.tags = ['Sandbox'];
       }
     }
   }
 
-  // Update top-level tags list
-  spec.tags = [
-    { name: 'Files', description: 'Upload and download files' },
-    { name: 'Filesystem', description: 'Filesystem operations (list, create, move, delete)' },
-    { name: 'Process', description: 'Process management (start, stop, send input)' }
-  ];
-
-  // Apply fixes
+  // Apply schema fixes
   applySchemaFixes(spec);
 
-  saveYaml(SANDBOX_API_CONFIG.output, spec);
+  console.log(`Sandbox API: ${Object.keys(spec.paths || {}).length} endpoints`);
   return spec;
 }
 
 async function mergeProtoSpecs(spec) {
-  // Check if buf and protoc-gen-connect-openapi are available
   try {
     execSync('which buf', { stdio: 'pipe' });
     execSync('which protoc-gen-connect-openapi', { stdio: 'pipe' });
@@ -287,25 +246,20 @@ async function mergeProtoSpecs(spec) {
     throw new Error('buf or protoc-gen-connect-openapi not installed');
   }
 
-  // Create temp directory for proto generation
   const tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'openapi-'));
   console.log(`Using temp directory: ${tempDir}`);
 
   try {
-    // Fetch proto files
-    const filesystemProto = await fetchText(SANDBOX_API_CONFIG.filesystemProto);
-    const processProto = await fetchText(SANDBOX_API_CONFIG.processProto);
+    const filesystemProto = await fetchText(CONFIG.sandboxApi.filesystemProto);
+    const processProto = await fetchText(CONFIG.sandboxApi.processProto);
 
-    // Write proto files
     fs.mkdirSync(path.join(tempDir, 'filesystem'), { recursive: true });
     fs.mkdirSync(path.join(tempDir, 'process'), { recursive: true });
     fs.writeFileSync(path.join(tempDir, 'filesystem', 'filesystem.proto'), filesystemProto);
     fs.writeFileSync(path.join(tempDir, 'process', 'process.proto'), processProto);
 
-    // Write buf.yaml
     fs.writeFileSync(path.join(tempDir, 'buf.yaml'), 'version: v1\n');
 
-    // Write buf.gen.yaml for OpenAPI generation
     const bufGenYaml = `version: v2
 plugins:
   - local: protoc-gen-connect-openapi
@@ -315,34 +269,73 @@ plugins:
 `;
     fs.writeFileSync(path.join(tempDir, 'buf.gen.yaml'), bufGenYaml);
 
-    // Run buf generate
     console.log('Running buf generate...');
     execSync('buf generate', { cwd: tempDir, stdio: 'pipe' });
 
-    // Load generated specs
     const filesystemSpecPath = path.join(tempDir, 'filesystem', 'filesystem.openapi.yaml');
     const processSpecPath = path.join(tempDir, 'process', 'process.openapi.yaml');
 
     if (fs.existsSync(filesystemSpecPath)) {
       const filesystemSpec = yaml.load(fs.readFileSync(filesystemSpecPath, 'utf8'));
-      mergeSpec(spec, filesystemSpec, '/filesystem.');
+      mergeSpecPaths(spec, filesystemSpec, '/filesystem.');
     }
 
     if (fs.existsSync(processSpecPath)) {
       const processSpec = yaml.load(fs.readFileSync(processSpecPath, 'utf8'));
-      mergeSpec(spec, processSpec, '/process.');
+      mergeSpecPaths(spec, processSpec, '/process.');
     }
 
     console.log('Merged filesystem and process endpoints');
 
   } finally {
-    // Cleanup temp directory
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
+function mergeSpecPaths(target, source, pathPrefix) {
+  for (const [path, methods] of Object.entries(source.paths || {})) {
+    if (path.startsWith(pathPrefix)) {
+      target.paths[path] = methods;
+    }
+  }
+
+  if (source.components?.schemas) {
+    target.components = target.components || {};
+    target.components.schemas = target.components.schemas || {};
+    Object.assign(target.components.schemas, source.components.schemas);
+  }
+}
+
+function applySchemaFixes(spec) {
+  if (spec.components?.schemas) {
+    for (const schemaName of CONFIG.sandboxApi.removeSchemas) {
+      if (spec.components.schemas[schemaName]) {
+        delete spec.components.schemas[schemaName];
+      }
+    }
+    fixInvalidTypeArrays(spec.components.schemas);
+  }
+
+  for (const [path, methods] of Object.entries(spec.paths || {})) {
+    for (const [method, operation] of Object.entries(methods)) {
+      if (operation.parameters) {
+        operation.parameters = operation.parameters.filter(p =>
+          !CONFIG.sandboxApi.removeHeaders.includes(p.name)
+        );
+      }
+
+      if (operation.responses) {
+        for (const [code, response] of Object.entries(operation.responses)) {
+          if (response.content?.['application/json']?.schema?.$ref === '#/components/schemas/connect.error') {
+            response.content['application/json'].schema.$ref = '#/components/schemas/Error';
+          }
+        }
+      }
+    }
+  }
+}
+
 function fixInvalidTypeArrays(schemas) {
-  // Recursively fix type arrays in schemas (OpenAPI 3.0 doesn't support type arrays)
   for (const [name, schema] of Object.entries(schemas)) {
     fixTypeArraysRecursive(schema);
   }
@@ -351,27 +344,21 @@ function fixInvalidTypeArrays(schemas) {
 function fixTypeArraysRecursive(obj) {
   if (!obj || typeof obj !== 'object') return;
 
-  // Fix type arrays - convert to first type (usually the main type)
   if (Array.isArray(obj.type)) {
-    // Use the first non-null type
     const mainType = obj.type.find(t => t !== 'null') || obj.type[0];
     obj.type = mainType;
   }
 
-  // Fix examples -> example (OpenAPI 3.0 uses singular for schemas)
   if (obj.examples && !obj.example) {
     obj.example = Array.isArray(obj.examples) ? obj.examples[0] : obj.examples;
     delete obj.examples;
   }
 
-  // Fix oneOf with type: 'null' -> nullable: true (OpenAPI 3.0 style)
   if (Array.isArray(obj.oneOf)) {
     const nullIndex = obj.oneOf.findIndex(item => item.type === 'null');
     if (nullIndex !== -1) {
-      // Remove the null type from oneOf
       obj.oneOf.splice(nullIndex, 1);
       obj.nullable = true;
-      // If only one item left, unwrap the oneOf
       if (obj.oneOf.length === 1) {
         const remaining = obj.oneOf[0];
         delete obj.oneOf;
@@ -382,24 +369,20 @@ function fixTypeArraysRecursive(obj) {
     }
   }
 
-  // Recurse into properties
   if (obj.properties) {
     for (const prop of Object.values(obj.properties)) {
       fixTypeArraysRecursive(prop);
     }
   }
 
-  // Recurse into items (for arrays)
   if (obj.items) {
     fixTypeArraysRecursive(obj.items);
   }
 
-  // Recurse into additionalProperties
   if (obj.additionalProperties && typeof obj.additionalProperties === 'object') {
     fixTypeArraysRecursive(obj.additionalProperties);
   }
 
-  // Recurse into allOf/oneOf/anyOf
   for (const key of ['allOf', 'oneOf', 'anyOf']) {
     if (Array.isArray(obj[key])) {
       for (const item of obj[key]) {
@@ -409,67 +392,121 @@ function fixTypeArraysRecursive(obj) {
   }
 }
 
-function mergeSpec(target, source, pathPrefix) {
-  // Merge paths
-  for (const [path, methods] of Object.entries(source.paths || {})) {
-    if (path.startsWith(pathPrefix)) {
-      target.paths[path] = methods;
+// === MERGE SPECS ===
+
+function mergeSpecs(restSpec, sandboxSpec) {
+  console.log('\n=== Merging Specs ===\n');
+
+  // Start with REST API spec as base
+  const merged = restSpec;
+
+  // Update info
+  merged.info.title = CONFIG.info.title;
+  merged.info.description = CONFIG.info.description;
+
+  // Add AccessTokenAuth security scheme for sandbox endpoints
+  merged.components.securitySchemes.AccessTokenAuth = {
+    type: 'apiKey',
+    in: 'header',
+    name: 'X-Access-Token',
+    description: 'Access token received when creating a sandbox (for Sandbox API endpoints)'
+  };
+
+  // Track sandbox paths for ref updates
+  const sandboxPaths = new Set(Object.keys(sandboxSpec.paths || {}));
+
+  // Sandbox API server (different host)
+  const sandboxServer = {
+    url: 'https://{port}-{sandboxId}.e2b.app',
+    description: 'Sandbox API',
+    variables: {
+      port: {
+        default: '49982',
+        description: 'Port number for the sandbox API'
+      },
+      sandboxId: {
+        default: 'sandbox-id',
+        description: 'Sandbox ID returned when creating a sandbox'
+      }
     }
-  }
+  };
 
-  // Merge schemas
-  if (source.components?.schemas) {
-    target.components = target.components || {};
-    target.components.schemas = target.components.schemas || {};
-    Object.assign(target.components.schemas, source.components.schemas);
-  }
+  // Merge sandbox paths with per-path server override
+  for (const [path, methods] of Object.entries(sandboxSpec.paths || {})) {
+    // Add server override for this path
+    merged.paths[path] = {
+      servers: [sandboxServer],
+      ...methods
+    };
 
-  // Merge tags
-  if (source.tags) {
-    target.tags = target.tags || [];
-    const existingTags = new Set(target.tags.map(t => t.name));
-    for (const tag of source.tags) {
-      if (!existingTags.has(tag.name)) {
-        target.tags.push(tag);
+    // Update security to use AccessTokenAuth for sandbox endpoints
+    for (const [method, operation] of Object.entries(methods)) {
+      if (typeof operation === 'object' && operation !== null && !Array.isArray(operation)) {
+        operation.security = [{ AccessTokenAuth: [] }];
       }
     }
   }
+
+  // Merge sandbox components (schemas, requestBodies, responses, parameters)
+  const componentTypes = ['schemas', 'requestBodies', 'responses', 'parameters'];
+  for (const componentType of componentTypes) {
+    if (sandboxSpec.components?.[componentType]) {
+      merged.components[componentType] = merged.components[componentType] || {};
+      for (const [name, component] of Object.entries(sandboxSpec.components[componentType])) {
+        const prefixedName = `Sandbox${name}`;
+        merged.components[componentType][prefixedName] = component;
+      }
+    }
+  }
+
+  // Update $ref references in sandbox paths and components
+  for (const [path, methods] of Object.entries(merged.paths)) {
+    if (sandboxPaths.has(path)) {
+      updateSchemaRefs(methods, 'Sandbox');
+    }
+  }
+  // Also update refs within sandbox components themselves
+  for (const componentType of componentTypes) {
+    for (const [name, component] of Object.entries(merged.components[componentType] || {})) {
+      if (name.startsWith('Sandbox')) {
+        updateSchemaRefs(component, 'Sandbox');
+      }
+    }
+  }
+
+  // Add tags
+  merged.tags = [
+    ...(merged.tags || []),
+    { name: 'Sandbox', description: 'Sandbox initialization' },
+    { name: 'Sandbox Files', description: 'Upload and download files in sandbox' },
+    { name: 'Sandbox Filesystem', description: 'Filesystem operations (list, create, move, delete)' },
+    { name: 'Sandbox Process', description: 'Process management (start, stop, send input)' }
+  ];
+
+  const totalEndpoints = Object.keys(merged.paths).length;
+  console.log(`Total endpoints: ${totalEndpoints}`);
+
+  return merged;
 }
 
-function applySchemaFixes(spec) {
-  // Remove Connect protocol schemas
-  if (spec.components?.schemas) {
-    for (const schemaName of SANDBOX_API_CONFIG.removeSchemas) {
-      if (spec.components.schemas[schemaName]) {
-        delete spec.components.schemas[schemaName];
-        console.log(`Removed schema: ${schemaName}`);
+function updateSchemaRefs(obj, prefix) {
+  if (!obj || typeof obj !== 'object') return;
+
+  // Handle all component $ref types
+  if (obj.$ref && obj.$ref.startsWith('#/components/')) {
+    const match = obj.$ref.match(/^#\/components\/(\w+)\/(.+)$/);
+    if (match) {
+      const [, componentType, name] = match;
+      // Don't prefix common schemas that exist in REST API
+      if (!['Error'].includes(name)) {
+        obj.$ref = `#/components/${componentType}/${prefix}${name}`;
       }
     }
-
-    // Fix invalid type arrays (e.g., type: [integer, string] -> oneOf)
-    fixInvalidTypeArrays(spec.components.schemas);
   }
 
-  // Remove Connect headers from endpoint parameters
-  for (const [path, methods] of Object.entries(spec.paths || {})) {
-    for (const [method, operation] of Object.entries(methods)) {
-      if (operation.parameters) {
-        const filtered = operation.parameters.filter(p =>
-          !SANDBOX_API_CONFIG.removeHeaders.includes(p.name)
-        );
-        if (filtered.length !== operation.parameters.length) {
-          operation.parameters = filtered;
-        }
-      }
-
-      // Replace connect.error references with standard Error
-      if (operation.responses) {
-        for (const [code, response] of Object.entries(operation.responses)) {
-          if (response.content?.['application/json']?.schema?.$ref === '#/components/schemas/connect.error') {
-            response.content['application/json'].schema.$ref = '#/components/schemas/Error';
-          }
-        }
-      }
+  for (const value of Object.values(obj)) {
+    if (typeof value === 'object') {
+      updateSchemaRefs(value, prefix);
     }
   }
 }
@@ -495,19 +532,28 @@ async function main() {
   console.log('========================\n');
 
   try {
-    // Generate REST API spec
-    await generateRestApiSpec();
+    // Fetch both specs
+    const restSpec = await fetchRestApiSpec();
+    const sandboxSpec = await fetchSandboxApiSpec();
 
-    // Generate Sandbox API spec
-    await generateSandboxApiSpec();
+    // Merge into single spec
+    const merged = mergeSpecs(restSpec, sandboxSpec);
+
+    // Save merged spec
+    saveYaml(CONFIG.output, merged);
+
+    // Remove old sandbox spec if exists
+    const oldSandboxSpec = 'openapi-sandbox.yml';
+    if (fs.existsSync(oldSandboxSpec)) {
+      fs.unlinkSync(oldSandboxSpec);
+      console.log(`Removed old: ${oldSandboxSpec}`);
+    }
 
     console.log('\n=== Validation ===\n');
 
-    // Validate if mintlify is available
     try {
       execSync('which mintlify', { stdio: 'pipe' });
-      validateSpec(REST_API_CONFIG.output);
-      validateSpec(SANDBOX_API_CONFIG.output);
+      validateSpec(CONFIG.output);
     } catch (e) {
       console.log('mintlify CLI not available, skipping validation');
     }
