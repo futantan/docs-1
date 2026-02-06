@@ -89,15 +89,6 @@ tags:
     description: |
       Monitor resource usage and track sandbox activity. Use metrics to understand
       your usage patterns and optimize costs.
-  - name: Sandbox Files
-    description: |
-      Upload and download files to/from a running sandbox. Use these endpoints for
-      simple file transfer operations.
-
-      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
-
-      **Note:** For more complex filesystem operations (creating directories, listing
-      contents, etc.), use the Sandbox Filesystem endpoints.
   - name: Sandbox Filesystem
     description: |
       Perform filesystem operations inside a running sandbox. Create directories,
@@ -114,12 +105,6 @@ tags:
       **Base URL:** `https://{port}-{sandboxId}.e2b.app`
 
       These endpoints use Connect RPC protocol over HTTP.
-  - name: Sandbox Init
-    description: |
-      Internal endpoints for sandbox initialization. These are typically called
-      by the SDK automatically.
-
-      **Base URL:** `https://{port}-{sandboxId}.e2b.app`
 
 components:
   securitySchemes:
@@ -608,8 +593,54 @@ components:
 
 paths:
   # ============================================
-  # SANDBOX ENDPOINTS (Control Plane)
+  # SANDBOX ENDPOINTS
   # ============================================
+
+  /init:
+    servers:
+      - url: https://{port}-{sandboxId}.e2b.app
+        description: Sandbox Data Plane API
+        variables:
+          port:
+            default: '49982'
+          sandboxId:
+            default: 'your-sandbox-id'
+    post:
+      summary: Initialize sandbox connection
+      description: |
+        Initializes the sandbox connection and syncs environment variables,
+        time, and other metadata with the host.
+      operationId: initSandbox
+      tags:
+        - Sandboxes
+      security:
+        - AccessTokenAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                envVars:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Environment variables to set
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Current timestamp for time sync
+                defaultUser:
+                  type: string
+                  description: Default user for operations
+                  example: "user"
+                defaultWorkdir:
+                  type: string
+                  description: Default working directory
+                  example: "/home/user"
+      responses:
+        '204':
+          description: Sandbox initialized successfully
 
   /sandboxes:
     get:
@@ -669,22 +700,6 @@ paths:
         **Returns:**
         - `sandboxID`: Use this to identify the sandbox in subsequent API calls
         - `envdAccessToken`: Use this as `X-Access-Token` for Data Plane API calls
-
-        **Example workflow:**
-        ```bash
-        # Create sandbox
-        response=$(curl -X POST -H "X-API-Key: $API_KEY" \
-          -d '{"templateID": "base", "timeout": 300}' \
-          https://api.e2b.app/sandboxes)
-
-        # Extract sandboxID and token
-        SANDBOX_ID=$(echo $response | jq -r '.sandboxID')
-        ACCESS_TOKEN=$(echo $response | jq -r '.envdAccessToken')
-
-        # Now use the sandbox...
-        curl -H "X-Access-Token: $ACCESS_TOKEN" \
-          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/hello.txt"
-        ```
       operationId: createSandbox
       tags:
         - Sandboxes
@@ -1086,9 +1101,7 @@ paths:
       summary: Get sandbox logs
       description: |
         Returns system logs from the sandbox. These include sandbox startup logs
-        and system-level events, not application output.
-
-        For process output, use the Process API to stream stdout/stderr.
+        and system-level events.
       operationId: getSandboxLogs
       tags:
         - Sandboxes
@@ -1812,10 +1825,6 @@ paths:
         '500':
           $ref: '#/components/responses/500'
 
-  # ============================================
-  # SANDBOX FILES ENDPOINTS (Data Plane)
-  # ============================================
-
   /files:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
@@ -1831,16 +1840,9 @@ paths:
       summary: Download a file
       description: |
         Downloads a file from the sandbox. The file is returned as binary data.
-
-        **Example:**
-        ```bash
-        curl -H "X-Access-Token: $ACCESS_TOKEN" \
-          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/output.json" \
-          -o output.json
-        ```
       operationId: downloadFile
       tags:
-        - Sandbox Files
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       parameters:
@@ -1866,17 +1868,9 @@ paths:
       description: |
         Uploads a file to the sandbox. Parent directories are created automatically
         if they don't exist. If the file already exists, it will be overwritten.
-
-        **Example:**
-        ```bash
-        curl -X POST -H "X-Access-Token: $ACCESS_TOKEN" \
-          -H "Content-Type: application/octet-stream" \
-          --data-binary @local-file.txt \
-          "https://49982-$SANDBOX_ID.e2b.app/files?path=/home/user/uploaded.txt"
-        ```
       operationId: uploadFile
       tags:
-        - Sandbox Files
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       parameters:
@@ -1940,7 +1934,7 @@ paths:
         ```
       operationId: listDirectory
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2001,7 +1995,7 @@ paths:
         created automatically if they don't exist (like `mkdir -p`).
       operationId: makeDirectory
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2039,7 +2033,7 @@ paths:
         **Warning:** This action cannot be undone.
       operationId: removeFile
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2074,7 +2068,7 @@ paths:
         Moves a file or directory to a new location. Can also be used to rename.
       operationId: moveFile
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2114,7 +2108,7 @@ paths:
         Returns metadata about a file or directory (size, type, permissions, etc.).
       operationId: statFile
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2166,7 +2160,7 @@ paths:
         alternative to `WatchDir`.
       operationId: createWatcher
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2210,7 +2204,7 @@ paths:
         with `CreateWatcher`. Returns events since the last poll.
       operationId: getWatcherEvents
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2260,7 +2254,7 @@ paths:
         generated after this call.
       operationId: removeWatcher
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2297,7 +2291,7 @@ paths:
         Uses server-sent events (SSE) to push changes as they happen.
       operationId: watchDir
       tags:
-        - Sandbox Filesystem
+        - Sandbox Filesystemystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2632,55 +2626,3 @@ paths:
         '200':
           description: Process updated
 
-  # ============================================
-  # SANDBOX INIT ENDPOINT (Data Plane)
-  # ============================================
-
-  /init:
-    servers:
-      - url: https://{port}-{sandboxId}.e2b.app
-        description: Sandbox Data Plane API
-        variables:
-          port:
-            default: '49982'
-          sandboxId:
-            default: 'your-sandbox-id'
-    post:
-      summary: Initialize sandbox connection
-      description: |
-        Initializes the sandbox connection and syncs environment variables,
-        time, and other metadata with the host.
-
-        **Note:** This endpoint is typically called automatically by the SDK
-        when connecting to a sandbox. You usually don't need to call it directly.
-      operationId: initSandbox
-      tags:
-        - Sandbox Init
-      security:
-        - AccessTokenAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                envVars:
-                  type: object
-                  additionalProperties:
-                    type: string
-                  description: Environment variables to set
-                timestamp:
-                  type: string
-                  format: date-time
-                  description: Current timestamp for time sync
-                defaultUser:
-                  type: string
-                  description: Default user for operations
-                  example: "user"
-                defaultWorkdir:
-                  type: string
-                  description: Default working directory
-                  example: "/home/user"
-      responses:
-        '204':
-          description: Sandbox initialized successfully
