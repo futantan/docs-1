@@ -61,11 +61,9 @@ info:
 
     We provide official SDKs for Python, JavaScript/TypeScript, and Go.
     See [SDK Reference](https://e2b.dev/docs/sdk-reference) for details.
-
 servers:
   - url: https://api.e2b.app
     description: E2B Control Plane API
-
 tags:
   - name: Sandboxes
     description: |
@@ -89,6 +87,10 @@ tags:
     description: |
       Monitor resource usage and track sandbox activity. Use metrics to understand
       your usage patterns and optimize costs.
+  - name: Teams
+    description: |
+      List and manage your teams. Teams are organizational units that own
+      sandboxes, templates, and API keys.
   - name: Sandbox Filesystem
     description: |
       Perform filesystem operations inside a running sandbox. Create directories,
@@ -105,7 +107,6 @@ tags:
       **Base URL:** `https://{port}-{sandboxId}.e2b.app`
 
       These endpoints use Connect RPC protocol over HTTP.
-
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -116,7 +117,6 @@ components:
       type: apiKey
       in: header
       name: X-Access-Token
-
   parameters:
     templateID:
       name: templateID
@@ -125,7 +125,7 @@ components:
       description: Unique identifier of the template (e.g., `base`, `python`, or a custom template ID)
       schema:
         type: string
-      example: "base"
+      example: base
     buildID:
       name: buildID
       in: path
@@ -134,7 +134,7 @@ components:
       schema:
         type: string
         format: uuid
-      example: "550e8400-e29b-41d4-a716-446655440000"
+      example: 550e8400-e29b-41d4-a716-446655440000
     sandboxID:
       name: sandboxID
       in: path
@@ -142,7 +142,7 @@ components:
       description: Unique identifier of the sandbox
       schema:
         type: string
-      example: "sandbox-abc123"
+      example: sandbox-abc123
     teamID:
       name: teamID
       in: path
@@ -172,14 +172,28 @@ components:
     SandboxFilePath:
       name: path
       in: query
-      required: true
+      required: false
       description: |
         Path to the file inside the sandbox. Can be absolute (e.g., `/home/user/file.txt`)
         or relative to the user's home directory (e.g., `file.txt`).
         Must be URL encoded.
       schema:
         type: string
-      example: "/home/user/data.json"
+      example: /home/user/data.json
+    SandboxSignature:
+      name: signature
+      in: query
+      required: false
+      description: Signature used for file access permission verification.
+      schema:
+        type: string
+    SandboxSignatureExpiration:
+      name: signature_expiration
+      in: query
+      required: false
+      description: Signature expiration used for defining the expiration time of the signature.
+      schema:
+        type: integer
     SandboxUser:
       name: username
       in: query
@@ -187,65 +201,63 @@ components:
       description: Username for file ownership and resolving relative paths. Defaults to `user`.
       schema:
         type: string
-        default: "user"
-      example: "user"
-
+        default: user
+      example: user
   responses:
-    '400':
+    "400":
       description: Bad Request - The request was malformed or missing required parameters
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 400
             message: "Invalid request: templateID is required"
-    '401':
+    "401":
       description: Unauthorized - Invalid or missing API key
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 401
-            message: "Invalid API key"
-    '403':
+            message: Invalid API key
+    "403":
       description: Forbidden - You don't have permission to access this resource
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 403
-            message: "Access denied"
-    '404':
+            message: Access denied
+    "404":
       description: Not Found - The requested resource doesn't exist
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 404
-            message: "Sandbox not found"
-    '409':
+            message: Sandbox not found
+    "409":
       description: Conflict - The request conflicts with the current state
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 409
-            message: "Sandbox is already paused"
-    '500':
+            message: Sandbox is already paused
+    "500":
       description: Internal Server Error - Something went wrong on our end
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: 500
-            message: "Internal server error"
-
+            message: Internal server error
   schemas:
     Error:
       type: object
@@ -261,8 +273,7 @@ components:
         message:
           type: string
           description: Human-readable error message
-          example: "Invalid request parameters"
-
+          example: Invalid request parameters
     NewSandbox:
       type: object
       description: Request body for creating a new sandbox
@@ -274,7 +285,7 @@ components:
           description: |
             ID of the template to use. Can be a built-in template (`base`, `python`, `node`)
             or a custom template ID.
-          example: "base"
+          example: base
         timeout:
           type: integer
           format: int32
@@ -301,9 +312,9 @@ components:
             Custom key-value metadata to attach to the sandbox. Useful for filtering
             and organizing sandboxes. Keys and values must be strings.
           example:
-            user: "user-123"
-            project: "code-review"
-            environment: "staging"
+            user: user-123
+            project: code-review
+            environment: staging
         envVars:
           type: object
           additionalProperties:
@@ -312,9 +323,40 @@ components:
             Environment variables to set in the sandbox. These will be available
             to all processes running in the sandbox.
           example:
-            NODE_ENV: "production"
-            API_URL: "https://api.example.com"
-
+            NODE_ENV: production
+            API_URL: https://api.example.com
+        secure:
+          type: boolean
+          description: Secure all system communication with sandbox
+        allow_internet_access:
+          type: boolean
+          description: Allow sandbox to access the internet. When set to false, it behaves the same as specifying denyOut to 0.0.0.0/0 in the network config.
+        network:
+          type: object
+          description: Network configuration for the sandbox
+          properties:
+            allowPublicTraffic:
+              type: boolean
+              default: true
+              description: Specify if the sandbox URLs should be accessible only with authentication.
+            allowOut:
+              type: array
+              description: List of allowed CIDR blocks or IP addresses for egress traffic. Allowed addresses always take precedence over blocked addresses.
+              items:
+                type: string
+            denyOut:
+              type: array
+              description: List of denied CIDR blocks or IP addresses for egress traffic
+              items:
+                type: string
+            maskRequestHost:
+              type: string
+              description: Specify host mask which will be used for all sandbox requests
+        mcp:
+          type: object
+          description: MCP configuration for the sandbox
+          additionalProperties: {}
+          nullable: true
     Sandbox:
       type: object
       description: A sandbox instance that was just created
@@ -327,17 +369,17 @@ components:
         sandboxID:
           type: string
           description: Unique identifier of the sandbox. Use this to interact with the sandbox.
-          example: "sandbox-abc123xyz"
+          example: sandbox-abc123xyz
         templateID:
           type: string
           description: ID of the template this sandbox was created from
-          example: "base"
+          example: base
         envdAccessToken:
           type: string
           description: |
             Access token for Data Plane API calls. Use this as the `X-Access-Token`
             header when calling sandbox endpoints (files, filesystem, process).
-          example: "eyJhbGciOiJIUzI1NiIs..."
+          example: eyJhbGciOiJIUzI1NiIs...
         clientID:
           type: string
           deprecated: true
@@ -345,13 +387,16 @@ components:
         envdVersion:
           type: string
           description: Version of the sandbox runtime
-          example: "0.1.0"
+          example: 0.1.0
+        trafficAccessToken:
+          type: string
+          nullable: true
+          description: Token required for accessing sandbox via proxy.
         domain:
           type: string
           nullable: true
           description: Base domain for accessing the sandbox
-          example: "e2b.app"
-
+          example: e2b.app
     SandboxDetail:
       type: object
       description: Detailed information about a sandbox
@@ -370,15 +415,15 @@ components:
         sandboxID:
           type: string
           description: Unique identifier of the sandbox
-          example: "sandbox-abc123xyz"
+          example: sandbox-abc123xyz
         templateID:
           type: string
           description: ID of the template this sandbox was created from
-          example: "base"
+          example: base
         alias:
           type: string
           description: Human-readable alias for the template
-          example: "my-python-template"
+          example: my-python-template
         startedAt:
           type: string
           format: date-time
@@ -391,9 +436,11 @@ components:
           example: "2024-01-15T10:45:00Z"
         state:
           type: string
-          enum: [running, paused]
+          enum:
+            - running
+            - paused
           description: Current state of the sandbox
-          example: "running"
+          example: running
         cpuCount:
           type: integer
           description: Number of CPU cores allocated
@@ -412,7 +459,7 @@ components:
             type: string
           description: Custom metadata attached to the sandbox
           example:
-            user: "user-123"
+            user: user-123
         envdVersion:
           type: string
           description: Version of the sandbox runtime
@@ -425,7 +472,6 @@ components:
         domain:
           type: string
           nullable: true
-
     ListedSandbox:
       type: object
       description: Summary information about a sandbox in a list
@@ -460,7 +506,9 @@ components:
           description: When the sandbox will terminate
         state:
           type: string
-          enum: [running, paused]
+          enum:
+            - running
+            - paused
           description: Current state
         cpuCount:
           type: integer
@@ -477,11 +525,11 @@ components:
         clientID:
           type: string
           deprecated: true
-
     SandboxMetric:
       type: object
       description: Resource usage metrics for a sandbox at a point in time
       required:
+        - timestamp
         - timestampUnix
         - cpuCount
         - cpuUsedPct
@@ -490,6 +538,11 @@ components:
         - diskUsed
         - diskTotal
       properties:
+        timestamp:
+          type: string
+          format: date-time
+          deprecated: true
+          description: Timestamp of the metric entry
         timestampUnix:
           type: integer
           format: int64
@@ -524,45 +577,69 @@ components:
           format: int64
           description: Total disk space in bytes
           example: 1073741824
-
     Template:
       type: object
       description: A sandbox template with pre-installed tools and configurations
       required:
         - templateID
         - buildID
+        - cpuCount
+        - memoryMB
+        - diskSizeMB
         - public
         - createdAt
         - updatedAt
+        - createdBy
+        - lastSpawnedAt
+        - spawnCount
+        - buildCount
+        - envdVersion
+        - aliases
+        - names
+        - buildStatus
       properties:
         templateID:
           type: string
           description: Unique identifier of the template
-          example: "tpl-abc123"
+          example: tpl-abc123
         buildID:
           type: string
           description: ID of the current (latest successful) build
-          example: "550e8400-e29b-41d4-a716-446655440000"
+          example: 550e8400-e29b-41d4-a716-446655440000
         names:
           type: array
           items:
             type: string
           description: Human-readable names/aliases for the template
-          example: ["my-python-env", "team/python-ml"]
+          example:
+            - my-python-env
+            - team/python-ml
+        aliases:
+          type: array
+          deprecated: true
+          description: Aliases of the template
+          items:
+            type: string
         public:
           type: boolean
           description: Whether the template is publicly accessible
           example: false
         cpuCount:
           type: integer
+          format: int32
+          minimum: 1
           description: Default CPU cores for sandboxes
           example: 2
         memoryMB:
           type: integer
+          format: int32
+          minimum: 128
           description: Default memory in MB
           example: 512
         diskSizeMB:
           type: integer
+          format: int32
+          minimum: 0
           description: Default disk size in MB
           example: 1024
         createdAt:
@@ -573,6 +650,16 @@ components:
           type: string
           format: date-time
           description: When the template was last modified
+        createdBy:
+          type: object
+          nullable: true
+          description: User who created the template
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
         lastSpawnedAt:
           type: string
           format: date-time
@@ -585,26 +672,161 @@ components:
           example: 1542
         buildCount:
           type: integer
+          format: int32
           description: Number of builds for this template
           example: 5
         envdVersion:
           type: string
           description: Runtime version
-
+        buildStatus:
+          type: string
+          description: Status of the template build
+          enum:
+            - building
+            - waiting
+            - ready
+            - error
+    TemplateBuildRequest:
+      type: object
+      description: Request body for creating or rebuilding a template (legacy)
+      required:
+        - dockerfile
+      properties:
+        alias:
+          type: string
+          description: Alias for the template
+        cpuCount:
+          type: integer
+          format: int32
+          minimum: 1
+          description: CPU cores for the template
+        dockerfile:
+          type: string
+          description: Dockerfile content for the template
+        memoryMB:
+          type: integer
+          format: int32
+          minimum: 128
+          description: Memory in MB for the template
+        readyCmd:
+          type: string
+          description: Ready check command to execute after the build
+        startCmd:
+          type: string
+          description: Start command to execute after the build
+        teamID:
+          type: string
+          description: Team identifier
+    TemplateLegacy:
+      type: object
+      description: Legacy template response
+      required:
+        - templateID
+        - buildID
+        - cpuCount
+        - memoryMB
+        - diskSizeMB
+        - public
+        - createdAt
+        - updatedAt
+        - createdBy
+        - lastSpawnedAt
+        - spawnCount
+        - buildCount
+        - envdVersion
+        - aliases
+      properties:
+        templateID:
+          type: string
+          description: Unique identifier of the template
+        buildID:
+          type: string
+          description: ID of the last successful build
+        aliases:
+          type: array
+          items:
+            type: string
+          description: Aliases of the template
+        public:
+          type: boolean
+          description: Whether the template is publicly accessible
+        cpuCount:
+          type: integer
+          format: int32
+          description: CPU cores
+        memoryMB:
+          type: integer
+          format: int32
+          description: Memory in MB
+        diskSizeMB:
+          type: integer
+          format: int32
+          description: Disk size in MB
+        createdAt:
+          type: string
+          format: date-time
+          description: When the template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the template was last modified
+        createdBy:
+          type: object
+          nullable: true
+          description: User who created the template
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+        lastSpawnedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a sandbox was last created from this template
+        spawnCount:
+          type: integer
+          format: int64
+          description: Total number of sandboxes created
+        buildCount:
+          type: integer
+          format: int32
+          description: Number of builds
+        envdVersion:
+          type: string
+          description: Runtime version
+    Team:
+      type: object
+      description: A team in the E2B platform
+      required:
+        - teamID
+        - name
+        - apiKey
+        - isDefault
+      properties:
+        teamID:
+          type: string
+          description: Unique identifier of the team
+        name:
+          type: string
+          description: Name of the team
+        apiKey:
+          type: string
+          description: API key for the team
+        isDefault:
+          type: boolean
+          description: Whether this is the default team
 paths:
-  # ============================================
-  # SANDBOX ENDPOINTS
-  # ============================================
-
   /init:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Initialize sandbox connection
       description: |
@@ -621,11 +843,17 @@ paths:
             schema:
               type: object
               properties:
+                hyperloopIP:
+                  type: string
+                  description: IP address of the hyperloop server to connect to
                 envVars:
                   type: object
                   additionalProperties:
                     type: string
                   description: Environment variables to set
+                accessToken:
+                  type: string
+                  description: Access token for secure access to envd service
                 timestamp:
                   type: string
                   format: date-time
@@ -633,15 +861,14 @@ paths:
                 defaultUser:
                   type: string
                   description: Default user for operations
-                  example: "user"
+                  example: user
                 defaultWorkdir:
                   type: string
                   description: Default working directory
-                  example: "/home/user"
+                  example: /home/user
       responses:
-        '204':
+        "204":
           description: Sandbox initialized successfully
-
   /sandboxes:
     get:
       summary: List running sandboxes
@@ -665,32 +892,33 @@ paths:
           required: false
           schema:
             type: string
-          example: "user=user-123&project=demo"
+          example: user=user-123&project=demo
       responses:
-        '200':
+        "200":
           description: List of running sandboxes
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ListedSandbox'
+                  $ref: "#/components/schemas/ListedSandbox"
               example:
-                - sandboxID: "sandbox-abc123"
-                  templateID: "base"
-                  state: "running"
+                - sandboxID: sandbox-abc123
+                  templateID: base
+                  state: running
                   startedAt: "2024-01-15T10:30:00Z"
                   endAt: "2024-01-15T10:45:00Z"
                   cpuCount: 2
                   memoryMB: 512
                   diskSizeMB: 1024
                   metadata:
-                    user: "user-123"
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+                    user: user-123
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
     post:
       summary: Create a sandbox
       description: |
@@ -710,35 +938,34 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NewSandbox'
+              $ref: "#/components/schemas/NewSandbox"
             example:
-              templateID: "base"
+              templateID: base
               timeout: 300
               metadata:
-                user: "user-123"
-                project: "code-review"
+                user: user-123
+                project: code-review
               envVars:
-                NODE_ENV: "development"
+                NODE_ENV: development
       responses:
-        '201':
+        "201":
           description: Sandbox created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Sandbox'
+                $ref: "#/components/schemas/Sandbox"
               example:
-                sandboxID: "sandbox-abc123xyz"
-                templateID: "base"
-                envdAccessToken: "eyJhbGciOiJIUzI1NiIs..."
-                envdVersion: "0.1.0"
-                domain: "e2b.app"
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+                sandboxID: sandbox-abc123xyz
+                templateID: base
+                envdAccessToken: eyJhbGciOiJIUzI1NiIs...
+                envdVersion: 0.1.0
+                domain: e2b.app
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}:
     get:
       summary: Get sandbox details
@@ -751,21 +978,20 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       responses:
-        '200':
+        "200":
           description: Sandbox details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SandboxDetail'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+                $ref: "#/components/schemas/SandboxDetail"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       summary: Terminate a sandbox
       description: |
@@ -780,17 +1006,16 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       responses:
-        '204':
+        "204":
           description: Sandbox terminated successfully
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/pause:
     post:
       summary: Pause a sandbox
@@ -813,23 +1038,22 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       responses:
-        '204':
+        "204":
           description: Sandbox paused successfully
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '409':
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
           description: Sandbox is already paused
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/responses/500'
-
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/connect:
     post:
       summary: Connect to or resume a sandbox
@@ -850,7 +1074,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       requestBody:
         required: true
         content:
@@ -869,25 +1093,26 @@ paths:
             example:
               timeout: 300
       responses:
-        '200':
+        "200":
           description: Sandbox was already running
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Sandbox'
-        '201':
+                $ref: "#/components/schemas/Sandbox"
+        "201":
           description: Sandbox was resumed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Sandbox'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+                $ref: "#/components/schemas/Sandbox"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/timeout:
     post:
       summary: Set sandbox timeout
@@ -903,7 +1128,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       requestBody:
         required: true
         content:
@@ -922,15 +1147,14 @@ paths:
             example:
               timeout: 600
       responses:
-        '204':
+        "204":
           description: Timeout updated successfully
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/refreshes:
     post:
       summary: Extend sandbox lifetime
@@ -943,7 +1167,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       requestBody:
         content:
           application/json:
@@ -959,13 +1183,12 @@ paths:
             example:
               duration: 300
       responses:
-        '204':
+        "204":
           description: Sandbox lifetime extended
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
   /v2/sandboxes:
     get:
       summary: List all sandboxes (v2)
@@ -992,25 +1215,28 @@ paths:
             type: array
             items:
               type: string
-              enum: [running, paused]
+              enum:
+                - running
+                - paused
           style: form
           explode: false
-        - $ref: '#/components/parameters/paginationNextToken'
-        - $ref: '#/components/parameters/paginationLimit'
+        - $ref: "#/components/parameters/paginationNextToken"
+        - $ref: "#/components/parameters/paginationLimit"
       responses:
-        '200':
+        "200":
           description: List of sandboxes
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ListedSandbox'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+                  $ref: "#/components/schemas/ListedSandbox"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/metrics:
     get:
       summary: Get metrics for multiple sandboxes
@@ -1035,7 +1261,7 @@ paths:
             maxItems: 100
             uniqueItems: true
       responses:
-        '200':
+        "200":
           description: Metrics per sandbox
           content:
             application/json:
@@ -1045,12 +1271,13 @@ paths:
                   sandboxes:
                     type: object
                     additionalProperties:
-                      $ref: '#/components/schemas/SandboxMetric'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+                      $ref: "#/components/schemas/SandboxMetric"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/resume:
     post:
       summary: Resume a paused sandbox
@@ -1066,7 +1293,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
       requestBody:
         required: true
         content:
@@ -1080,22 +1307,25 @@ paths:
                   minimum: 0
                   default: 15
                   description: Time to live in seconds
+                autoPause:
+                  type: boolean
+                  deprecated: true
+                  description: Automatically pauses the sandbox after the timeout
       responses:
-        '201':
+        "201":
           description: Sandbox resumed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Sandbox'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '409':
-          $ref: '#/components/responses/409'
-        '500':
-          $ref: '#/components/responses/500'
-
+                $ref: "#/components/schemas/Sandbox"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/logs:
     get:
       summary: Get sandbox logs
@@ -1108,7 +1338,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
         - name: start
           in: query
           description: Start timestamp in milliseconds (Unix epoch)
@@ -1125,7 +1355,7 @@ paths:
             default: 1000
             minimum: 0
       responses:
-        '200':
+        "200":
           description: Sandbox logs
           content:
             application/json:
@@ -1142,13 +1372,12 @@ paths:
                           format: date-time
                         line:
                           type: string
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /sandboxes/{sandboxID}/metrics:
     get:
       summary: Get sandbox metrics
@@ -1161,7 +1390,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/sandboxID'
+        - $ref: "#/components/parameters/sandboxID"
         - name: start
           in: query
           description: Start timestamp in seconds (Unix epoch)
@@ -1177,21 +1406,22 @@ paths:
             format: int64
             minimum: 0
       responses:
-        '200':
+        "200":
           description: Sandbox metrics
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/SandboxMetric'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+                  $ref: "#/components/schemas/SandboxMetric"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /teams/{teamID}/metrics:
     get:
       summary: Get team metrics
@@ -1204,7 +1434,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/teamID'
+        - $ref: "#/components/parameters/teamID"
         - name: start
           in: query
           description: Start timestamp in seconds (Unix epoch)
@@ -1220,7 +1450,7 @@ paths:
             format: int64
             minimum: 0
       responses:
-        '200':
+        "200":
           description: Team metrics
           content:
             application/json:
@@ -1240,13 +1470,14 @@ paths:
                       type: number
                       format: float
                       description: Sandboxes started per second
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
   /teams/{teamID}/metrics/max:
     get:
       summary: Get max team metrics
@@ -1259,7 +1490,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/teamID'
+        - $ref: "#/components/parameters/teamID"
         - name: start
           in: query
           description: Start timestamp in seconds (Unix epoch)
@@ -1284,7 +1515,7 @@ paths:
               - concurrent_sandboxes
               - sandbox_start_rate
       responses:
-        '200':
+        "200":
           description: Maximum metric value
           content:
             application/json:
@@ -1298,17 +1529,37 @@ paths:
                   value:
                     type: number
                     description: The maximum value
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
-        '500':
-          $ref: '#/components/responses/500'
-
-  # ============================================
-  # TEMPLATE ENDPOINTS (Control Plane)
-  # ============================================
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
+  /teams:
+    get:
+      summary: List teams
+      description: |
+        Returns all teams accessible to the authenticated user.
+      operationId: listTeams
+      tags:
+        - Teams
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /templates:
     get:
       summary: List templates
@@ -1328,19 +1579,49 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: List of templates
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Template'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
+                  $ref: "#/components/schemas/Template"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
+    post:
+      summary: Create a new template (legacy)
+      deprecated: true
+      description: |
+        Creates a new template from a Dockerfile.
 
+        **Deprecated:** Use `POST /v3/templates` instead.
+      operationId: createTemplateLegacy
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateBuildRequest"
+      responses:
+        "202":
+          description: Build accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateLegacy"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/{templateID}:
     get:
       summary: Get template details
@@ -1352,11 +1633,11 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
-        - $ref: '#/components/parameters/paginationNextToken'
-        - $ref: '#/components/parameters/paginationLimit'
+        - $ref: "#/components/parameters/templateID"
+        - $ref: "#/components/parameters/paginationNextToken"
+        - $ref: "#/components/parameters/paginationLimit"
       responses:
-        '200':
+        "200":
           description: Template details with builds
           content:
             application/json:
@@ -1380,15 +1661,18 @@ paths:
                           type: string
                         status:
                           type: string
-                          enum: [pending, building, ready, failed]
+                          enum:
+                            - building
+                            - waiting
+                            - ready
+                            - error
                         createdAt:
                           type: string
                           format: date-time
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       summary: Delete a template
       description: |
@@ -1403,15 +1687,14 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
+        - $ref: "#/components/parameters/templateID"
       responses:
-        '204':
+        "204":
           description: Template deleted successfully
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
     patch:
       summary: Update template
       deprecated: true
@@ -1425,7 +1708,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
+        - $ref: "#/components/parameters/templateID"
       requestBody:
         required: true
         content:
@@ -1437,13 +1720,45 @@ paths:
                   type: boolean
                   description: Whether the template is public
       responses:
-        '200':
+        "200":
           description: Template updated
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
+    post:
+      summary: Rebuild a template (legacy)
+      deprecated: true
+      description: |
+        Triggers a rebuild of an existing template from a Dockerfile.
 
+        **Deprecated:** Use `POST /v3/templates` instead.
+      operationId: rebuildTemplateLegacy
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/templateID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateBuildRequest"
+      responses:
+        "202":
+          description: Build accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateLegacy"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /v3/templates:
     post:
       summary: Create a new template
@@ -1483,7 +1798,7 @@ paths:
                   type: integer
                   description: Default disk size in MB
       responses:
-        '202':
+        "202":
           description: Build started
           content:
             application/json:
@@ -1500,11 +1815,12 @@ paths:
                     type: array
                     items:
                       type: string
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /v2/templates:
     post:
       summary: Create a new template (v2)
@@ -1525,13 +1841,14 @@ paths:
             schema:
               type: object
       responses:
-        '202':
+        "202":
           description: Build started
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /v2/templates/{templateID}:
     patch:
       summary: Update template (v2)
@@ -1543,7 +1860,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
+        - $ref: "#/components/parameters/templateID"
       requestBody:
         required: true
         content:
@@ -1555,7 +1872,7 @@ paths:
                   type: boolean
                   description: Whether the template is public
       responses:
-        '200':
+        "200":
           description: Template updated
           content:
             application/json:
@@ -1566,11 +1883,12 @@ paths:
                     type: array
                     items:
                       type: string
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/{templateID}/files/{hash}:
     get:
       summary: Get build file upload link
@@ -1583,7 +1901,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
+        - $ref: "#/components/parameters/templateID"
         - name: hash
           in: path
           required: true
@@ -1591,7 +1909,7 @@ paths:
           schema:
             type: string
       responses:
-        '201':
+        "201":
           description: Upload link
           content:
             application/json:
@@ -1601,13 +1919,37 @@ paths:
                   uploadUrl:
                     type: string
                     description: Pre-signed URL for uploading the tar file
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+  /templates/{templateID}/builds/{buildID}:
+    post:
+      summary: Start a template build (legacy)
+      deprecated: true
+      description: |
+        Starts a previously created template build.
 
+        **Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead.
+      operationId: startTemplateBuildLegacy
+      tags:
+        - Templates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/templateID"
+        - $ref: "#/components/parameters/buildID"
+      responses:
+        "202":
+          description: Build started
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       summary: Start a template build
@@ -1620,8 +1962,8 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
-        - $ref: '#/components/parameters/buildID'
+        - $ref: "#/components/parameters/templateID"
+        - $ref: "#/components/parameters/buildID"
       requestBody:
         required: true
         content:
@@ -1629,13 +1971,12 @@ paths:
             schema:
               type: object
       responses:
-        '202':
+        "202":
           description: Build started
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/{templateID}/builds/{buildID}/status:
     get:
       summary: Get build status
@@ -1647,8 +1988,8 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
-        - $ref: '#/components/parameters/buildID'
+        - $ref: "#/components/parameters/templateID"
+        - $ref: "#/components/parameters/buildID"
         - name: logsOffset
           in: query
           description: Starting log index
@@ -1666,8 +2007,18 @@ paths:
             default: 100
             minimum: 0
             maximum: 100
+        - name: level
+          in: query
+          description: Filter logs by level
+          schema:
+            type: string
+            enum:
+              - debug
+              - info
+              - warn
+              - error
       responses:
-        '200':
+        "200":
           description: Build status and logs
           content:
             application/json:
@@ -1676,18 +2027,21 @@ paths:
                 properties:
                   status:
                     type: string
-                    enum: [pending, building, ready, failed]
+                    enum:
+                      - building
+                      - waiting
+                      - ready
+                      - error
                   logs:
                     type: array
                     items:
                       type: string
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       summary: Get build logs
@@ -1699,8 +2053,8 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - $ref: '#/components/parameters/templateID'
-        - $ref: '#/components/parameters/buildID'
+        - $ref: "#/components/parameters/templateID"
+        - $ref: "#/components/parameters/buildID"
         - name: cursor
           in: query
           description: Starting timestamp in milliseconds for pagination
@@ -1717,16 +2071,41 @@ paths:
             default: 100
             minimum: 0
             maximum: 100
+        - name: direction
+          in: query
+          description: Direction of the logs that should be returned
+          schema:
+            type: string
+            enum:
+              - forward
+              - backward
+        - name: level
+          in: query
+          description: Filter logs by level
+          schema:
+            type: string
+            enum:
+              - debug
+              - info
+              - warn
+              - error
+        - name: source
+          in: query
+          description: Source of the logs that should be returned from
+          schema:
+            type: string
+            enum:
+              - temporary
+              - persistent
       responses:
-        '200':
+        "200":
           description: Build logs
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/tags:
     post:
       summary: Assign tags to a template build
@@ -1757,17 +2136,20 @@ paths:
                   type: array
                   items:
                     type: string
-                  example: ["latest", "v1.0"]
+                  example:
+                    - latest
+                    - v1.0
       responses:
-        '201':
+        "201":
           description: Tags assigned
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
     delete:
       summary: Delete tags from templates
       description: |
@@ -1784,15 +2166,16 @@ paths:
             schema:
               type: object
       responses:
-        '204':
+        "204":
           description: Tags deleted
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /templates/aliases/{alias}:
     get:
       summary: Check template by alias
@@ -1811,7 +2194,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Template found
           content:
             application/json:
@@ -1820,21 +2203,24 @@ paths:
                 properties:
                   templateID:
                     type: string
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-
+        "400":
+          $ref: "#/components/responses/400"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
   /files:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
             description: API port (always 49982)
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
             description: Your sandbox ID from the create response
     get:
       summary: Download a file
@@ -1846,23 +2232,26 @@ paths:
       security:
         - AccessTokenAuth: []
       parameters:
-        - $ref: '#/components/parameters/SandboxFilePath'
-        - $ref: '#/components/parameters/SandboxUser'
+        - $ref: "#/components/parameters/SandboxFilePath"
+        - $ref: "#/components/parameters/SandboxUser"
+        - $ref: "#/components/parameters/SandboxSignature"
+        - $ref: "#/components/parameters/SandboxSignatureExpiration"
       responses:
-        '200':
+        "200":
           description: File contents
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
-        '400':
+        "400":
           description: Invalid path
-        '404':
+        "401":
+          description: Invalid user
+        "404":
           description: File not found
-        '500':
+        "500":
           description: Server error
-
     post:
       summary: Upload a file
       description: |
@@ -1874,8 +2263,10 @@ paths:
       security:
         - AccessTokenAuth: []
       parameters:
-        - $ref: '#/components/parameters/SandboxFilePath'
-        - $ref: '#/components/parameters/SandboxUser'
+        - $ref: "#/components/parameters/SandboxFilePath"
+        - $ref: "#/components/parameters/SandboxUser"
+        - $ref: "#/components/parameters/SandboxSignature"
+        - $ref: "#/components/parameters/SandboxSignatureExpiration"
       requestBody:
         required: true
         content:
@@ -1884,7 +2275,7 @@ paths:
               type: string
               format: binary
       responses:
-        '200':
+        "200":
           description: File uploaded successfully
           content:
             application/json:
@@ -1898,28 +2289,29 @@ paths:
                       description: File name
                     type:
                       type: string
-                      enum: [file, dir]
+                      enum:
+                        - file
+                        - dir
                     path:
                       type: string
                       description: Full path to the file
-        '400':
+        "400":
           description: Invalid path
-        '507':
+        "401":
+          description: Invalid user
+        "500":
+          description: Server error
+        "507":
           description: Not enough disk space
-
-  # ============================================
-  # SANDBOX FILESYSTEM ENDPOINTS (Data Plane)
-  # ============================================
-
   /filesystem.Filesystem/ListDir:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: List directory contents
       description: |
@@ -1934,7 +2326,7 @@ paths:
         ```
       operationId: listDirectory
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -1949,14 +2341,14 @@ paths:
                 path:
                   type: string
                   description: Directory path to list
-                  example: "/home/user"
+                  example: /home/user
                 depth:
                   type: integer
                   description: How many levels deep to list (1 = immediate children only)
                   default: 1
                   example: 1
       responses:
-        '200':
+        "200":
           description: Directory listing
           content:
             application/json:
@@ -1972,22 +2364,23 @@ paths:
                           type: string
                         type:
                           type: string
-                          enum: [file, dir]
+                          enum:
+                            - file
+                            - dir
                         path:
                           type: string
                         size:
                           type: integer
                           format: int64
-
   /filesystem.Filesystem/MakeDir:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Create a directory
       description: |
@@ -1995,7 +2388,7 @@ paths:
         created automatically if they don't exist (like `mkdir -p`).
       operationId: makeDirectory
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2010,20 +2403,19 @@ paths:
                 path:
                   type: string
                   description: Path for the new directory
-                  example: "/home/user/projects/new-project"
+                  example: /home/user/projects/new-project
       responses:
-        '200':
+        "200":
           description: Directory created
-
   /filesystem.Filesystem/Remove:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Delete a file or directory
       description: |
@@ -2033,7 +2425,7 @@ paths:
         **Warning:** This action cannot be undone.
       operationId: removeFile
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2048,27 +2440,26 @@ paths:
                 path:
                   type: string
                   description: Path to delete
-                  example: "/home/user/temp-file.txt"
+                  example: /home/user/temp-file.txt
       responses:
-        '200':
+        "200":
           description: File or directory deleted
-
   /filesystem.Filesystem/Move:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Move or rename a file
       description: |
         Moves a file or directory to a new location. Can also be used to rename.
       operationId: moveFile
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2084,31 +2475,30 @@ paths:
                 source:
                   type: string
                   description: Current path
-                  example: "/home/user/old-name.txt"
+                  example: /home/user/old-name.txt
                 destination:
                   type: string
                   description: New path
-                  example: "/home/user/new-name.txt"
+                  example: /home/user/new-name.txt
       responses:
-        '200':
+        "200":
           description: File moved
-
   /filesystem.Filesystem/Stat:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Get file information
       description: |
         Returns metadata about a file or directory (size, type, permissions, etc.).
       operationId: statFile
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2123,9 +2513,9 @@ paths:
                 path:
                   type: string
                   description: Path to inspect
-                  example: "/home/user/file.txt"
+                  example: /home/user/file.txt
       responses:
-        '200':
+        "200":
           description: File information
           content:
             application/json:
@@ -2136,22 +2526,23 @@ paths:
                     type: string
                   type:
                     type: string
-                    enum: [file, dir]
+                    enum:
+                      - file
+                      - dir
                   size:
                     type: integer
                     format: int64
                   permissions:
                     type: string
-
   /filesystem.Filesystem/CreateWatcher:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Create a filesystem watcher
       description: |
@@ -2160,7 +2551,7 @@ paths:
         alternative to `WatchDir`.
       operationId: createWatcher
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2175,9 +2566,9 @@ paths:
                 path:
                   type: string
                   description: Directory path to watch
-                  example: "/home/user/project"
+                  example: /home/user/project
       responses:
-        '200':
+        "200":
           description: Watcher created
           content:
             application/json:
@@ -2187,16 +2578,15 @@ paths:
                   watcherID:
                     type: string
                     description: ID to use with GetWatcherEvents and RemoveWatcher
-
   /filesystem.Filesystem/GetWatcherEvents:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Get filesystem watcher events
       description: |
@@ -2204,7 +2594,7 @@ paths:
         with `CreateWatcher`. Returns events since the last poll.
       operationId: getWatcherEvents
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2220,7 +2610,7 @@ paths:
                   type: string
                   description: Watcher ID from CreateWatcher
       responses:
-        '200':
+        "200":
           description: Watcher events
           content:
             application/json:
@@ -2234,19 +2624,22 @@ paths:
                       properties:
                         type:
                           type: string
-                          enum: [create, write, remove, rename]
+                          enum:
+                            - create
+                            - write
+                            - remove
+                            - rename
                         path:
                           type: string
-
   /filesystem.Filesystem/RemoveWatcher:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Remove a filesystem watcher
       description: |
@@ -2254,7 +2647,7 @@ paths:
         generated after this call.
       operationId: removeWatcher
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2270,18 +2663,17 @@ paths:
                   type: string
                   description: Watcher ID to remove
       responses:
-        '200':
+        "200":
           description: Watcher removed
-
   /filesystem.Filesystem/WatchDir:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Watch directory (streaming)
       description: |
@@ -2291,7 +2683,7 @@ paths:
         Uses server-sent events (SSE) to push changes as they happen.
       operationId: watchDir
       tags:
-        - Sandbox Filesystemystem
+        - Sandbox Filesystem
       security:
         - AccessTokenAuth: []
       requestBody:
@@ -2306,24 +2698,19 @@ paths:
                 path:
                   type: string
                   description: Directory path to watch
-                  example: "/home/user/project"
+                  example: /home/user/project
       responses:
-        '200':
+        "200":
           description: Stream of filesystem events
-
-  # ============================================
-  # SANDBOX PROCESS ENDPOINTS (Data Plane)
-  # ============================================
-
   /process.Process/Start:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Start a process
       description: |
@@ -2366,26 +2753,28 @@ paths:
                 cmd:
                   type: string
                   description: Command to execute
-                  example: "python"
+                  example: python
                 args:
                   type: array
                   items:
                     type: string
                   description: Command arguments
-                  example: ["script.py", "--verbose"]
+                  example:
+                    - script.py
+                    - "--verbose"
                 cwd:
                   type: string
                   description: Working directory
-                  example: "/home/user"
+                  example: /home/user
                 envVars:
                   type: object
                   additionalProperties:
                     type: string
                   description: Environment variables
                   example:
-                    NODE_ENV: "production"
+                    NODE_ENV: production
       responses:
-        '200':
+        "200":
           description: Process started
           content:
             application/json:
@@ -2395,16 +2784,15 @@ paths:
                   pid:
                     type: string
                     description: Process ID for subsequent operations
-
   /process.Process/List:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: List running processes
       description: |
@@ -2421,7 +2809,7 @@ paths:
             schema:
               type: object
       responses:
-        '200':
+        "200":
           description: List of processes
           content:
             application/json:
@@ -2437,16 +2825,15 @@ paths:
                           type: string
                         cmd:
                           type: string
-
   /process.Process/SendSignal:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Send a signal to a process
       description: |
@@ -2477,18 +2864,17 @@ paths:
                   description: Signal number (e.g., 9 for SIGKILL, 15 for SIGTERM)
                   example: 15
       responses:
-        '200':
+        "200":
           description: Signal sent
-
   /process.Process/SendInput:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Send input to a process
       description: |
@@ -2515,20 +2901,20 @@ paths:
                 input:
                   type: string
                   description: Input to send (will be written to stdin)
-                  example: "yes\n"
+                  example: |
+                    yes
       responses:
-        '200':
+        "200":
           description: Input sent
-
   /process.Process/Connect:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Connect to a running process
       description: |
@@ -2552,18 +2938,17 @@ paths:
                   type: string
                   description: Process ID to connect to
       responses:
-        '200':
+        "200":
           description: Stream of process output
-
   /process.Process/StreamInput:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Stream input to a process
       description: |
@@ -2588,18 +2973,17 @@ paths:
                   type: string
                   description: Process ID
       responses:
-        '200':
+        "200":
           description: Streaming input connection established
-
   /process.Process/Update:
     servers:
       - url: https://{port}-{sandboxId}.e2b.app
         description: Sandbox Data Plane API
         variables:
           port:
-            default: '49982'
+            default: "49982"
           sandboxId:
-            default: 'your-sandbox-id'
+            default: your-sandbox-id
     post:
       summary: Update a running process
       description: |
@@ -2623,6 +3007,5 @@ paths:
                   type: string
                   description: Process ID to update
       responses:
-        '200':
+        "200":
           description: Process updated
-
