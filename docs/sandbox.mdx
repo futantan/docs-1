@@ -4,28 +4,28 @@ sidebarTitle: Overview
 description: "Secure runtime environments for AI agents"
 ---
 
-A sandbox is an agentic runtime which is an isolated cloud VM under the hood. Sandboxes can start in as little as **~100ms**. Each sandbox has its own [filesystem](/docs/filesystem), can start [processes](/docs/commands), and has internet access with [configurable firewall](/docs/sandbox/internet-access#fine-grained-network-control).
+A sandbox is a secure runtime environment for AI agents. Each sandbox provides an isolated [filesystem](/docs/filesystem), [shell access](/docs/commands), and [internet connectivity](/docs/sandbox/internet-access)—giving your agents the same capabilities they'd have on a real computer, without the security risks.
 
-Sandboxes are designed to run thousands of AI agents safely with access to the same tools available on your own computer.
+Sandboxes start in ~100ms and support long-lived sessions with full state [persistence](/docs/sandbox/persistence). You can pause a sandbox, resume it later, and pick up exactly where you left off.
 
-Here's a basic example of creating a sandbox, running Python code, and shutting it down:
+The following example shows the core workflow: create a sandbox, run a command, and clean up. This pattern forms the foundation for more complex agent interactions—once you have a sandbox, you can run commands, read/write files, install packages, and more.
 
 <CodeGroup>
 ```js JavaScript & TypeScript
-import { Sandbox } from '@e2b/code-interpreter'
+import { Sandbox } from 'e2b'
 
-const sbx = await Sandbox.create()
-const result = await sbx.runCode('1 + 1')
-console.log(result.text) // 2
-await sbx.kill()
+const sandbox = await Sandbox.create()
+const result = await sandbox.commands.run('echo "Hello, World!"')
+console.log(result.stdout)
+await sandbox.kill()
 ```
 ```python Python
-from e2b_code_interpreter import Sandbox
+from e2b import Sandbox
 
-sbx = Sandbox.create()
-result = sbx.run_code('1 + 1')
-print(result.text)  # 2
-sbx.kill()
+sandbox = Sandbox.create()
+result = sandbox.commands.run('echo "Hello, World!"')
+print(result.stdout)
+sandbox.kill()
 ```
 </CodeGroup>
 
