@@ -174,7 +174,23 @@ SANDBOX_ENDPOINT_POLISH = {
         "description": "Initializes a sandbox after creation. Syncs environment variables and metadata.",
         "operationId": "initSandbox",
         "tags": ["Sandboxes"],
+        "addResponses": [400, 401],
     },
+}
+
+# Connect RPC error codes to add to all filesystem and process endpoints.
+# Connect RPC maps its error codes to HTTP status codes:
+#   InvalidArgument -> 400, Unauthenticated -> 401, NotFound -> 404,
+#   AlreadyExists -> 409, Internal -> 500
+CONNECT_RPC_ERRORS = {
+    "/filesystem.Filesystem/": [400, 401, 404, 500],
+    "/process.Process/": [400, 401, 404, 500],
+}
+
+# Additional error codes for specific sandbox HTTP endpoints
+SANDBOX_HTTP_ERRORS = {
+    "GET /files": [],    # already has error responses in source spec
+    "POST /files": [],   # already has error responses in source spec
 }
 
 # Per-endpoint documentation polish for REST API endpoints
@@ -248,6 +264,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
                 },
             },
         },
+        "addResponses": [403, 404, 429],
     },
     "GET /sandboxes/{sandboxID}": {
         "summary": "Get sandbox details",
@@ -257,6 +274,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "getSandbox",
         "tags": ["Sandboxes"],
+        "addResponses": [403],
     },
     "DELETE /sandboxes/{sandboxID}": {
         "summary": "Terminate a sandbox",
@@ -272,6 +290,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox terminated successfully"},
         },
+        "addResponses": [403],
     },
     "POST /sandboxes/{sandboxID}/pause": {
         "summary": "Pause a sandbox",
@@ -294,6 +313,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox paused successfully"},
         },
+        "addResponses": [400, 403],
     },
     "POST /sandboxes/{sandboxID}/resume": {
         "summary": "Resume a paused sandbox",
@@ -305,6 +325,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "resumeSandbox",
         "tags": ["Sandboxes"],
+        "addResponses": [400, 403, 429],
     },
     "POST /sandboxes/{sandboxID}/connect": {
         "summary": "Connect to or resume a sandbox",
@@ -322,6 +343,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "connectSandbox",
         "tags": ["Sandboxes"],
+        "addResponses": [403, 429],
     },
     "POST /sandboxes/{sandboxID}/timeout": {
         "summary": "Set sandbox timeout",
@@ -349,6 +371,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox lifetime extended"},
         },
+        "addResponses": [400, 500],
     },
     "GET /v2/sandboxes": {
         "summary": "List all sandboxes (v2)",
@@ -395,6 +418,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
             "start": {"description": "Start timestamp in milliseconds (Unix epoch)"},
             "limit": {"description": "Maximum number of log entries to return"},
         },
+        "addResponses": [400],
     },
     "GET /v2/sandboxes/{sandboxID}/logs": {
         "summary": "Get sandbox logs",
@@ -411,6 +435,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
             "cursor": {"description": "Starting timestamp in milliseconds (Unix epoch)"},
             "limit": {"description": "Maximum number of log entries to return"},
         },
+        "addResponses": [400],
     },
     "GET /sandboxes/{sandboxID}/metrics": {
         "summary": "Get sandbox metrics",
@@ -439,6 +464,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Team metrics"},
         },
+        "addResponses": [403],
     },
     "GET /teams/{teamID}/metrics/max": {
         "summary": "Get max team metrics",
@@ -454,6 +480,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "metric": {"description": "Which metric to get the maximum value for"},
         },
+        "addResponses": [403],
     },
     "GET /teams": {
         "summary": "List teams",
@@ -479,6 +506,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "createTemplateLegacy",
         "tags": ["Templates"],
+        "addResponses": [403, 409, 429],
     },
     "GET /templates/{templateID}": {
         "summary": "Get template details",
@@ -488,6 +516,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template details with builds"},
         },
+        "addResponses": [400, 403, 404],
     },
     "POST /templates/{templateID}": {
         "summary": "Rebuild a template (legacy)",
@@ -498,6 +527,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "rebuildTemplateLegacy",
         "tags": ["Templates"],
+        "addResponses": [403, 404, 409, 429],
     },
     "DELETE /templates/{templateID}": {
         "summary": "Delete a template",
@@ -510,6 +540,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "deleteTemplate",
         "tags": ["Templates"],
+        "addResponses": [400, 403, 404],
     },
     "PATCH /templates/{templateID}": {
         "summary": "Update template",
@@ -523,6 +554,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template updated"},
         },
+        "addResponses": [403, 404, 409],
     },
     "POST /v3/templates": {
         "summary": "Create a new template",
@@ -535,6 +567,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
+        "addResponses": [403, 409, 429],
     },
     "POST /v2/templates": {
         "summary": "Create a new template (v2)",
@@ -548,6 +581,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
+        "addResponses": [403, 409, 429],
     },
     "PATCH /v2/templates/{templateID}": {
         "summary": "Update template (v2)",
@@ -557,6 +591,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template updated"},
         },
+        "addResponses": [403, 404, 409],
     },
     "GET /templates/{templateID}/files/{hash}": {
         "summary": "Get build file upload link",
@@ -572,6 +607,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "hash": {"description": "SHA256 hash of the tar file"},
         },
+        "addResponses": [403, 404, 503],
     },
     "POST /templates/{templateID}/builds/{buildID}": {
         "summary": "Start a template build (legacy)",
@@ -582,6 +618,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "startTemplateBuildLegacy",
         "tags": ["Templates"],
+        "addResponses": [400, 403, 404, 503],
     },
     "POST /v2/templates/{templateID}/builds/{buildID}": {
         "summary": "Start a template build",
@@ -594,6 +631,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
+        "addResponses": [400, 403, 404, 503],
     },
     "GET /templates/{templateID}/builds/{buildID}/status": {
         "summary": "Get build status",
@@ -603,12 +641,14 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Build status and logs"},
         },
+        "addResponses": [400, 403],
     },
     "GET /templates/{templateID}/builds/{buildID}/logs": {
         "summary": "Get build logs",
         "description": "Returns logs from a template build with pagination and filtering options.",
         "operationId": "getTemplateBuildLogs",
         "tags": ["Templates"],
+        "addResponses": [400, 403],
     },
     "POST /templates/tags": {
         "summary": "Assign tags to a template build",
@@ -621,6 +661,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             201: {"description": "Tags assigned"},
         },
+        "addResponses": [403],
     },
     "DELETE /templates/tags": {
         "summary": "Delete tags from templates",
@@ -642,6 +683,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "alias": {"description": "Template alias to look up"},
         },
+        "addResponses": [401],
     },
 }
 
@@ -773,7 +815,10 @@ RESPONSE_EXAMPLES: dict[int, dict] = {
     403: {"code": 403, "message": "Access denied"},
     404: {"code": 404, "message": "Sandbox not found"},
     409: {"code": 409, "message": "Sandbox is already paused"},
+    429: {"code": 429, "message": "You have reached the maximum number of concurrent E2B sandboxes"},
     500: {"code": 500, "message": "Internal server error"},
+    503: {"code": 503, "message": "No builder node available"},
+    507: {"code": 507, "message": "Not enough disk space available"},
 }
 
 RESPONSE_DESCRIPTIONS: dict[int, str] = {
@@ -782,7 +827,10 @@ RESPONSE_DESCRIPTIONS: dict[int, str] = {
     403: "Forbidden - You don't have permission to access this resource",
     404: "Not Found - The requested resource doesn't exist",
     409: "Conflict - The request conflicts with the current state",
+    429: "Too Many Requests - Concurrent sandbox or build limit reached",
     500: "Internal Server Error - Something went wrong on our end",
+    503: "Service Unavailable - No builder node is currently available",
+    507: "Insufficient Storage - Not enough disk space in the sandbox",
 }
 
 # Parameter polish
@@ -996,6 +1044,16 @@ def process_rest_api(spec: dict) -> dict:
                     if content:
                         content["example"] = req_example
 
+                # Add missing error response codes
+                add_responses = polish.get("addResponses")
+                if add_responses and operation.get("responses") is not None:
+                    for code in add_responses:
+                        code_str = str(code)
+                        if code_str not in operation["responses"]:
+                            operation["responses"][code_str] = {
+                                "$ref": f"#/components/responses/{code_str}",
+                            }
+
             filtered_methods[method] = operation
 
         if filtered_methods:
@@ -1048,6 +1106,30 @@ def process_sandbox_api(spec: dict) -> dict:
 
             # Ensure AccessTokenAuth security
             operation["security"] = [{"AccessTokenAuth": []}]
+
+            # Add missing error response codes from sandbox endpoint polish
+            if polish and polish.get("addResponses"):
+                if operation.get("responses") is None:
+                    operation["responses"] = {}
+                for code in polish["addResponses"]:
+                    code_str = str(code)
+                    if code_str not in operation["responses"]:
+                        operation["responses"][code_str] = {
+                            "$ref": f"#/components/responses/{code_str}",
+                        }
+
+            # Add Connect RPC error responses for filesystem/process endpoints
+            for prefix, error_codes in CONNECT_RPC_ERRORS.items():
+                if path_str.startswith(prefix):
+                    if operation.get("responses") is None:
+                        operation["responses"] = {}
+                    for code in error_codes:
+                        code_str = str(code)
+                        if code_str not in operation["responses"]:
+                            operation["responses"][code_str] = {
+                                "$ref": f"#/components/responses/{code_str}",
+                            }
+                    break
 
             processed_path[method] = operation
 

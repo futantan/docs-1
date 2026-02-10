@@ -248,6 +248,15 @@ components:
           example:
             code: 409
             message: Sandbox is already paused
+    '429':
+      description: Too Many Requests - Concurrent sandbox or build limit reached
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 429
+            message: You have reached the maximum number of concurrent E2B sandboxes
     '500':
       description: Internal Server Error - Something went wrong on our end
       content:
@@ -257,6 +266,24 @@ components:
           example:
             code: 500
             message: Internal server error
+    '503':
+      description: Service Unavailable - No builder node is currently available
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 503
+            message: No builder node available
+    '507':
+      description: Insufficient Storage - Not enough disk space in the sandbox
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 507
+            message: Not enough disk space available
   schemas:
     Team:
       required:
@@ -1477,6 +1504,10 @@ paths:
       responses:
         '204':
           description: Sandbox initialized successfully
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
   /teams:
     get:
       summary: List teams
@@ -1690,6 +1721,12 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '429':
+          $ref: '#/components/responses/429'
   /v2/sandboxes:
     get:
       summary: List all sandboxes (v2)
@@ -1817,6 +1854,8 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
   /v2/sandboxes/{sandboxID}/logs:
     get:
       summary: Get sandbox logs
@@ -1864,6 +1903,8 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
   /sandboxes/{sandboxID}:
     get:
       summary: Get sandbox details
@@ -1890,6 +1931,8 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
     delete:
       summary: Terminate a sandbox
       description: |-
@@ -1914,6 +1957,8 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
   /sandboxes/{sandboxID}/metrics:
     get:
       summary: Get sandbox metrics
@@ -1993,6 +2038,10 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
   /sandboxes/{sandboxID}/resume:
     post:
       summary: Resume a paused sandbox
@@ -2030,6 +2079,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
   /sandboxes/{sandboxID}/connect:
     post:
       summary: Connect to or resume a sandbox
@@ -2078,6 +2133,10 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
   /sandboxes/{sandboxID}/timeout:
     post:
       summary: Set sandbox timeout
@@ -2147,6 +2206,10 @@ paths:
           $ref: '#/components/responses/401'
         '404':
           $ref: '#/components/responses/404'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
   /v3/templates:
     post:
       summary: Create a new template
@@ -2177,6 +2240,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '409':
+          $ref: '#/components/responses/409'
+        '429':
+          $ref: '#/components/responses/429'
   /v2/templates:
     post:
       summary: Create a new template (v2)
@@ -2209,6 +2278,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '409':
+          $ref: '#/components/responses/409'
+        '429':
+          $ref: '#/components/responses/429'
   /templates/{templateID}/files/{hash}:
     get:
       summary: Get build file upload link
@@ -2244,6 +2319,10 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '503':
+          $ref: '#/components/responses/503'
   /templates:
     get:
       summary: List templates
@@ -2306,6 +2385,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '409':
+          $ref: '#/components/responses/409'
+        '429':
+          $ref: '#/components/responses/429'
   /templates/{templateID}:
     get:
       summary: Get template details
@@ -2330,6 +2415,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
     post:
       summary: Rebuild a template (legacy)
       description: |-
@@ -2361,6 +2452,14 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        '429':
+          $ref: '#/components/responses/429'
     delete:
       summary: Delete a template
       description: |-
@@ -2383,6 +2482,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
     patch:
       summary: Update template
       description: |-
@@ -2412,6 +2517,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
   /templates/{templateID}/builds/{buildID}:
     post:
       summary: Start a template build (legacy)
@@ -2435,6 +2546,14 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '503':
+          $ref: '#/components/responses/503'
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       summary: Start a template build
@@ -2462,6 +2581,14 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '503':
+          $ref: '#/components/responses/503'
   /v2/templates/{templateID}:
     patch:
       summary: Update template (v2)
@@ -2492,6 +2619,12 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
   /templates/{templateID}/builds/{buildID}/status:
     get:
       summary: Get build status
@@ -2538,6 +2671,10 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       summary: Get build logs
@@ -2592,6 +2729,10 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
   /templates/tags:
     post:
       summary: Assign tags to a template build
@@ -2624,6 +2765,8 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          $ref: '#/components/responses/403'
     delete:
       summary: Delete tags from templates
       description: Removes tags from template builds.
@@ -2681,6 +2824,8 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '401':
+          $ref: '#/components/responses/401'
   /files:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2843,6 +2988,14 @@ paths:
                         size:
                           type: integer
                           format: int64
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/MakeDir:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2880,6 +3033,14 @@ paths:
       responses:
         '200':
           description: Directory created
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/Remove:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2919,6 +3080,14 @@ paths:
       responses:
         '200':
           description: File or directory deleted
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/Move:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2959,6 +3128,14 @@ paths:
       responses:
         '200':
           description: File moved
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/Stat:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3011,6 +3188,14 @@ paths:
                     format: int64
                   permissions:
                     type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/CreateWatcher:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3057,6 +3242,14 @@ paths:
                   watcherID:
                     type: string
                     description: ID to use with GetWatcherEvents and RemoveWatcher
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/GetWatcherEvents:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3112,6 +3305,14 @@ paths:
                           - rename
                         path:
                           type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/RemoveWatcher:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3148,6 +3349,14 @@ paths:
       responses:
         '200':
           description: Watcher removed
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /filesystem.Filesystem/WatchDir:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3187,6 +3396,14 @@ paths:
       responses:
         '200':
           description: Stream of filesystem events
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/Start:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3271,6 +3488,14 @@ paths:
                   pid:
                     type: string
                     description: Process ID for subsequent operations
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/List:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3313,6 +3538,14 @@ paths:
                           type: string
                         cmd:
                           type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/SendSignal:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3356,6 +3589,14 @@ paths:
       responses:
         '200':
           description: Signal sent
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/SendInput:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3398,6 +3639,14 @@ paths:
       responses:
         '200':
           description: Input sent
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/Connect:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3434,6 +3683,14 @@ paths:
       responses:
         '200':
           description: Stream of process output
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/StreamInput:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3471,6 +3728,14 @@ paths:
       responses:
         '200':
           description: Streaming input connection established
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
   /process.Process/Update:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3507,3 +3772,11 @@ paths:
       responses:
         '200':
           description: Process updated
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
