@@ -58,9 +58,7 @@ STRUCTURE = {
                     "GET    /teams/{teamID}/metrics           — Team metrics",
                     "GET    /teams/{teamID}/metrics/max       — Max team metric",
                 ],
-                "Teams": [
-                    "GET    /teams                            — List teams",
-                ],
+                # Note: GET /teams excluded (Supabase session auth only)
             },
         },
         "Data Plane ({port}-{sandboxId}.e2b.app)": {
@@ -133,13 +131,6 @@ TAGS = [
         ),
     },
     {
-        "name": "Teams",
-        "description": (
-            "List and manage your teams. Teams are organizational units that own\n"
-            "sandboxes, templates, and API keys."
-        ),
-    },
-    {
         "name": "Sandbox Filesystem",
         "description": (
             "Perform filesystem operations inside a running sandbox. Create directories,\n"
@@ -207,8 +198,7 @@ ENDPOINT_GROUPS: dict[tuple[str, str], str] = {
     ("GET",    "/teams/{teamID}/metrics"):           "Metrics",
     ("GET",    "/teams/{teamID}/metrics/max"):       "Metrics",
 
-    # === Teams (Control Plane) ===
-    ("GET",    "/teams"):                           "Teams",
+    # Note: GET /teams excluded — uses Supabase session auth, not API keys
 
     # === Sandbox Init (Data Plane, tagged as Sandboxes) ===
     ("POST",   "/init"):                            "Sandboxes",

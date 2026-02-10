@@ -245,7 +245,7 @@ _ALL_CONTROL_PLANE = [
     ("POST",   f"/sandboxes/{FAKE_SANDBOX_ID}/refreshes",                         None),
     ("GET",    f"/sandboxes/{FAKE_SANDBOX_ID}/logs",                              None),
     # Note: GET /v2/sandboxes/{id}/logs route not recognized without auth at gateway
-    ("GET",    "/teams",                                                          None),
+    # Note: GET /teams excluded from spec (uses Supabase session auth, not API keys)
     ("GET",    f"/teams/{FAKE_TEAM_ID}/metrics",                                  None),
     ("GET",    f"/teams/{FAKE_TEAM_ID}/metrics/max",                              None),
     ("GET",    "/sandboxes/metrics",                                              None),
@@ -444,28 +444,11 @@ def test_team_metrics(suite: TestSuite, api_key: str, team_id: str):
 
 
 # ---------------------------------------------------------------------------
-# 10. TEST: GET /teams — 200 (or 401 if Supabase auth)
-# ---------------------------------------------------------------------------
-
-def test_teams(suite: TestSuite, api_key: str):
-    print("\n--- GET /teams ---")
-    h = auth(api_key)
-    status, body = ctrl("GET", "/teams", headers=h)
-    # /teams uses Supabase auth, not API key — may return 401
-    if status == 401:
-        suite.add(TestResult(
-            "GET /teams",
-            "Uses Supabase auth (not X-API-Key) -> 401",
-            401, 401, True,
-            details="Expected: endpoint requires different auth",
-        ))
-    else:
-        check(suite, "GET /teams", "List teams -> 200",
-              status, body, 200, verify_error_shape=False)
-
+# Note: GET /teams is excluded from the spec — it uses Supabase session auth,
+# not API keys, and is only used by the E2B Dashboard.
 
 # ---------------------------------------------------------------------------
-# 11. TEST: TEMPLATE READ ENDPOINTS — 200, 404
+# 10. TEST: TEMPLATE READ ENDPOINTS — 200, 404
 # ---------------------------------------------------------------------------
 
 def test_template_reads(suite: TestSuite, api_key: str) -> tuple[str | None, str | None]:
@@ -929,15 +912,8 @@ def discover_team_id(api_key: str, env_team_id: str | None) -> str | None:
     if env_team_id:
         return env_team_id
 
-    # Try /teams (may need Supabase auth — might fail)
+    # Try to extract teamID from template or sandbox list
     h = auth(api_key)
-    status, body = ctrl("GET", "/teams", headers=h)
-    if status == 200 and isinstance(body, list) and body:
-        tid = body[0].get("teamID") or body[0].get("id")
-        if tid:
-            return tid
-
-    # Fall back: extract teamID from template or sandbox list
     status, body = ctrl("GET", "/templates", headers=h)
     if status == 200 and isinstance(body, list):
         for tpl in body:
@@ -1010,10 +986,9 @@ def main():
     else:
         print("\n  [SKIP] Team metrics tests — no team ID available")
 
-    # ---- Section 5: Teams ----
-    test_teams(suite, api_key)
+    # Note: GET /teams excluded from spec (Supabase session auth only)
 
-    # ---- Section 6: Templates ----
+    # ---- Section 5: Templates ----
     test_template_reads(suite, api_key)
     test_template_create_errors(suite, api_key)
     test_template_update_delete_404(suite, api_key)

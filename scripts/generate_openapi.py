@@ -49,12 +49,17 @@ EXCLUDE_REST_PATHS = [
     "/v2/sandboxes/{sandboxID}/logs",
 ]
 
-# Paths to include even when they don't have ApiKeyAuth in the source spec
+# Paths to include even when they don't have ApiKeyAuth in the source spec.
+# These legacy endpoints use Bearer token auth instead of X-API-Key.
 FORCE_INCLUDE_PATHS = {
-    "/teams",
     "/templates",
     "/templates/{templateID}",
     "/templates/{templateID}/builds/{buildID}",
+}
+
+# Endpoints that should NOT be included (dashboard-only, Supabase session auth)
+EXCLUDE_REST_ENDPOINTS = {
+    "GET /teams",  # Uses Supabase session auth, not accessible via API keys
 }
 
 EXCLUDE_SECURITY_SCHEMES = [
@@ -1060,17 +1065,6 @@ ENDPOINT_POLISH: dict[str, dict] = {
             },
         },
     },
-    "GET /teams": {
-        "summary": "List teams",
-        "description": (
-            "Returns all teams accessible to the authenticated user.\n"
-            "\n"
-            "**Note:** This endpoint uses session-based authentication (not `X-API-Key`).\n"
-            "It is primarily used by the E2B Dashboard and is not accessible via API keys."
-        ),
-        "operationId": "listTeams",
-        "tags": ["Teams"],
-    },
     "GET /templates": {
         "summary": "List templates",
         "description": (
@@ -1085,10 +1079,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "description": (
             "Creates a new template from a Dockerfile.\n"
             "\n"
-            "**Deprecated:** Use `POST /v3/templates` instead.\n"
-            "\n"
-            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
-            "not `X-API-Key`. Use the v3 endpoint for API key auth."
+            "**Deprecated:** Use `POST /v3/templates` instead."
         ),
         "operationId": "createTemplateLegacy",
         "tags": ["Templates"],
@@ -1135,10 +1126,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "description": (
             "Triggers a rebuild of an existing template from a Dockerfile.\n"
             "\n"
-            "**Deprecated:** Use `POST /v3/templates` instead.\n"
-            "\n"
-            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
-            "not `X-API-Key`. Use the v3 endpoint for API key auth."
+            "**Deprecated:** Use `POST /v3/templates` instead."
         ),
         "operationId": "rebuildTemplateLegacy",
         "tags": ["Templates"],
@@ -1332,10 +1320,7 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "description": (
             "Starts a previously created template build.\n"
             "\n"
-            "**Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead.\n"
-            "\n"
-            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
-            "not `X-API-Key`. Use the v2 endpoint for API key auth."
+            "**Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead."
         ),
         "operationId": "startTemplateBuildLegacy",
         "tags": ["Templates"],
@@ -1791,6 +1776,11 @@ def process_rest_api(spec: dict) -> dict:
             if not isinstance(operation, dict) or "responses" not in operation:
                 continue
 
+            # Skip explicitly excluded endpoints
+            endpoint_key = f"{method.upper()} {path_str}"
+            if endpoint_key in EXCLUDE_REST_ENDPOINTS:
+                continue
+
             # Only keep endpoints accessible via ApiKeyAuth, unless force-included
             has_api_key_auth = False
             if operation.get("security"):
@@ -1803,9 +1793,12 @@ def process_rest_api(spec: dict) -> dict:
             if not has_api_key_auth and operation.get("security") and not is_force_included:
                 continue
 
-            # Clean up security — only keep ApiKeyAuth
-            if operation.get("security"):
+            # Set correct security scheme
+            if has_api_key_auth:
                 operation["security"] = [{"ApiKeyAuth": []}]
+            elif is_force_included:
+                # Legacy endpoints use Bearer token auth
+                operation["security"] = [{"BearerAuth": []}]
 
             # Apply documentation polish
             polish_key = f"{method.upper()} {path_str}"
@@ -2077,6 +2070,11 @@ def build_components(rest_spec: dict, sandbox_spec: dict) -> dict:
                 "in": "header",
                 "name": "X-API-Key",
             },
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Bearer token authentication used by legacy template endpoints",
+            },
             "AccessTokenAuth": {
                 "type": "apiKey",
                 "in": "header",
@@ -2143,6 +2141,14 @@ def build_components(rest_spec: dict, sandbox_spec: dict) -> dict:
 
         polished = polish_schema(name, copy.deepcopy(schema))
         components["schemas"][name] = polished
+
+    # Add sandbox schemas (e.g., EntryInfo referenced by UploadSuccess response)
+    sandbox_schemas = (sandbox_spec.get("components") or {}).get("schemas") or {}
+    for name, schema in sandbox_schemas.items():
+        # Skip if already present from REST spec or if it's an inline ref
+        if name in components["schemas"] or name in INLINE_REFS:
+            continue
+        components["schemas"][name] = copy.deepcopy(schema)
 
     return components
 

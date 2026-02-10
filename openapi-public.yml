@@ -87,10 +87,6 @@ tags:
   description: |-
     Monitor resource usage and track sandbox activity. Use metrics to understand
     your usage patterns and optimize costs.
-- name: Teams
-  description: |-
-    List and manage your teams. Teams are organizational units that own
-    sandboxes, templates, and API keys.
 - name: Sandbox Filesystem
   description: |-
     Perform filesystem operations inside a running sandbox. Create directories,
@@ -113,6 +109,10 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication used by legacy template endpoints
     AccessTokenAuth:
       type: apiKey
       in: header
@@ -1484,6 +1484,50 @@ components:
           example: Invalid request parameters
       description: Error response returned when a request fails
       type: object
+    EntryInfo:
+      required:
+      - path
+      - name
+      - type
+      properties:
+        path:
+          type: string
+          description: Path to the file
+        name:
+          type: string
+          description: Name of the file
+        type:
+          type: string
+          description: Type of the file
+          enum:
+          - file
+    Metrics:
+      type: object
+      description: Resource usage metrics
+      properties:
+        ts:
+          type: integer
+          format: int64
+          description: Unix timestamp in UTC for current sandbox time
+        cpu_count:
+          type: integer
+          description: Number of CPU cores
+        cpu_used_pct:
+          type: number
+          format: float
+          description: CPU usage percentage
+        mem_total:
+          type: integer
+          description: Total virtual memory in bytes
+        mem_used:
+          type: integer
+          description: Used virtual memory in bytes
+        disk_used:
+          type: integer
+          description: Used disk space in bytes
+        disk_total:
+          type: integer
+          description: Total disk space in bytes
   requestBodies:
     File:
       required: true
@@ -1496,32 +1540,6 @@ components:
                 type: string
                 format: binary
 paths:
-  /teams:
-    get:
-      summary: List teams
-      description: |-
-        Returns all teams accessible to the authenticated user.
-
-        **Note:** This endpoint uses session-based authentication (not `X-API-Key`).
-        It is primarily used by the E2B Dashboard and is not accessible via API keys.
-      operationId: listTeams
-      tags:
-      - Teams
-      security:
-      - ApiKeyAuth: []
-      responses:
-        '200':
-          description: Successfully returned all teams
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Team'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
   /teams/{teamID}/metrics:
     get:
       summary: Get team metrics
@@ -2532,15 +2550,12 @@ paths:
         Creates a new template from a Dockerfile.
 
         **Deprecated:** Use `POST /v3/templates` instead.
-
-        **Auth:** This legacy endpoint uses Bearer token authentication,
-        not `X-API-Key`. Use the v3 endpoint for API key auth.
       operationId: createTemplateLegacy
       deprecated: true
       tags:
       - Templates
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -2644,15 +2659,12 @@ paths:
         Triggers a rebuild of an existing template from a Dockerfile.
 
         **Deprecated:** Use `POST /v3/templates` instead.
-
-        **Auth:** This legacy endpoint uses Bearer token authentication,
-        not `X-API-Key`. Use the v3 endpoint for API key auth.
       operationId: rebuildTemplateLegacy
       deprecated: true
       tags:
       - Templates
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       requestBody:
@@ -2827,15 +2839,12 @@ paths:
         Starts a previously created template build.
 
         **Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead.
-
-        **Auth:** This legacy endpoint uses Bearer token authentication,
-        not `X-API-Key`. Use the v2 endpoint for API key auth.
       operationId: startTemplateBuildLegacy
       deprecated: true
       tags:
       - Templates
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       - $ref: '#/components/parameters/buildID'
