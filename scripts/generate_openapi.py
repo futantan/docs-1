@@ -201,6 +201,10 @@ CONNECT_RPC_ERRORS = {
             "description": "Internal Server Error - filesystem operation failed",
             "example": {"code": 500, "message": "error reading directory"},
         },
+        502: {
+            "description": "Bad Gateway - sandbox not found or not running",
+            "example": {"sandboxId": "sandbox-id", "message": "The sandbox was not found", "code": 502},
+        },
     },
     "/process.Process/": {
         400: {
@@ -219,7 +223,18 @@ CONNECT_RPC_ERRORS = {
             "description": "Internal Server Error - process operation failed",
             "example": {"code": 500, "message": "error sending signal"},
         },
+        502: {
+            "description": "Bad Gateway - sandbox not found or not running",
+            "example": {"sandboxId": "sandbox-id", "message": "The sandbox was not found", "code": 502},
+        },
     },
+}
+
+# 502 error response for all data plane endpoints (sandbox not found/not running).
+# Applied to /files and any other sandbox endpoints not covered by CONNECT_RPC_ERRORS.
+DATA_PLANE_502_ERROR = {
+    "description": "Bad Gateway - sandbox not found or not running",
+    "example": {"sandboxId": "sandbox-id", "message": "The sandbox was not found", "code": 502},
 }
 
 # ---------------------------------------------------------------------------
@@ -1611,6 +1626,7 @@ RESPONSE_EXAMPLES: dict[int, dict] = {
     409: {"code": 409, "message": "Sandbox is already paused"},
     429: {"code": 429, "message": "You have reached the maximum number of concurrent E2B sandboxes"},
     500: {"code": 500, "message": "Internal server error"},
+    502: {"sandboxId": "sandbox-id", "message": "The sandbox was not found", "code": 502},
     503: {"code": 503, "message": "No builder node available"},
     507: {"code": 507, "message": "Not enough disk space available"},
 }
@@ -1623,6 +1639,7 @@ RESPONSE_DESCRIPTIONS: dict[int, str] = {
     409: "Conflict - The request conflicts with the current state",
     429: "Too Many Requests - Concurrent sandbox or build limit reached",
     500: "Internal Server Error - Something went wrong on our end",
+    502: "Bad Gateway - The sandbox was not found or is not running",
     503: "Service Unavailable - No builder node is currently available",
     507: "Insufficient Storage - Not enough disk space in the sandbox",
 }
@@ -1977,6 +1994,20 @@ def process_sandbox_api(spec: dict) -> dict:
                                 resp["content"]["application/json"]["example"] = err_info["example"]
                             operation["responses"][code_str] = resp
                     break
+
+            # Add 502 response to all data plane endpoints (sandbox not found)
+            if operation.get("responses") is None:
+                operation["responses"] = {}
+            if "502" not in operation["responses"]:
+                operation["responses"]["502"] = {
+                    "description": DATA_PLANE_502_ERROR["description"],
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                            "example": DATA_PLANE_502_ERROR["example"],
+                        },
+                    },
+                }
 
             processed_path[method] = operation
 
