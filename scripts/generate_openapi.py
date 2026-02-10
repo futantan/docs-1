@@ -45,6 +45,8 @@ EXCLUDE_REST_PATHS = [
     "/health",
     "/nodes",
     "/nodes/{nodeID}",
+    # Route not registered on the live API gateway
+    "/v2/sandboxes/{sandboxID}/logs",
 ]
 
 # Paths to include even when they don't have ApiKeyAuth in the source spec
@@ -83,7 +85,8 @@ EXCLUDE_SCHEMAS = [
     "UpdateTeamAPIKey",
 ]
 
-SANDBOX_EXCLUDE_PATHS = ["/health", "/metrics", "/envs"]
+# POST /init does not exist on the live API gateway — exclude it
+SANDBOX_EXCLUDE_PATHS = ["/health", "/metrics", "/envs", "/init"]
 
 SANDBOX_TAG_RENAMES = {
     "files": "Sandbox Filesystem",
@@ -168,29 +171,507 @@ TAGS = [
 ]
 
 # Sandbox endpoint polish (applied during sandbox processing)
-SANDBOX_ENDPOINT_POLISH = {
-    "POST /init": {
-        "summary": "Initialize sandbox",
-        "description": "Initializes a sandbox after creation. Syncs environment variables and metadata.",
-        "operationId": "initSandbox",
-        "tags": ["Sandboxes"],
-        "addResponses": [400, 401],
-    },
-}
+# Note: POST /init is excluded via SANDBOX_EXCLUDE_PATHS (not registered on live gateway)
+SANDBOX_ENDPOINT_POLISH: dict[str, dict] = {}
 
-# Connect RPC error codes to add to all filesystem and process endpoints.
+# Connect RPC error responses for filesystem and process endpoints.
 # Connect RPC maps its error codes to HTTP status codes:
 #   InvalidArgument -> 400, Unauthenticated -> 401, NotFound -> 404,
 #   AlreadyExists -> 409, Internal -> 500
 CONNECT_RPC_ERRORS = {
-    "/filesystem.Filesystem/": [400, 401, 404, 500],
-    "/process.Process/": [400, 401, 404, 500],
+    "/filesystem.Filesystem/": {
+        400: {
+            "description": "Bad Request - invalid path or argument",
+            "example": {"code": 400, "message": "path is not a directory"},
+        },
+        401: {
+            "description": "Unauthorized - no user specified or invalid credentials",
+            "example": {"code": 401, "message": "no user specified"},
+        },
+        404: {
+            "description": "Not Found - file or directory does not exist",
+            "example": {"code": 404, "message": "file not found"},
+        },
+        500: {
+            "description": "Internal Server Error - filesystem operation failed",
+            "example": {"code": 500, "message": "error reading directory"},
+        },
+    },
+    "/process.Process/": {
+        400: {
+            "description": "Bad Request - invalid argument or command",
+            "example": {"code": 400, "message": "invalid signal"},
+        },
+        401: {
+            "description": "Unauthorized - no user specified or invalid credentials",
+            "example": {"code": 401, "message": "no user specified"},
+        },
+        404: {
+            "description": "Not Found - process not found",
+            "example": {"code": 404, "message": "process with pid 1234 not found"},
+        },
+        500: {
+            "description": "Internal Server Error - process operation failed",
+            "example": {"code": 500, "message": "error sending signal"},
+        },
+    },
 }
 
-# Additional error codes for specific sandbox HTTP endpoints
-SANDBOX_HTTP_ERRORS = {
-    "GET /files": [],    # already has error responses in source spec
-    "POST /files": [],   # already has error responses in source spec
+# ---------------------------------------------------------------------------
+# CONNECT RPC ENDPOINT DEFINITIONS
+# These define the Sandbox Data Plane endpoints served over Connect RPC protocol.
+# Each RPC method maps to POST /package.Service/Method with JSON request/response.
+# ---------------------------------------------------------------------------
+
+CONNECT_RPC_ENDPOINTS: dict[str, dict] = {
+    # --- Filesystem Service ---
+    "/filesystem.Filesystem/Stat": {
+        "summary": "Get file information",
+        "description": "Returns metadata about a file or directory (size, type, permissions, etc.).",
+        "operationId": "statFile",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to inspect",
+                    "example": "/home/user/file.txt",
+                },
+            },
+        },
+        "responseDescription": "File information",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "type": {"type": "string", "enum": ["file", "dir"]},
+                "size": {"type": "integer", "format": "int64"},
+                "permissions": {"type": "string"},
+            },
+        },
+    },
+    "/filesystem.Filesystem/MakeDir": {
+        "summary": "Create a directory",
+        "description": (
+            "Creates a directory at the specified path. Parent directories are\n"
+            "created automatically if they don't exist (like `mkdir -p`)."
+        ),
+        "operationId": "makeDirectory",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path for the new directory",
+                    "example": "/home/user/projects/new-project",
+                },
+            },
+        },
+        "responseDescription": "Directory created",
+    },
+    "/filesystem.Filesystem/Move": {
+        "summary": "Move or rename a file",
+        "description": "Moves a file or directory to a new location. Can also be used to rename.",
+        "operationId": "moveFile",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["source", "destination"],
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Current path",
+                    "example": "/home/user/old-name.txt",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "New path",
+                    "example": "/home/user/new-name.txt",
+                },
+            },
+        },
+        "responseDescription": "File moved",
+    },
+    "/filesystem.Filesystem/ListDir": {
+        "summary": "List directory contents",
+        "description": (
+            "Lists files and subdirectories in the specified directory.\n\n"
+            "**Request body:**\n"
+            '```json\n{\n  "path": "/home/user",\n  "depth": 1\n}\n```'
+        ),
+        "operationId": "listDirectory",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory path to list",
+                    "example": "/home/user",
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "How many levels deep to list (1 = immediate children only)",
+                    "default": 1,
+                    "example": 1,
+                },
+            },
+        },
+        "responseDescription": "Directory listing",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "type": {"type": "string", "enum": ["file", "dir"]},
+                            "path": {"type": "string"},
+                            "size": {"type": "integer", "format": "int64"},
+                        },
+                    },
+                },
+            },
+        },
+    },
+    "/filesystem.Filesystem/Remove": {
+        "summary": "Delete a file or directory",
+        "description": (
+            "Deletes a file or directory. For directories, all contents are\n"
+            "deleted recursively (like `rm -rf`).\n\n"
+            "**Warning:** This action cannot be undone."
+        ),
+        "operationId": "removeFile",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to delete",
+                    "example": "/home/user/temp-file.txt",
+                },
+            },
+        },
+        "responseDescription": "File or directory deleted",
+    },
+    "/filesystem.Filesystem/WatchDir": {
+        "summary": "Watch directory (streaming)",
+        "description": (
+            "Streams filesystem change events for a directory in real-time.\n"
+            "This is the streaming alternative to CreateWatcher + GetWatcherEvents.\n\n"
+            "Uses server-sent events (SSE) to push changes as they happen."
+        ),
+        "operationId": "watchDir",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory path to watch",
+                    "example": "/home/user/project",
+                },
+            },
+        },
+        "responseDescription": "Stream of filesystem events",
+    },
+    "/filesystem.Filesystem/CreateWatcher": {
+        "summary": "Create a filesystem watcher",
+        "description": (
+            "Creates a watcher that monitors a directory for changes. Use\n"
+            "`GetWatcherEvents` to poll for events. This is the non-streaming\n"
+            "alternative to `WatchDir`."
+        ),
+        "operationId": "createWatcher",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory path to watch",
+                    "example": "/home/user/project",
+                },
+            },
+        },
+        "responseDescription": "Watcher created",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "watcherID": {
+                    "type": "string",
+                    "description": "ID to use with GetWatcherEvents and RemoveWatcher",
+                },
+            },
+        },
+    },
+    "/filesystem.Filesystem/GetWatcherEvents": {
+        "summary": "Get filesystem watcher events",
+        "description": (
+            "Retrieves pending filesystem change events from a watcher created\n"
+            "with `CreateWatcher`. Returns events since the last poll."
+        ),
+        "operationId": "getWatcherEvents",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["watcherID"],
+            "properties": {
+                "watcherID": {
+                    "type": "string",
+                    "description": "Watcher ID from CreateWatcher",
+                },
+            },
+        },
+        "responseDescription": "Watcher events",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["create", "write", "remove", "rename"],
+                            },
+                            "path": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+    },
+    "/filesystem.Filesystem/RemoveWatcher": {
+        "summary": "Remove a filesystem watcher",
+        "description": (
+            "Stops and removes a filesystem watcher. No more events will be\n"
+            "generated after this call."
+        ),
+        "operationId": "removeWatcher",
+        "tags": ["Sandbox Filesystem"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["watcherID"],
+            "properties": {
+                "watcherID": {
+                    "type": "string",
+                    "description": "Watcher ID to remove",
+                },
+            },
+        },
+        "responseDescription": "Watcher removed",
+    },
+    # --- Process Service ---
+    "/process.Process/List": {
+        "summary": "List running processes",
+        "description": "Returns a list of all processes currently running in the sandbox.",
+        "operationId": "listProcesses",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {"type": "object"},
+        "responseDescription": "List of processes",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "processes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "pid": {"type": "string"},
+                            "cmd": {"type": "string"},
+                            "args": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "tag": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+    },
+    "/process.Process/Start": {
+        "summary": "Start a process",
+        "description": (
+            "Starts a new process in the sandbox. Returns a process ID that can be\n"
+            "used to monitor, send input to, or terminate the process.\n\n"
+            "**Example - Run a Python script:**\n"
+            "```json\n"
+            '{\n  "cmd": "python",\n  "args": ["script.py"],\n  "cwd": "/home/user",\n'
+            '  "envVars": {\n    "PYTHONPATH": "/home/user/lib"\n  }\n}\n'
+            "```\n\n"
+            "**Example - Run a shell command:**\n"
+            "```json\n"
+            '{\n  "cmd": "/bin/bash",\n  "args": ["-c", "echo \'Hello World\' && sleep 5"]\n}\n'
+            "```"
+        ),
+        "operationId": "startProcess",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["cmd"],
+            "properties": {
+                "cmd": {
+                    "type": "string",
+                    "description": "Command to execute",
+                    "example": "python",
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Command arguments",
+                    "example": ["script.py", "--verbose"],
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "Working directory",
+                    "example": "/home/user",
+                },
+                "envVars": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": "Environment variables",
+                    "example": {"NODE_ENV": "production"},
+                },
+            },
+        },
+        "responseDescription": "Process started",
+        "responseSchema": {
+            "type": "object",
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID for subsequent operations",
+                },
+            },
+        },
+    },
+    "/process.Process/Connect": {
+        "summary": "Connect to a running process",
+        "description": (
+            "Connects to an existing running process to stream its output\n"
+            "(stdout/stderr). Use this to monitor long-running processes."
+        ),
+        "operationId": "connectProcess",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["pid"],
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID to connect to",
+                },
+            },
+        },
+        "responseDescription": "Stream of process output",
+    },
+    "/process.Process/Update": {
+        "summary": "Update a running process",
+        "description": (
+            "Updates properties of a running process, such as its environment\n"
+            "variables or resource limits."
+        ),
+        "operationId": "updateProcess",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["pid"],
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID to update",
+                },
+            },
+        },
+        "responseDescription": "Process updated",
+    },
+    "/process.Process/SendInput": {
+        "summary": "Send input to a process",
+        "description": (
+            "Sends input to the stdin of a running process. Useful for interactive\n"
+            "programs that expect user input."
+        ),
+        "operationId": "sendInput",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["pid", "input"],
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID",
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Input to send (will be written to stdin)",
+                    "example": "yes\n",
+                },
+            },
+        },
+        "responseDescription": "Input sent",
+    },
+    "/process.Process/StreamInput": {
+        "summary": "Stream input to a process",
+        "description": (
+            "Opens a streaming connection to send continuous input to a process's\n"
+            "stdin. Use this for interactive sessions where you need to send\n"
+            "multiple inputs over time."
+        ),
+        "operationId": "streamInput",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["pid"],
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID",
+                },
+            },
+        },
+        "responseDescription": "Streaming input connection established",
+    },
+    "/process.Process/SendSignal": {
+        "summary": "Send a signal to a process",
+        "description": (
+            "Sends a Unix signal to a process. Common signals:\n"
+            "- `SIGTERM` (15): Request graceful termination\n"
+            "- `SIGKILL` (9): Force immediate termination\n"
+            "- `SIGINT` (2): Interrupt (like Ctrl+C)"
+        ),
+        "operationId": "sendSignal",
+        "tags": ["Sandbox Process"],
+        "requestSchema": {
+            "type": "object",
+            "required": ["pid", "signal"],
+            "properties": {
+                "pid": {
+                    "type": "string",
+                    "description": "Process ID",
+                },
+                "signal": {
+                    "type": "integer",
+                    "description": "Signal number (e.g., 9 for SIGKILL, 15 for SIGTERM)",
+                    "example": 15,
+                },
+            },
+        },
+        "responseDescription": "Signal sent",
+    },
 }
 
 # Per-endpoint documentation polish for REST API endpoints
@@ -264,7 +745,34 @@ ENDPOINT_POLISH: dict[str, dict] = {
                 },
             },
         },
-        "addResponses": [403, 404, 429],
+        "errorResponses": {
+            400: {
+                "description": (
+                    "Bad Request. Possible causes:\n"
+                    "- Invalid template reference\n"
+                    "- Timeout exceeds team's maximum limit\n"
+                    "- Invalid network configuration (CIDR, mask host)\n"
+                    "- Template not compatible with secured access"
+                ),
+                "example": {"code": 400, "message": "Timeout cannot be greater than 24 hours"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to the specified template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - the specified template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent sandbox limit reached for your team",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent E2B sandboxes"},
+            },
+            500: {
+                "description": "Internal Server Error - sandbox creation failed",
+                "example": {"code": 500, "message": "Failed to create sandbox"},
+            },
+        },
     },
     "GET /sandboxes/{sandboxID}": {
         "summary": "Get sandbox details",
@@ -274,7 +782,16 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "getSandbox",
         "tags": ["Sandboxes"],
-        "addResponses": [403],
+        "errorResponses": {
+            403: {
+                "description": "Forbidden - sandbox belongs to a different team",
+                "example": {"code": 403, "message": "You don't have access to sandbox 'sandbox-abc123'"},
+            },
+            404: {
+                "description": "Not Found - sandbox does not exist or is not accessible",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' doesn't exist or you don't have access to it"},
+            },
+        },
     },
     "DELETE /sandboxes/{sandboxID}": {
         "summary": "Terminate a sandbox",
@@ -290,7 +807,12 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox terminated successfully"},
         },
-        "addResponses": [403],
+        "errorResponses": {
+            404: {
+                "description": "Not Found - sandbox does not exist",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' not found"},
+            },
+        },
     },
     "POST /sandboxes/{sandboxID}/pause": {
         "summary": "Pause a sandbox",
@@ -313,7 +835,16 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox paused successfully"},
         },
-        "addResponses": [400, 403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - sandbox cannot be paused in its current state",
+                "example": {"code": 400, "message": "Sandbox is already paused"},
+            },
+            404: {
+                "description": "Not Found - sandbox does not exist",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' not found"},
+            },
+        },
     },
     "POST /sandboxes/{sandboxID}/resume": {
         "summary": "Resume a paused sandbox",
@@ -325,7 +856,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "resumeSandbox",
         "tags": ["Sandboxes"],
-        "addResponses": [400, 403, 429],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - sandbox is not in a paused state",
+                "example": {"code": 400, "message": "sandbox is not paused"},
+            },
+            404: {
+                "description": "Not Found - sandbox snapshot does not exist",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' not found"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent sandbox limit reached",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent E2B sandboxes"},
+            },
+        },
     },
     "POST /sandboxes/{sandboxID}/connect": {
         "summary": "Connect to or resume a sandbox",
@@ -343,7 +887,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "connectSandbox",
         "tags": ["Sandboxes"],
-        "addResponses": [403, 429],
+        "errorResponses": {
+            404: {
+                "description": "Not Found - sandbox does not exist or has no snapshot",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' doesn't exist"},
+            },
+            403: {
+                "description": "Forbidden - sandbox belongs to a different team",
+                "example": {"code": 403, "message": "You don't have access to sandbox 'sandbox-abc123'"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent sandbox limit reached (when resuming paused sandbox)",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent E2B sandboxes"},
+            },
+        },
     },
     "POST /sandboxes/{sandboxID}/timeout": {
         "summary": "Set sandbox timeout",
@@ -359,6 +916,12 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Timeout updated successfully"},
         },
+        "errorResponses": {
+            404: {
+                "description": "Not Found - sandbox does not exist",
+                "example": {"code": 404, "message": "sandbox 'sandbox-abc123' not found"},
+            },
+        },
     },
     "POST /sandboxes/{sandboxID}/refreshes": {
         "summary": "Extend sandbox lifetime",
@@ -371,7 +934,12 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             204: {"description": "Sandbox lifetime extended"},
         },
-        "addResponses": [400, 500],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid duration or sandbox not found",
+                "example": {"code": 400, "message": "sandbox 'sandbox-abc123' not found"},
+            },
+        },
     },
     "GET /v2/sandboxes": {
         "summary": "List all sandboxes (v2)",
@@ -403,11 +971,13 @@ ENDPOINT_POLISH: dict[str, dict] = {
         },
     },
     "GET /sandboxes/{sandboxID}/logs": {
-        "summary": "Get sandbox logs (legacy)",
+        "summary": "Get sandbox logs",
         "description": (
-            "Returns system logs from the sandbox.\n"
+            "Returns system logs from the sandbox. These include sandbox startup logs\n"
+            "and system-level events.\n"
             "\n"
-            "**Deprecated:** Use `GET /v2/sandboxes/{sandboxID}/logs` instead."
+            "**Note:** Returns an empty 200 response for non-existent sandbox IDs\n"
+            "rather than a 404 error."
         ),
         "operationId": "getSandboxLogs",
         "tags": ["Sandboxes"],
@@ -418,25 +988,15 @@ ENDPOINT_POLISH: dict[str, dict] = {
             "start": {"description": "Start timestamp in milliseconds (Unix epoch)"},
             "limit": {"description": "Maximum number of log entries to return"},
         },
-        "addResponses": [400],
-    },
-    "GET /v2/sandboxes/{sandboxID}/logs": {
-        "summary": "Get sandbox logs",
-        "description": (
-            "Returns system logs from the sandbox. These include sandbox startup logs\n"
-            "and system-level events. Supports pagination and filtering."
-        ),
-        "operationId": "getSandboxLogsV2",
-        "tags": ["Sandboxes"],
-        "responseOverrides": {
-            200: {"description": "Sandbox logs"},
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid query parameters",
+                "example": {"code": 400, "message": "Error parsing metadata"},
+            },
         },
-        "paramOverrides": {
-            "cursor": {"description": "Starting timestamp in milliseconds (Unix epoch)"},
-            "limit": {"description": "Maximum number of log entries to return"},
-        },
-        "addResponses": [400],
     },
+    # Note: GET /v2/sandboxes/{sandboxID}/logs is excluded (EXCLUDE_REST_PATHS)
+    # because the route is not registered on the live API gateway.
     "GET /sandboxes/{sandboxID}/metrics": {
         "summary": "Get sandbox metrics",
         "description": (
@@ -464,7 +1024,16 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Team metrics"},
         },
-        "addResponses": [403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - missing or invalid query parameters (start, end, metric required)",
+                "example": {"code": 400, "message": "missing required query parameter: start"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this team",
+                "example": {"code": 403, "message": "You are not allowed to access this team"},
+            },
+        },
     },
     "GET /teams/{teamID}/metrics/max": {
         "summary": "Get max team metrics",
@@ -480,11 +1049,25 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "metric": {"description": "Which metric to get the maximum value for"},
         },
-        "addResponses": [403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - missing or invalid query parameters",
+                "example": {"code": 400, "message": "missing required query parameter: metric"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this team",
+                "example": {"code": 403, "message": "You are not allowed to access this team"},
+            },
+        },
     },
     "GET /teams": {
         "summary": "List teams",
-        "description": "Returns all teams accessible to the authenticated user.",
+        "description": (
+            "Returns all teams accessible to the authenticated user.\n"
+            "\n"
+            "**Note:** This endpoint uses session-based authentication (not `X-API-Key`).\n"
+            "It is primarily used by the E2B Dashboard and is not accessible via API keys."
+        ),
         "operationId": "listTeams",
         "tags": ["Teams"],
     },
@@ -502,11 +1085,27 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "description": (
             "Creates a new template from a Dockerfile.\n"
             "\n"
-            "**Deprecated:** Use `POST /v3/templates` instead."
+            "**Deprecated:** Use `POST /v3/templates` instead.\n"
+            "\n"
+            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
+            "not `X-API-Key`. Use the v3 endpoint for API key auth."
         ),
         "operationId": "createTemplateLegacy",
         "tags": ["Templates"],
-        "addResponses": [403, 409, 429],
+        "errorResponses": {
+            403: {
+                "description": "Forbidden - you don't have access or team is banned/blocked",
+                "example": {"code": 403, "message": "team is banned"},
+            },
+            409: {
+                "description": "Conflict - template name already exists",
+                "example": {"code": 409, "message": "template with this name already exists"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent build limit reached",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent builds"},
+            },
+        },
     },
     "GET /templates/{templateID}": {
         "summary": "Get template details",
@@ -516,18 +1115,51 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template details with builds"},
         },
-        "addResponses": [400, 403, 404],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid pagination token or team ID mismatch",
+                "example": {"code": 400, "message": "Invalid next token"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "You don't have access to this sandbox template"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "Template 'tpl-abc123' not found"},
+            },
+        },
     },
     "POST /templates/{templateID}": {
         "summary": "Rebuild a template (legacy)",
         "description": (
             "Triggers a rebuild of an existing template from a Dockerfile.\n"
             "\n"
-            "**Deprecated:** Use `POST /v3/templates` instead."
+            "**Deprecated:** Use `POST /v3/templates` instead.\n"
+            "\n"
+            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
+            "not `X-API-Key`. Use the v3 endpoint for API key auth."
         ),
         "operationId": "rebuildTemplateLegacy",
         "tags": ["Templates"],
-        "addResponses": [403, 404, 409, 429],
+        "errorResponses": {
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            409: {
+                "description": "Conflict - template name already taken",
+                "example": {"code": 409, "message": "template with this name already exists"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent build limit reached",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent builds"},
+            },
+        },
     },
     "DELETE /templates/{templateID}": {
         "summary": "Delete a template",
@@ -540,7 +1172,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         ),
         "operationId": "deleteTemplate",
         "tags": ["Templates"],
-        "addResponses": [400, 403, 404],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - cannot delete template with paused sandboxes",
+                "example": {"code": 400, "message": "cannot delete template 'tpl-abc123' because there are paused sandboxes using it"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+        },
     },
     "PATCH /templates/{templateID}": {
         "summary": "Update template",
@@ -554,7 +1199,24 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template updated"},
         },
-        "addResponses": [403, 404, 409],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid template ID or request body",
+                "example": {"code": 400, "message": "Invalid request body"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            409: {
+                "description": "Conflict - public template name is already taken by another template",
+                "example": {"code": 409, "message": "Public template name 'my-template' is already taken"},
+            },
+        },
     },
     "POST /v3/templates": {
         "summary": "Create a new template",
@@ -567,7 +1229,24 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
-        "addResponses": [403, 409, 429],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - name is required, or invalid name format",
+                "example": {"code": 400, "message": "Name is required"},
+            },
+            403: {
+                "description": "Forbidden - team is banned or blocked",
+                "example": {"code": 403, "message": "team is banned"},
+            },
+            409: {
+                "description": "Conflict - template name already exists",
+                "example": {"code": 409, "message": "template with this name already exists"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent build limit reached",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent builds"},
+            },
+        },
     },
     "POST /v2/templates": {
         "summary": "Create a new template (v2)",
@@ -581,7 +1260,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
-        "addResponses": [403, 409, 429],
+        "errorResponses": {
+            403: {
+                "description": "Forbidden - team is banned or blocked",
+                "example": {"code": 403, "message": "team is banned"},
+            },
+            409: {
+                "description": "Conflict - template name already exists",
+                "example": {"code": 409, "message": "template with this name already exists"},
+            },
+            429: {
+                "description": "Too Many Requests - concurrent build limit reached",
+                "example": {"code": 429, "message": "you have reached the maximum number of concurrent builds"},
+            },
+        },
     },
     "PATCH /v2/templates/{templateID}": {
         "summary": "Update template (v2)",
@@ -591,7 +1283,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Template updated"},
         },
-        "addResponses": [403, 404, 409],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid template ID or request body",
+                "example": {"code": 400, "message": "Invalid request body"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+        },
     },
     "GET /templates/{templateID}/files/{hash}": {
         "summary": "Get build file upload link",
@@ -607,18 +1312,51 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "hash": {"description": "SHA256 hash of the tar file"},
         },
-        "addResponses": [403, 404, 503],
+        "errorResponses": {
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template or build does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            503: {
+                "description": "Service Unavailable - no builder node available",
+                "example": {"code": 503, "message": "No builder node available"},
+            },
+        },
     },
     "POST /templates/{templateID}/builds/{buildID}": {
         "summary": "Start a template build (legacy)",
         "description": (
             "Starts a previously created template build.\n"
             "\n"
-            "**Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead."
+            "**Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead.\n"
+            "\n"
+            "**Auth:** This legacy endpoint uses Bearer token authentication,\n"
+            "not `X-API-Key`. Use the v2 endpoint for API key auth."
         ),
         "operationId": "startTemplateBuildLegacy",
         "tags": ["Templates"],
-        "addResponses": [400, 403, 404, 503],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid build configuration",
+                "example": {"code": 400, "message": "invalid build configuration"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template or build does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            503: {
+                "description": "Service Unavailable - no builder node available",
+                "example": {"code": 503, "message": "No builder node available"},
+            },
+        },
     },
     "POST /v2/templates/{templateID}/builds/{buildID}": {
         "summary": "Start a template build",
@@ -631,7 +1369,24 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             202: {"description": "Build started"},
         },
-        "addResponses": [400, 403, 404, 503],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid build configuration or missing files",
+                "example": {"code": 400, "message": "build files have not been uploaded"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template or build does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+            503: {
+                "description": "Service Unavailable - no builder node available",
+                "example": {"code": 503, "message": "No builder node available"},
+            },
+        },
     },
     "GET /templates/{templateID}/builds/{buildID}/status": {
         "summary": "Get build status",
@@ -641,14 +1396,32 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             200: {"description": "Build status and logs"},
         },
-        "addResponses": [400, 403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid build ID format",
+                "example": {"code": 400, "message": "Invalid build ID"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+        },
     },
     "GET /templates/{templateID}/builds/{buildID}/logs": {
         "summary": "Get build logs",
         "description": "Returns logs from a template build with pagination and filtering options.",
         "operationId": "getTemplateBuildLogs",
         "tags": ["Templates"],
-        "addResponses": [400, 403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid build ID format",
+                "example": {"code": 400, "message": "Invalid build ID"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+        },
     },
     "POST /templates/tags": {
         "summary": "Assign tags to a template build",
@@ -661,7 +1434,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "responseOverrides": {
             201: {"description": "Tags assigned"},
         },
-        "addResponses": [403],
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid request body or target format",
+                "example": {"code": 400, "message": "Invalid request body"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to this template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template or build not found",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
+        },
     },
     "DELETE /templates/tags": {
         "summary": "Delete tags from templates",
@@ -670,6 +1456,20 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "tags": ["Templates"],
         "responseOverrides": {
             204: {"description": "Tags deleted"},
+        },
+        "errorResponses": {
+            400: {
+                "description": "Bad Request - invalid request body",
+                "example": {"code": 400, "message": "invalid request body"},
+            },
+            403: {
+                "description": "Forbidden - you don't have access to the template",
+                "example": {"code": 403, "message": "you don't have access to template 'my-template'"},
+            },
+            404: {
+                "description": "Not Found - template does not exist",
+                "example": {"code": 404, "message": "template 'my-template' not found"},
+            },
         },
     },
     "GET /templates/aliases/{alias}": {
@@ -683,7 +1483,16 @@ ENDPOINT_POLISH: dict[str, dict] = {
         "paramOverrides": {
             "alias": {"description": "Template alias to look up"},
         },
-        "addResponses": [401],
+        "errorResponses": {
+            401: {
+                "description": "Unauthorized - invalid or missing API key",
+                "example": {"code": 401, "message": "Invalid API key format"},
+            },
+            404: {
+                "description": "Not Found - no template with this alias exists",
+                "example": {"code": 404, "message": "template 'my-alias' not found"},
+            },
+        },
     },
 }
 
@@ -810,7 +1619,7 @@ SCHEMA_POLISH: dict[str, dict] = {
 
 # Response examples for error responses
 RESPONSE_EXAMPLES: dict[int, dict] = {
-    400: {"code": 400, "message": "Invalid request: templateID is required"},
+    400: {"code": 400, "message": "Invalid request parameters"},
     401: {"code": 401, "message": "Invalid API key"},
     403: {"code": 403, "message": "Access denied"},
     404: {"code": 404, "message": "Sandbox not found"},
@@ -1044,7 +1853,25 @@ def process_rest_api(spec: dict) -> dict:
                     if content:
                         content["example"] = req_example
 
-                # Add missing error response codes
+                # Add endpoint-specific error responses with real messages.
+                # Always override generic $ref responses with specific inline ones.
+                error_responses = polish.get("errorResponses")
+                if error_responses and operation.get("responses") is not None:
+                    for code, err_info in error_responses.items():
+                        code_str = str(code)
+                        resp: dict = {
+                            "description": err_info["description"],
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"},
+                                },
+                            },
+                        }
+                        if err_info.get("example"):
+                            resp["content"]["application/json"]["example"] = err_info["example"]
+                        operation["responses"][code_str] = resp
+
+                # Fallback: add generic error responses via $ref (deprecated, prefer errorResponses)
                 add_responses = polish.get("addResponses")
                 if add_responses and operation.get("responses") is not None:
                     for code in add_responses:
@@ -1107,7 +1934,26 @@ def process_sandbox_api(spec: dict) -> dict:
             # Ensure AccessTokenAuth security
             operation["security"] = [{"AccessTokenAuth": []}]
 
-            # Add missing error response codes from sandbox endpoint polish
+            # Add endpoint-specific error responses from sandbox endpoint polish.
+            # Always override generic $ref responses with specific inline ones.
+            if polish and polish.get("errorResponses"):
+                if operation.get("responses") is None:
+                    operation["responses"] = {}
+                for code, err_info in polish["errorResponses"].items():
+                    code_str = str(code)
+                    resp: dict = {
+                        "description": err_info["description"],
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/Error"},
+                            },
+                        },
+                    }
+                    if err_info.get("example"):
+                        resp["content"]["application/json"]["example"] = err_info["example"]
+                    operation["responses"][code_str] = resp
+
+            # Fallback for sandbox polish with addResponses (deprecated)
             if polish and polish.get("addResponses"):
                 if operation.get("responses") is None:
                     operation["responses"] = {}
@@ -1119,16 +1965,24 @@ def process_sandbox_api(spec: dict) -> dict:
                         }
 
             # Add Connect RPC error responses for filesystem/process endpoints
-            for prefix, error_codes in CONNECT_RPC_ERRORS.items():
+            for prefix, error_map in CONNECT_RPC_ERRORS.items():
                 if path_str.startswith(prefix):
                     if operation.get("responses") is None:
                         operation["responses"] = {}
-                    for code in error_codes:
+                    for code, err_info in error_map.items():
                         code_str = str(code)
                         if code_str not in operation["responses"]:
-                            operation["responses"][code_str] = {
-                                "$ref": f"#/components/responses/{code_str}",
+                            resp = {
+                                "description": err_info["description"],
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/Error"},
+                                    },
+                                },
                             }
+                            if err_info.get("example"):
+                                resp["content"]["application/json"]["example"] = err_info["example"]
+                            operation["responses"][code_str] = resp
                     break
 
             processed_path[method] = operation
@@ -1136,6 +1990,77 @@ def process_sandbox_api(spec: dict) -> dict:
         paths[path_str] = processed_path
 
     print(f"Sandbox API: {len(paths)} paths")
+    return paths
+
+
+# ---------------------------------------------------------------------------
+# CONNECT RPC ENDPOINT GENERATION
+# ---------------------------------------------------------------------------
+
+def generate_connect_rpc_paths() -> dict:
+    """Generate OpenAPI paths for Connect RPC endpoints (filesystem, process).
+
+    Reads endpoint definitions from CONNECT_RPC_ENDPOINTS and applies
+    error responses from CONNECT_RPC_ERRORS.
+    """
+    print("\n=== Generating Connect RPC Endpoints ===\n")
+
+    paths = {}
+
+    for path_str, endpoint in CONNECT_RPC_ENDPOINTS.items():
+        # Build the operation
+        operation: dict = {
+            "summary": endpoint["summary"],
+            "description": endpoint["description"],
+            "operationId": endpoint["operationId"],
+            "tags": endpoint["tags"],
+            "security": [{"AccessTokenAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": endpoint["requestSchema"],
+                    },
+                },
+            },
+            "responses": {},
+        }
+
+        # Add 200 response
+        resp_200: dict = {"description": endpoint.get("responseDescription", "Success")}
+        if endpoint.get("responseSchema"):
+            resp_200["content"] = {
+                "application/json": {
+                    "schema": endpoint["responseSchema"],
+                },
+            }
+        operation["responses"]["200"] = resp_200
+
+        # Add Connect RPC error responses
+        for prefix, error_map in CONNECT_RPC_ERRORS.items():
+            if path_str.startswith(prefix):
+                for code, err_info in error_map.items():
+                    code_str = str(code)
+                    resp: dict = {
+                        "description": err_info["description"],
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/Error"},
+                            },
+                        },
+                    }
+                    if err_info.get("example"):
+                        resp["content"]["application/json"]["example"] = err_info["example"]
+                    operation["responses"][code_str] = resp
+                break
+
+        # Wrap with sandbox server
+        paths[path_str] = {
+            "servers": [SANDBOX_SERVER],
+            "post": operation,
+        }
+
+    print(f"Connect RPC: {len(paths)} paths")
     return paths
 
 
@@ -1181,6 +2106,16 @@ def build_components(rest_spec: dict, sandbox_spec: dict) -> dict:
     sandbox_params = (sandbox_spec.get("components") or {}).get("parameters") or {}
     for name, param in sandbox_params.items():
         components["parameters"][f"Sandbox{name}"] = param
+
+    # Add sandbox requestBodies (e.g., File upload for /files POST)
+    sandbox_request_bodies = (sandbox_spec.get("components") or {}).get("requestBodies") or {}
+    if sandbox_request_bodies:
+        components["requestBodies"] = dict(sandbox_request_bodies)
+
+    # Add sandbox-specific responses (e.g., UploadSuccess, DownloadSuccess, etc.)
+    sandbox_responses = (sandbox_spec.get("components") or {}).get("responses") or {}
+    for name, resp in sandbox_responses.items():
+        components["responses"][name] = resp
 
     # Build polished error responses
     for code, description in RESPONSE_DESCRIPTIONS.items():
@@ -1315,8 +2250,13 @@ def update_sandbox_refs(obj, sandbox_param_names: set):
 # MERGE
 # ---------------------------------------------------------------------------
 
-def merge_specs(rest_paths: dict, sandbox_paths: dict, components: dict) -> dict:
-    """Merge REST and Sandbox paths into a single spec."""
+def merge_specs(
+    rest_paths: dict,
+    sandbox_paths: dict,
+    connect_rpc_paths: dict,
+    components: dict,
+) -> dict:
+    """Merge REST, Sandbox, and Connect RPC paths into a single spec."""
     print("\n=== Merging Specs ===\n")
 
     output = {
@@ -1328,19 +2268,16 @@ def merge_specs(rest_paths: dict, sandbox_paths: dict, components: dict) -> dict
         "paths": {},
     }
 
-    # Add sandbox /init first
-    init_path = sandbox_paths.get("/init")
-    if init_path:
-        output["paths"]["/init"] = init_path
-
     # Add all REST paths
     for path_str, methods in rest_paths.items():
         output["paths"][path_str] = methods
 
-    # Add sandbox paths (data plane) — skip /init which was already added
+    # Add sandbox paths (data plane REST)
     for path_str, methods in sandbox_paths.items():
-        if path_str == "/init":
-            continue
+        output["paths"][path_str] = methods
+
+    # Add Connect RPC paths (data plane gRPC-over-HTTP)
+    for path_str, methods in connect_rpc_paths.items():
         output["paths"][path_str] = methods
 
     total_paths = len(output["paths"])
@@ -1416,6 +2353,7 @@ def main():
     # Process each spec
     rest_paths = process_rest_api(rest_spec)
     sandbox_paths = process_sandbox_api(sandbox_spec)
+    connect_rpc_paths = generate_connect_rpc_paths()
 
     # Build components
     components = build_components(rest_spec, sandbox_spec)
@@ -1430,7 +2368,7 @@ def main():
         update_sandbox_refs(methods, sandbox_param_names)
 
     # Merge into final spec
-    merged = merge_specs(rest_paths, sandbox_paths, components)
+    merged = merge_specs(rest_paths, sandbox_paths, connect_rpc_paths, components)
 
     # Post-process: resolve inline refs and unwrap unnecessary allOf throughout
     merged = resolve_inline_refs(merged)

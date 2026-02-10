@@ -172,22 +172,16 @@ components:
       name: path
       in: query
       required: false
-      description: |
-        Path to the file inside the sandbox. Can be absolute (e.g., `/home/user/file.txt`)
-        or relative to the user's home directory (e.g., `file.txt`).
-        Must be URL encoded.
+      description: Path to the file, URL encoded. Can be relative to user's home directory.
       schema:
         type: string
-      example: /home/user/data.json
     SandboxUser:
       name: username
       in: query
       required: false
-      description: Username for file ownership and resolving relative paths. Defaults to `user`.
+      description: User used for setting the owner, or resolving relative paths.
       schema:
         type: string
-        default: user
-      example: user
     SandboxSignature:
       name: signature
       in: query
@@ -203,6 +197,52 @@ components:
       schema:
         type: integer
   responses:
+    UploadSuccess:
+      description: The file was uploaded successfully.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/EntryInfo'
+    DownloadSuccess:
+      description: Entire file downloaded successfully.
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: The file content
+    InvalidPath:
+      description: Invalid path
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    FileNotFound:
+      description: File not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidUser:
+      description: Invalid user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotEnoughDiskSpace:
+      description: Not enough disk space
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     '400':
       description: Bad Request - The request was malformed or missing required parameters
       content:
@@ -211,7 +251,7 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             code: 400
-            message: 'Invalid request: templateID is required'
+            message: Invalid request parameters
     '401':
       description: Unauthorized - Invalid or missing API key
       content:
@@ -407,17 +447,6 @@ components:
             $ref: '#/components/schemas/SandboxLog'
         logEntries:
           description: Structured logs of the sandbox
-          type: array
-          items:
-            $ref: '#/components/schemas/SandboxLogEntry'
-      type: object
-    SandboxLogsV2Response:
-      required:
-      - logs
-      properties:
-        logs:
-          default: []
-          description: Sandbox logs structured
           type: array
           items:
             $ref: '#/components/schemas/SandboxLogEntry'
@@ -1455,63 +1484,26 @@ components:
           example: Invalid request parameters
       description: Error response returned when a request fails
       type: object
+  requestBodies:
+    File:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
 paths:
-  /init:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Initialize sandbox
-      description: Initializes a sandbox after creation. Syncs environment variables and metadata.
-      operationId: initSandbox
-      tags:
-      - Sandboxes
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                envVars:
-                  type: object
-                  additionalProperties:
-                    type: string
-                  description: Environment variables to set
-                accessToken:
-                  type: string
-                  description: Access token for secure access to envd service
-                timestamp:
-                  type: string
-                  format: date-time
-                  description: Current timestamp for time sync
-                defaultUser:
-                  type: string
-                  description: Default user for operations
-                  example: user
-                defaultWorkdir:
-                  type: string
-                  description: Default working directory
-                  example: /home/user
-      responses:
-        '204':
-          description: Sandbox initialized successfully
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
   /teams:
     get:
       summary: List teams
-      description: Returns all teams accessible to the authenticated user.
+      description: |-
+        Returns all teams accessible to the authenticated user.
+
+        **Note:** This endpoint uses session-based authentication (not `X-API-Key`).
+        It is primarily used by the E2B Dashboard and is not accessible via API keys.
       operationId: listTeams
       tags:
       - Teams
@@ -1567,11 +1559,25 @@ paths:
                 items:
                   $ref: '#/components/schemas/TeamMetric'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - missing or invalid query parameters (start, end, metric required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: 'missing required query parameter: start'
         '401':
           $ref: '#/components/responses/401'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: You are not allowed to access this team
         '500':
           $ref: '#/components/responses/500'
   /teams/{teamID}/metrics/max:
@@ -1618,11 +1624,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/MaxTeamMetric'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - missing or invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: 'missing required query parameter: metric'
         '401':
           $ref: '#/components/responses/401'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: You are not allowed to access this team
         '500':
           $ref: '#/components/responses/500'
   /sandboxes:
@@ -1718,15 +1738,55 @@ paths:
         '401':
           $ref: '#/components/responses/401'
         '400':
-          $ref: '#/components/responses/400'
+          description: |-
+            Bad Request. Possible causes:
+            - Invalid template reference
+            - Timeout exceeds team's maximum limit
+            - Invalid network configuration (CIDR, mask host)
+            - Template not compatible with secured access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Timeout cannot be greater than 24 hours
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - sandbox creation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: Failed to create sandbox
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to the specified template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - the specified template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent sandbox limit reached for your team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent E2B sandboxes
   /v2/sandboxes:
     get:
       summary: List all sandboxes (v2)
@@ -1813,13 +1873,14 @@ paths:
           $ref: '#/components/responses/500'
   /sandboxes/{sandboxID}/logs:
     get:
-      summary: Get sandbox logs (legacy)
+      summary: Get sandbox logs
       description: |-
-        Returns system logs from the sandbox.
+        Returns system logs from the sandbox. These include sandbox startup logs
+        and system-level events.
 
-        **Deprecated:** Use `GET /v2/sandboxes/{sandboxID}/logs` instead.
+        **Note:** Returns an empty 200 response for non-existent sandbox IDs
+        rather than a 404 error.
       operationId: getSandboxLogs
-      deprecated: true
       tags:
       - Sandboxes
       security:
@@ -1855,56 +1916,14 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
-  /v2/sandboxes/{sandboxID}/logs:
-    get:
-      summary: Get sandbox logs
-      description: |-
-        Returns system logs from the sandbox. These include sandbox startup logs
-        and system-level events. Supports pagination and filtering.
-      operationId: getSandboxLogsV2
-      tags:
-      - Sandboxes
-      security:
-      - ApiKeyAuth: []
-      parameters:
-      - $ref: '#/components/parameters/sandboxID'
-      - in: query
-        name: cursor
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-        description: Starting timestamp in milliseconds (Unix epoch)
-      - in: query
-        name: limit
-        schema:
-          default: 1000
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000
-        description: Maximum number of log entries to return
-      - in: query
-        name: direction
-        schema:
-          $ref: '#/components/schemas/LogsDirection'
-        description: Direction of the logs that should be returned
-      responses:
-        '200':
-          description: Sandbox logs
+          description: Bad Request - invalid query parameters
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SandboxLogsV2Response'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-        '400':
-          $ref: '#/components/responses/400'
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Error parsing metadata
   /sandboxes/{sandboxID}:
     get:
       summary: Get sandbox details
@@ -1926,13 +1945,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxDetail'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox does not exist or is not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' doesn't exist or you don't have access to it
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - sandbox belongs to a different team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: You don't have access to sandbox 'sandbox-abc123'
     delete:
       summary: Terminate a sandbox
       description: |-
@@ -1952,13 +1985,18 @@ paths:
         '204':
           description: Sandbox terminated successfully
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' not found
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-        '403':
-          $ref: '#/components/responses/403'
   /sandboxes/{sandboxID}/metrics:
     get:
       summary: Get sandbox metrics
@@ -2033,15 +2071,27 @@ paths:
         '409':
           $ref: '#/components/responses/409'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' not found
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
-        '403':
-          $ref: '#/components/responses/403'
+          description: Bad Request - sandbox cannot be paused in its current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Sandbox is already paused
   /sandboxes/{sandboxID}/resume:
     post:
       summary: Resume a paused sandbox
@@ -2074,17 +2124,36 @@ paths:
         '409':
           $ref: '#/components/responses/409'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox snapshot does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' not found
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
-        '403':
-          $ref: '#/components/responses/403'
+          description: Bad Request - sandbox is not in a paused state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: sandbox is not paused
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent sandbox limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent E2B sandboxes
   /sandboxes/{sandboxID}/connect:
     post:
       summary: Connect to or resume a sandbox
@@ -2130,13 +2199,34 @@ paths:
         '401':
           $ref: '#/components/responses/401'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox does not exist or has no snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' doesn't exist
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - sandbox belongs to a different team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: You don't have access to sandbox 'sandbox-abc123'
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent sandbox limit reached (when resuming paused sandbox)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent E2B sandboxes
   /sandboxes/{sandboxID}/timeout:
     post:
       summary: Set sandbox timeout
@@ -2172,7 +2262,14 @@ paths:
         '401':
           $ref: '#/components/responses/401'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - sandbox does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: sandbox 'sandbox-abc123' not found
         '500':
           $ref: '#/components/responses/500'
   /sandboxes/{sandboxID}/refreshes:
@@ -2207,9 +2304,14 @@ paths:
         '404':
           $ref: '#/components/responses/404'
         '400':
-          $ref: '#/components/responses/400'
-        '500':
-          $ref: '#/components/responses/500'
+          description: Bad Request - invalid duration or sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: sandbox 'sandbox-abc123' not found
   /v3/templates:
     post:
       summary: Create a new template
@@ -2235,17 +2337,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/TemplateRequestResponseV3'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - name is required, or invalid name format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Name is required
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - team is banned or blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: team is banned
         '409':
-          $ref: '#/components/responses/409'
+          description: Conflict - template name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 409
+                message: template with this name already exists
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent build limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent builds
   /v2/templates:
     post:
       summary: Create a new template (v2)
@@ -2279,11 +2409,32 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - team is banned or blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: team is banned
         '409':
-          $ref: '#/components/responses/409'
+          description: Conflict - template name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 409
+                message: template with this name already exists
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent build limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent builds
   /templates/{templateID}/files/{hash}:
     get:
       summary: Get build file upload link
@@ -2316,13 +2467,34 @@ paths:
         '401':
           $ref: '#/components/responses/401'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template or build does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '503':
-          $ref: '#/components/responses/503'
+          description: Service Unavailable - no builder node available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 503
+                message: No builder node available
   /templates:
     get:
       summary: List templates
@@ -2360,6 +2532,9 @@ paths:
         Creates a new template from a Dockerfile.
 
         **Deprecated:** Use `POST /v3/templates` instead.
+
+        **Auth:** This legacy endpoint uses Bearer token authentication,
+        not `X-API-Key`. Use the v3 endpoint for API key auth.
       operationId: createTemplateLegacy
       deprecated: true
       tags:
@@ -2386,11 +2561,32 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access or team is banned/blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: team is banned
         '409':
-          $ref: '#/components/responses/409'
+          description: Conflict - template name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 409
+                message: template with this name already exists
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent build limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent builds
   /templates/{templateID}:
     get:
       summary: Get template details
@@ -2416,17 +2612,41 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid pagination token or team ID mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid next token
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: You don't have access to this sandbox template
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: Template 'tpl-abc123' not found
     post:
       summary: Rebuild a template (legacy)
       description: |-
         Triggers a rebuild of an existing template from a Dockerfile.
 
         **Deprecated:** Use `POST /v3/templates` instead.
+
+        **Auth:** This legacy endpoint uses Bearer token authentication,
+        not `X-API-Key`. Use the v3 endpoint for API key auth.
       operationId: rebuildTemplateLegacy
       deprecated: true
       tags:
@@ -2453,13 +2673,41 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '409':
-          $ref: '#/components/responses/409'
+          description: Conflict - template name already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 409
+                message: template with this name already exists
         '429':
-          $ref: '#/components/responses/429'
+          description: Too Many Requests - concurrent build limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 429
+                message: you have reached the maximum number of concurrent builds
     delete:
       summary: Delete a template
       description: |-
@@ -2483,11 +2731,32 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - cannot delete template with paused sandboxes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: cannot delete template 'tpl-abc123' because there are paused sandboxes using it
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
     patch:
       summary: Update template
       description: |-
@@ -2512,17 +2781,45 @@ paths:
         '200':
           description: Template updated
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid template ID or request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid request body
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '409':
-          $ref: '#/components/responses/409'
+          description: Conflict - public template name is already taken by another template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 409
+                message: Public template name 'my-template' is already taken
   /templates/{templateID}/builds/{buildID}:
     post:
       summary: Start a template build (legacy)
@@ -2530,6 +2827,9 @@ paths:
         Starts a previously created template build.
 
         **Deprecated:** Use `POST /v2/templates/{templateID}/builds/{buildID}` instead.
+
+        **Auth:** This legacy endpoint uses Bearer token authentication,
+        not `X-API-Key`. Use the v2 endpoint for API key auth.
       operationId: startTemplateBuildLegacy
       deprecated: true
       tags:
@@ -2547,13 +2847,41 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid build configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid build configuration
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template or build does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '503':
-          $ref: '#/components/responses/503'
+          description: Service Unavailable - no builder node available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 503
+                message: No builder node available
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       summary: Start a template build
@@ -2582,13 +2910,41 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid build configuration or missing files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: build files have not been uploaded
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template or build does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '503':
-          $ref: '#/components/responses/503'
+          description: Service Unavailable - no builder node available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 503
+                message: No builder node available
   /v2/templates/{templateID}:
     patch:
       summary: Update template (v2)
@@ -2614,17 +2970,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/TemplateUpdateResponse'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid template ID or request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid request body
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
         '404':
-          $ref: '#/components/responses/404'
-        '409':
-          $ref: '#/components/responses/409'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
   /templates/{templateID}/builds/{buildID}/status:
     get:
       summary: Get build status
@@ -2672,9 +3047,23 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid build ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid build ID
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       summary: Get build logs
@@ -2730,9 +3119,23 @@ paths:
         '500':
           $ref: '#/components/responses/500'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid build ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid build ID
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
   /templates/tags:
     post:
       summary: Assign tags to a template build
@@ -2758,15 +3161,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssignedTemplateTags'
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid request body or target format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: Invalid request body
         '401':
           $ref: '#/components/responses/401'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template or build not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '500':
           $ref: '#/components/responses/500'
         '403':
-          $ref: '#/components/responses/403'
+          description: Forbidden - you don't have access to this template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
     delete:
       summary: Delete tags from templates
       description: Removes tags from template builds.
@@ -2785,13 +3209,36 @@ paths:
         '204':
           description: Tags deleted
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid request body
         '401':
           $ref: '#/components/responses/401'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - template does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-template' not found
         '500':
           $ref: '#/components/responses/500'
+        '403':
+          description: Forbidden - you don't have access to the template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 403
+                message: you don't have access to template 'my-template'
   /templates/aliases/{alias}:
     get:
       summary: Check template by alias
@@ -2821,11 +3268,25 @@ paths:
         '403':
           $ref: '#/components/responses/403'
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - no template with this alias exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: template 'my-alias' not found
         '500':
           $ref: '#/components/responses/500'
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: Invalid API key format
   /files:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2839,8 +3300,6 @@ paths:
           description: Your sandbox ID from the create response
     get:
       summary: Download a file
-      description: Downloads a file from the sandbox. The file is returned as binary data.
-      operationId: downloadFile
       tags:
       - Sandbox Filesystem
       security:
@@ -2852,26 +3311,17 @@ paths:
       - $ref: '#/components/parameters/SandboxSignatureExpiration'
       responses:
         '200':
-          description: File contents
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '400':
-          description: Invalid path
+          $ref: '#/components/responses/DownloadSuccess'
         '401':
-          description: Invalid user
+          $ref: '#/components/responses/InvalidUser'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
         '404':
-          description: File not found
+          $ref: '#/components/responses/FileNotFound'
         '500':
-          description: Server error
+          $ref: '#/components/responses/InternalServerError'
     post:
-      summary: Upload a file
-      description: |
-        Uploads a file to the sandbox. Parent directories are created automatically
-        if they don't exist. If the file already exists, it will be overwritten.
-      operationId: uploadFile
+      summary: Upload a file and ensure the parent directories exist. If the file exists, it will be overwritten.
       tags:
       - Sandbox Filesystem
       security:
@@ -2882,41 +3332,255 @@ paths:
       - $ref: '#/components/parameters/SandboxSignature'
       - $ref: '#/components/parameters/SandboxSignatureExpiration'
       requestBody:
-        required: true
-        content:
-          application/octet-stream:
-            schema:
-              type: string
-              format: binary
+        $ref: '#/components/requestBodies/File'
       responses:
         '200':
-          description: File uploaded successfully
+          $ref: '#/components/responses/UploadSuccess'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '507':
+          $ref: '#/components/responses/NotEnoughDiskSpace'
+  /filesystem.Filesystem/Stat:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Get file information
+      description: Returns metadata about a file or directory (size, type, permissions, etc.).
+      operationId: statFile
+      tags:
+      - Sandbox Filesystem
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - path
+              properties:
+                path:
+                  type: string
+                  description: Path to inspect
+                  example: /home/user/file.txt
+      responses:
+        '200':
+          description: File information
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                      description: File name
-                    type:
-                      type: string
-                      enum:
-                      - file
-                      - dir
-                    path:
-                      type: string
-                      description: Full path to the file
+                type: object
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                    - file
+                    - dir
+                  size:
+                    type: integer
+                    format: int64
+                  permissions:
+                    type: string
         '400':
-          description: Invalid path
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          description: Invalid user
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          description: Server error
-        '507':
-          description: Not enough disk space
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
+  /filesystem.Filesystem/MakeDir:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Create a directory
+      description: |-
+        Creates a directory at the specified path. Parent directories are
+        created automatically if they don't exist (like `mkdir -p`).
+      operationId: makeDirectory
+      tags:
+      - Sandbox Filesystem
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - path
+              properties:
+                path:
+                  type: string
+                  description: Path for the new directory
+                  example: /home/user/projects/new-project
+      responses:
+        '200':
+          description: Directory created
+        '400':
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
+        '401':
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
+        '500':
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
+  /filesystem.Filesystem/Move:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Move or rename a file
+      description: Moves a file or directory to a new location. Can also be used to rename.
+      operationId: moveFile
+      tags:
+      - Sandbox Filesystem
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - source
+              - destination
+              properties:
+                source:
+                  type: string
+                  description: Current path
+                  example: /home/user/old-name.txt
+                destination:
+                  type: string
+                  description: New path
+                  example: /home/user/new-name.txt
+      responses:
+        '200':
+          description: File moved
+        '400':
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
+        '401':
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
+        '500':
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
   /filesystem.Filesystem/ListDir:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -2930,7 +3594,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: List directory contents
-      description: |
+      description: |-
         Lists files and subdirectories in the specified directory.
 
         **Request body:**
@@ -2989,58 +3653,41 @@ paths:
                           type: integer
                           format: int64
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
-  /filesystem.Filesystem/MakeDir:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Create a directory
-      description: |
-        Creates a directory at the specified path. Parent directories are
-        created automatically if they don't exist (like `mkdir -p`).
-      operationId: makeDirectory
-      tags:
-      - Sandbox Filesystem
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - path
-              properties:
-                path:
-                  type: string
-                  description: Path for the new directory
-                  example: /home/user/projects/new-project
-      responses:
-        '200':
-          description: Directory created
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
   /filesystem.Filesystem/Remove:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3054,7 +3701,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Delete a file or directory
-      description: |
+      description: |-
         Deletes a file or directory. For directories, all contents are
         deleted recursively (like `rm -rf`).
 
@@ -3081,14 +3728,42 @@ paths:
         '200':
           description: File or directory deleted
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
-  /filesystem.Filesystem/Move:
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
+  /filesystem.Filesystem/WatchDir:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
       description: Sandbox Data Plane API
@@ -3100,57 +3775,13 @@ paths:
           default: your-sandbox-id
           description: Your sandbox ID from the create response
     post:
-      summary: Move or rename a file
-      description: Moves a file or directory to a new location. Can also be used to rename.
-      operationId: moveFile
-      tags:
-      - Sandbox Filesystem
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - source
-              - destination
-              properties:
-                source:
-                  type: string
-                  description: Current path
-                  example: /home/user/old-name.txt
-                destination:
-                  type: string
-                  description: New path
-                  example: /home/user/new-name.txt
-      responses:
-        '200':
-          description: File moved
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-  /filesystem.Filesystem/Stat:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Get file information
-      description: Returns metadata about a file or directory (size, type, permissions, etc.).
-      operationId: statFile
+      summary: Watch directory (streaming)
+      description: |-
+        Streams filesystem change events for a directory in real-time.
+        This is the streaming alternative to CreateWatcher + GetWatcherEvents.
+
+        Uses server-sent events (SSE) to push changes as they happen.
+      operationId: watchDir
       tags:
       - Sandbox Filesystem
       security:
@@ -3166,36 +3797,47 @@ paths:
               properties:
                 path:
                   type: string
-                  description: Path to inspect
-                  example: /home/user/file.txt
+                  description: Directory path to watch
+                  example: /home/user/project
       responses:
         '200':
-          description: File information
+          description: Stream of filesystem events
+        '400':
+          description: Bad Request - invalid path or argument
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  type:
-                    type: string
-                    enum:
-                    - file
-                    - dir
-                  size:
-                    type: integer
-                    format: int64
-                  permissions:
-                    type: string
-        '400':
-          $ref: '#/components/responses/400'
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
   /filesystem.Filesystem/CreateWatcher:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3209,7 +3851,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Create a filesystem watcher
-      description: |
+      description: |-
         Creates a watcher that monitors a directory for changes. Use
         `GetWatcherEvents` to poll for events. This is the non-streaming
         alternative to `WatchDir`.
@@ -3243,13 +3885,41 @@ paths:
                     type: string
                     description: ID to use with GetWatcherEvents and RemoveWatcher
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
   /filesystem.Filesystem/GetWatcherEvents:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3263,7 +3933,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Get filesystem watcher events
-      description: |
+      description: |-
         Retrieves pending filesystem change events from a watcher created
         with `CreateWatcher`. Returns events since the last poll.
       operationId: getWatcherEvents
@@ -3306,13 +3976,41 @@ paths:
                         path:
                           type: string
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
   /filesystem.Filesystem/RemoveWatcher:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3326,7 +4024,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Remove a filesystem watcher
-      description: |
+      description: |-
         Stops and removes a filesystem watcher. No more events will be
         generated after this call.
       operationId: removeWatcher
@@ -3350,14 +4048,42 @@ paths:
         '200':
           description: Watcher removed
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid path or argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: path is not a directory
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - file or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: file not found
         '500':
-          $ref: '#/components/responses/500'
-  /filesystem.Filesystem/WatchDir:
+          description: Internal Server Error - filesystem operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error reading directory
+  /process.Process/List:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
       description: Sandbox Data Plane API
@@ -3369,15 +4095,11 @@ paths:
           default: your-sandbox-id
           description: Your sandbox ID from the create response
     post:
-      summary: Watch directory (streaming)
-      description: |
-        Streams filesystem change events for a directory in real-time.
-        This is the streaming alternative to CreateWatcher + GetWatcherEvents.
-
-        Uses server-sent events (SSE) to push changes as they happen.
-      operationId: watchDir
+      summary: List running processes
+      description: Returns a list of all processes currently running in the sandbox.
+      operationId: listProcesses
       tags:
-      - Sandbox Filesystem
+      - Sandbox Process
       security:
       - AccessTokenAuth: []
       requestBody:
@@ -3386,24 +4108,65 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - path
-              properties:
-                path:
-                  type: string
-                  description: Directory path to watch
-                  example: /home/user/project
       responses:
         '200':
-          description: Stream of filesystem events
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        pid:
+                          type: string
+                        cmd:
+                          type: string
+                        args:
+                          type: array
+                          items:
+                            type: string
+                        tag:
+                          type: string
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
   /process.Process/Start:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3417,7 +4180,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Start a process
-      description: |
+      description: |-
         Starts a new process in the sandbox. Returns a process ID that can be
         used to monitor, send input to, or terminate the process.
 
@@ -3489,14 +4252,42 @@ paths:
                     type: string
                     description: Process ID for subsequent operations
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
         '500':
-          $ref: '#/components/responses/500'
-  /process.Process/List:
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
+  /process.Process/Connect:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
       description: Sandbox Data Plane API
@@ -3508,9 +4299,11 @@ paths:
           default: your-sandbox-id
           description: Your sandbox ID from the create response
     post:
-      summary: List running processes
-      description: Returns a list of all processes currently running in the sandbox.
-      operationId: listProcesses
+      summary: Connect to a running process
+      description: |-
+        Connects to an existing running process to stream its output
+        (stdout/stderr). Use this to monitor long-running processes.
+      operationId: connectProcess
       tags:
       - Sandbox Process
       security:
@@ -3521,31 +4314,274 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+              - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID to connect to
       responses:
         '200':
-          description: List of processes
+          description: Stream of process output
+        '400':
+          description: Bad Request - invalid argument or command
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  processes:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        pid:
-                          type: string
-                        cmd:
-                          type: string
-        '400':
-          $ref: '#/components/responses/400'
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
         '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
+  /process.Process/Update:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Update a running process
+      description: |-
+        Updates properties of a running process, such as its environment
+        variables or resource limits.
+      operationId: updateProcess
+      tags:
+      - Sandbox Process
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID to update
+      responses:
+        '200':
+          description: Process updated
+        '400':
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
+        '401':
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
+        '500':
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
+  /process.Process/SendInput:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Send input to a process
+      description: |-
+        Sends input to the stdin of a running process. Useful for interactive
+        programs that expect user input.
+      operationId: sendInput
+      tags:
+      - Sandbox Process
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - pid
+              - input
+              properties:
+                pid:
+                  type: string
+                  description: Process ID
+                input:
+                  type: string
+                  description: Input to send (will be written to stdin)
+                  example: |
+                    yes
+      responses:
+        '200':
+          description: Input sent
+        '400':
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
+        '401':
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
+        '500':
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
+  /process.Process/StreamInput:
+    servers:
+    - url: https://{port}-{sandboxId}.e2b.app
+      description: Sandbox Data Plane API
+      variables:
+        port:
+          default: '49982'
+          description: API port (always 49982)
+        sandboxId:
+          default: your-sandbox-id
+          description: Your sandbox ID from the create response
+    post:
+      summary: Stream input to a process
+      description: |-
+        Opens a streaming connection to send continuous input to a process's
+        stdin. Use this for interactive sessions where you need to send
+        multiple inputs over time.
+      operationId: streamInput
+      tags:
+      - Sandbox Process
+      security:
+      - AccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - pid
+              properties:
+                pid:
+                  type: string
+                  description: Process ID
+      responses:
+        '200':
+          description: Streaming input connection established
+        '400':
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
+        '401':
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
+        '404':
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
+        '500':
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
   /process.Process/SendSignal:
     servers:
     - url: https://{port}-{sandboxId}.e2b.app
@@ -3559,7 +4595,7 @@ paths:
           description: Your sandbox ID from the create response
     post:
       summary: Send a signal to a process
-      description: |
+      description: |-
         Sends a Unix signal to a process. Common signals:
         - `SIGTERM` (15): Request graceful termination
         - `SIGKILL` (9): Force immediate termination
@@ -3590,193 +4626,38 @@ paths:
         '200':
           description: Signal sent
         '400':
-          $ref: '#/components/responses/400'
+          description: Bad Request - invalid argument or command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 400
+                message: invalid signal
         '401':
-          $ref: '#/components/responses/401'
+          description: Unauthorized - no user specified or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 401
+                message: no user specified
         '404':
-          $ref: '#/components/responses/404'
+          description: Not Found - process not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 404
+                message: process with pid 1234 not found
         '500':
-          $ref: '#/components/responses/500'
-  /process.Process/SendInput:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Send input to a process
-      description: |
-        Sends input to the stdin of a running process. Useful for interactive
-        programs that expect user input.
-      operationId: sendInput
-      tags:
-      - Sandbox Process
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - pid
-              - input
-              properties:
-                pid:
-                  type: string
-                  description: Process ID
-                input:
-                  type: string
-                  description: Input to send (will be written to stdin)
-                  example: |
-                    yes
-      responses:
-        '200':
-          description: Input sent
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-  /process.Process/Connect:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Connect to a running process
-      description: |
-        Connects to an existing running process to stream its output
-        (stdout/stderr). Use this to monitor long-running processes.
-      operationId: connectProcess
-      tags:
-      - Sandbox Process
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - pid
-              properties:
-                pid:
-                  type: string
-                  description: Process ID to connect to
-      responses:
-        '200':
-          description: Stream of process output
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-  /process.Process/StreamInput:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Stream input to a process
-      description: |
-        Opens a streaming connection to send continuous input to a process's
-        stdin. Use this for interactive sessions where you need to send
-        multiple inputs over time.
-      operationId: streamInput
-      tags:
-      - Sandbox Process
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - pid
-              properties:
-                pid:
-                  type: string
-                  description: Process ID
-      responses:
-        '200':
-          description: Streaming input connection established
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
-  /process.Process/Update:
-    servers:
-    - url: https://{port}-{sandboxId}.e2b.app
-      description: Sandbox Data Plane API
-      variables:
-        port:
-          default: '49982'
-          description: API port (always 49982)
-        sandboxId:
-          default: your-sandbox-id
-          description: Your sandbox ID from the create response
-    post:
-      summary: Update a running process
-      description: |
-        Updates properties of a running process, such as its environment
-        variables or resource limits.
-      operationId: updateProcess
-      tags:
-      - Sandbox Process
-      security:
-      - AccessTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - pid
-              properties:
-                pid:
-                  type: string
-                  description: Process ID to update
-      responses:
-        '200':
-          description: Process updated
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '404':
-          $ref: '#/components/responses/404'
-        '500':
-          $ref: '#/components/responses/500'
+          description: Internal Server Error - process operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 500
+                message: error sending signal
