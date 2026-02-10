@@ -220,14 +220,6 @@
           "source": "openapi-public.yml",
           "directory": "docs/api-reference"
         }
-      },
-      {
-        "anchor": "API Reference (Edited)",
-        "icon": "code",
-        "openapi": {
-          "source": "openapi-public-edited.yml",
-          "directory": "docs/api-reference-edited"
-        }
       }
     ],
     "global": {}

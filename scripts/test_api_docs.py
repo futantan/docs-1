@@ -44,7 +44,7 @@ import yaml
 
 BASE_URL = "https://api.e2b.app"
 ENVD_PORT = 49982
-SPEC_PATH = Path(__file__).resolve().parent.parent / "openapi-public-edited.yml"
+SPEC_PATH = Path(__file__).resolve().parent.parent / "openapi-public.yml"
 
 FAKE_SANDBOX_ID = "nonexistent-sandbox-000000"
 FAKE_TEMPLATE_ID = "nonexistent-template-000000"

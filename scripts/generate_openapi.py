@@ -34,7 +34,7 @@ from api_mindmap import TAGS as MINDMAP_TAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INFRA_PATH = REPO_ROOT.parent / "infra"
-OUTPUT_FILENAME = "openapi-public-edited.yml"
+OUTPUT_FILENAME = "openapi-public.yml"
 
 EXCLUDE_REST_PATHS = [
     "/access-tokens",
