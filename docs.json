@@ -45,6 +45,7 @@
           {
             "group": "Use cases",
             "pages": [
+              "docs/use-cases/vibe-coding",
               "docs/use-cases/computer-use",
               "docs/use-cases/ci-cd"
             ]
