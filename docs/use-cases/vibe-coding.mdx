@@ -4,44 +4,44 @@ description: "Build AI-powered app generators that turn natural language into ru
 icon: "wand-magic-sparkles"
 ---
 
-Vibe coding tools let users describe an app in plain language and get back running code instantly. The challenge is executing AI-generated code safely — it could be buggy, resource-hungry, or malicious. E2B sandboxes solve this by providing isolated environments where generated code runs securely, with [public URLs](/docs/sandbox/internet-access) for live previews that users can open in their browser.
+Vibe coding tools let users describe an app in plain language and get back running code instantly. Your application handles the LLM interaction and UI, then uses E2B sandboxes as isolated environments to prepare and serve the generated app — installing dependencies, writing code files, and exposing a [public URL](/docs/sandbox/internet-access) for the live preview. Since the generated code never runs on your infrastructure, it can't cause damage even if it's buggy or malicious.
 
 For a complete working implementation, see [Fragments](https://github.com/e2b-dev/fragments) — an open-source vibe coding platform you can try via the [live demo](https://fragments.e2b.dev).
 
 ## How It Works
 
 1. **User describes what they want** — e.g., "Build a todo app with dark mode" or "Create a chart of monthly sales data"
-2. **Your backend sends the prompt to an LLM** — any model that can generate code (OpenAI, Anthropic, Google, Mistral, etc.)
+2. **Your app sends the prompt to an LLM** — any model that can generate code (OpenAI, Anthropic, Google, Mistral, etc.)
 3. **The LLM returns structured output** — generated code, a list of additional dependencies, and which framework to target
-4. **Your backend creates an E2B sandbox** — using a pre-configured [template](/docs/template/quickstart) that matches the target framework (e.g., Next.js, Streamlit, Python)
-5. **Dependencies are installed** — `commands.run()` installs any extra packages the LLM requested
+4. **Your app creates an E2B sandbox** — using a pre-configured [template](/docs/template/quickstart) that matches the target framework (e.g., Next.js, Streamlit, Python)
+5. **Dependencies are installed in the sandbox** — `commands.run()` installs any extra packages the LLM requested
 6. **Generated code is written to the sandbox** — `files.write()` places the code at the correct file path
-7. **The app starts and becomes accessible** — `getHost(port)` / `get_host(port)` returns a public URL the user can open in their browser
+7. **The sandbox serves the app** — `getHost(port)` / `get_host(port)` returns a public URL your app embeds in an iframe for the user
 
-## Install the E2B SDK
+## Install the E2B Code Interpreter SDK
 
-The [E2B SDK](https://github.com/e2b-dev/e2b) lets you create sandboxes, write files, run commands, and retrieve public URLs for running apps.
+[Fragments](https://github.com/e2b-dev/fragments) uses the [E2B Code Interpreter SDK](https://github.com/e2b-dev/code-interpreter) — an extension of the base E2B SDK that adds code execution capabilities on top of sandbox management.
 
 <CodeGroup>
 ```bash JavaScript & TypeScript
-npm i e2b
+npm i @e2b/code-interpreter
 ```
 ```bash Python
-pip install e2b
+pip install e2b-code-interpreter
 ```
 </CodeGroup>
 
 ## Core Implementation
 
-The following snippets show the key building blocks for a vibe coding backend, adapted from [Fragments](https://github.com/e2b-dev/fragments).
+The following snippets show the key building blocks for a vibe coding backend. Your application (e.g., a Next.js server) runs these on its own infrastructure — the sandbox is used purely as the execution environment for the generated code. These examples are adapted from [Fragments](https://github.com/e2b-dev/fragments).
 
 ### Creating a sandbox from a template
 
-Create a sandbox from a [custom template](/docs/template/quickstart) that has your target framework pre-installed. The template's start command (e.g., `npx next --turbo`) launches the dev server automatically, so the app is ready to serve as soon as the sandbox starts. See the [Next.js template example](/docs/template/examples/nextjs) for a full template definition.
+Create a sandbox from a [custom template](/docs/template/quickstart) that has your target framework pre-installed. The template's start command (e.g., `npx next --turbo`) launches the dev server automatically, so the sandbox is ready to serve as soon as it starts. See the [Next.js template example](/docs/template/examples/nextjs) for a full template definition.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
-import { Sandbox } from 'e2b'
+import { Sandbox } from '@e2b/code-interpreter'
 
 // Create a sandbox from a pre-configured Next.js template
 // The dev server starts automatically via the template's start command
@@ -52,7 +52,7 @@ const sandbox = await Sandbox.create('nextjs-app', {
 console.log('Sandbox created:', sandbox.sandboxId)
 ```
 ```python Python
-from e2b import Sandbox
+from e2b_code_interpreter import Sandbox
 
 # Create a sandbox from a pre-configured Next.js template
 # The dev server starts automatically via the template's start command
@@ -64,11 +64,11 @@ print("Sandbox created:", sandbox.sandbox_id)
 
 ### Installing dependencies
 
-The LLM may request packages that aren't included in the template. Install them at runtime with `commands.run()` before writing the generated code. See [Install custom packages](/docs/quickstart/install-custom-packages) for more details.
+The LLM may request packages that aren't included in the template. Install them in the sandbox with `commands.run()` before writing the generated code. See [Install custom packages](/docs/quickstart/install-custom-packages) for more details.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
-import { Sandbox } from 'e2b'
+import { Sandbox } from '@e2b/code-interpreter'
 
 const sandbox = await Sandbox.create('nextjs-app', { timeoutMs: 300_000 })
 
@@ -77,7 +77,7 @@ const dependencies = ['recharts', '@radix-ui/react-icons']
 await sandbox.commands.run(`npm install ${dependencies.join(' ')}`)
 ```
 ```python Python
-from e2b import Sandbox
+from e2b_code_interpreter import Sandbox
 
 sandbox = Sandbox.create("nextjs-app", timeout=300)
 
@@ -93,7 +93,7 @@ Once the LLM generates code, write it to the correct file path in the sandbox. T
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
-import { Sandbox } from 'e2b'
+import { Sandbox } from '@e2b/code-interpreter'
 
 const sandbox = await Sandbox.create('nextjs-app', { timeoutMs: 300_000 })
 
@@ -111,7 +111,7 @@ export default function Home() {
 await sandbox.files.write('/home/user/pages/index.tsx', generatedCode)
 ```
 ```python Python
-from e2b import Sandbox
+from e2b_code_interpreter import Sandbox
 
 sandbox = Sandbox.create("nextjs-app", timeout=300)
 
@@ -132,11 +132,11 @@ sandbox.files.write("/home/user/pages/index.tsx", generated_code)
 
 ### Getting the preview URL
 
-After writing the code, the dev server (already running via the template's start command) picks up the changes automatically. Retrieve the sandbox's [public URL](/docs/sandbox/internet-access) and send it to your frontend so the user can see the running app.
+After writing the code, the dev server (already running via the template's start command) picks up the changes automatically. Retrieve the sandbox's [public URL](/docs/sandbox/internet-access) and send it to your frontend so the user can see the running app in an iframe.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
-import { Sandbox } from 'e2b'
+import { Sandbox } from '@e2b/code-interpreter'
 
 const sandbox = await Sandbox.create('nextjs-app', { timeoutMs: 300_000 })
 
@@ -149,7 +149,7 @@ const previewUrl = `https://${host}`
 console.log('Preview your app at:', previewUrl)
 ```
 ```python Python
-from e2b import Sandbox
+from e2b_code_interpreter import Sandbox
 
 sandbox = Sandbox.create("nextjs-app", timeout=300)
 
@@ -165,11 +165,11 @@ print("Preview your app at:", preview_url)
 
 ### Putting it all together
 
-Here is a complete example that demonstrates the full vibe coding flow: prompting an LLM, creating a sandbox, installing dependencies, writing the generated code, and returning a preview URL. This is a simplified version of how [Fragments](https://github.com/e2b-dev/fragments) handles each generation request.
+Here is a complete example that demonstrates the full vibe coding flow: prompting an LLM, creating a sandbox, installing dependencies, writing the generated code, and returning a preview URL. Your application orchestrates this from its own server — the sandbox handles only the generated app. This is a simplified version of how [Fragments](https://github.com/e2b-dev/fragments) handles each generation request.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript expandable
-import { Sandbox } from 'e2b'
+import { Sandbox } from '@e2b/code-interpreter'
 import OpenAI from 'openai'
 
 // --- 1. Get code from the LLM ---
@@ -192,17 +192,17 @@ const response = await openai.chat.completions.create({
 const generatedCode = response.choices[0].message.content
 const dependencies = [''] // The LLM could also return a dependency list
 
-// --- 2. Create a sandbox from the Next.js template ---
+// --- 2. Create a sandbox to prepare the generated app ---
 const sandbox = await Sandbox.create('nextjs-app', {
   timeoutMs: 300_000,
 })
 
-// --- 3. Install any additional dependencies ---
+// --- 3. Install any additional dependencies in the sandbox ---
 if (dependencies.length > 0 && dependencies[0] !== '') {
   await sandbox.commands.run(`npm install ${dependencies.join(' ')}`)
 }
 
-// --- 4. Write the generated code ---
+// --- 4. Write the generated code to the sandbox ---
 await sandbox.files.write('/home/user/pages/index.tsx', generatedCode)
 
 // --- 5. Get the preview URL ---
@@ -214,7 +214,7 @@ console.log('App is live at:', previewUrl)
 await sandbox.kill()
 ```
 ```python Python expandable
-from e2b import Sandbox
+from e2b_code_interpreter import Sandbox
 from openai import OpenAI
 
 # --- 1. Get code from the LLM ---
@@ -236,14 +236,14 @@ response = client.chat.completions.create(
 generated_code = response.choices[0].message.content
 dependencies = []  # The LLM could also return a dependency list
 
-# --- 2. Create a sandbox from the Next.js template ---
+# --- 2. Create a sandbox to prepare the generated app ---
 sandbox = Sandbox.create("nextjs-app", timeout=300)
 
-# --- 3. Install any additional dependencies ---
+# --- 3. Install any additional dependencies in the sandbox ---
 if dependencies:
     sandbox.commands.run(f"npm install {' '.join(dependencies)}")
 
-# --- 4. Write the generated code ---
+# --- 4. Write the generated code to the sandbox ---
 sandbox.files.write("/home/user/pages/index.tsx", generated_code)
 
 # --- 5. Get the preview URL ---
@@ -256,9 +256,9 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-1. **Get code from the LLM** — send a prompt to any model; the LLM returns generated code and optionally a list of dependencies — swap the model for any provider via [Connect LLMs](/docs/quickstart/connect-llms)
+1. **Get code from the LLM** — your app sends a prompt to any model; the LLM returns generated code and optionally a list of dependencies — swap the model for any provider via [Connect LLMs](/docs/quickstart/connect-llms)
 2. **Create a sandbox** — `Sandbox.create('nextjs-app')` spins up an isolated environment from a [custom template](/docs/template/quickstart) with the framework pre-installed and a dev server already running
-3. **Install dependencies** — `commands.run()` installs any extra packages the LLM requested at runtime
+3. **Install dependencies** — `commands.run()` installs any extra packages the LLM requested inside the sandbox
 4. **Write generated code** — `files.write()` places the code in the sandbox [filesystem](/docs/filesystem/read-write) at the path the framework expects
 5. **Get the preview URL** — `getHost(3000)` / `get_host(3000)` returns a public hostname; combine with `https://` to form the URL your frontend embeds in an iframe or opens in a new tab
 
