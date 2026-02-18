@@ -1,0 +1,165 @@
+---
+title: "Get information about a file or directory"
+sidebarTitle: File & directory metadata
+---
+
+You can get information about a file or directory in a volume using the `getEntryInfo()` / `get_entry_info()` method.
+
+### Getting information about a file
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+// Create a new file
+await volume.writeFile('/test_file.txt', 'Hello, world!')
+
+// Get information about the file
+const info = await volume.getEntryInfo('/test_file.txt')
+
+console.log(info)
+// {
+//   name: 'test_file.txt',
+//   type: 'file',
+//   path: '/test_file.txt',
+//   size: 13,
+//   mode: 0o644,
+//   uid: 0,
+//   gid: 0,
+//   mtime: 2025-05-26T12:00:00.000Z,
+//   ctime: 2025-05-26T12:00:00.000Z,
+//   target: null
+// }
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+# Create a new file
+volume.write_file('/test_file.txt', 'Hello, world!')
+
+# Get information about the file
+info = volume.get_entry_info('/test_file.txt')
+
+print(info)
+# VolumeEntryStat(
+#   name='test_file.txt',
+#   type_='file',
+#   path='/test_file.txt',
+#   size=13,
+#   mode=0o644,
+#   uid=0,
+#   gid=0,
+#   mtime=datetime(2025, 5, 26, 12, 0, 0),
+#   ctime=datetime(2025, 5, 26, 12, 0, 0),
+#   target=None
+# )
+```
+</CodeGroup>
+
+### Getting information about a directory
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+// Create a new directory
+await volume.makeDir('/test_dir')
+
+// Get information about the directory
+const info = await volume.getEntryInfo('/test_dir')
+
+console.log(info)
+// {
+//   name: 'test_dir',
+//   type: 'directory',
+//   path: '/test_dir',
+//   size: 0,
+//   mode: 0o755,
+//   uid: 0,
+//   gid: 0,
+//   mtime: 2025-05-26T12:00:00.000Z,
+//   ctime: 2025-05-26T12:00:00.000Z,
+//   target: null
+// }
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+# Create a new directory
+volume.make_dir('/test_dir')
+
+# Get information about the directory
+info = volume.get_entry_info('/test_dir')
+
+print(info)
+# VolumeEntryStat(
+#   name='test_dir',
+#   type_='directory',
+#   path='/test_dir',
+#   size=0,
+#   mode=0o755,
+#   uid=0,
+#   gid=0,
+#   mtime=datetime(2025, 5, 26, 12, 0, 0),
+#   ctime=datetime(2025, 5, 26, 12, 0, 0),
+#   target=None
+# )
+```
+</CodeGroup>
+
+### Updating metadata
+
+You can update file or directory metadata such as user ID, group ID, and permissions mode using the `updateMetadata()` / `update_metadata()` method.
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+await volume.writeFile('/test_file.txt', 'Hello, world!')
+
+const updated = await volume.updateMetadata('/test_file.txt', { uid: 1000, gid: 1000, mode: 0o600 })
+
+console.log(updated)
+// {
+//   name: 'test_file.txt',
+//   type: 'file',
+//   path: '/test_file.txt',
+//   size: 13,
+//   mode: 0o600,
+//   uid: 1000,
+//   gid: 1000,
+//   ...
+// }
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+volume.write_file('/test_file.txt', 'Hello, world!')
+
+updated = volume.update_metadata('/test_file.txt', uid=1000, gid=1000, mode=0o600)
+
+print(updated)
+# VolumeEntryStat(
+#   name='test_file.txt',
+#   type_='file',
+#   path='/test_file.txt',
+#   size=13,
+#   mode=0o600,
+#   uid=1000,
+#   gid=1000,
+#   ...
+# )
+```
+</CodeGroup>

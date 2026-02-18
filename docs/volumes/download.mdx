@@ -1,0 +1,31 @@
+---
+title: "Download data from volume"
+sidebarTitle: Download data
+---
+
+You can download data from a volume using the `readFile()` / `read_file()` method.
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import fs from 'fs'
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+// Read file from volume
+const content = await volume.readFile('/path/in/volume')
+// Write file to local filesystem
+fs.writeFileSync('/local/path', content)
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+# Read file from volume
+content = volume.read_file('/path/in/volume')
+# Write file to local filesystem
+with open('/local/path', 'w') as file:
+    file.write(content)
+```
+</CodeGroup>

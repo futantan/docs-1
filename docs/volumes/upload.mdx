@@ -1,0 +1,75 @@
+---
+title: "Upload data to volume"
+sidebarTitle: Upload data
+---
+
+You can upload data to a volume using the `writeFile()` / `write_file()` method.
+
+## Upload single file
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import fs from 'fs'
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+// Read file from local filesystem
+const content = fs.readFileSync('/local/path')
+// Upload file to volume
+await volume.writeFile('/path/in/volume', content)
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+# Read file from local filesystem
+with open('/local/path', 'rb') as file:
+    # Upload file to volume
+    volume.write_file('/path/in/volume', file)
+```
+</CodeGroup>
+
+## Upload directory / multiple files
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import fs from 'fs'
+import path from 'path'
+import { Volume } from 'e2b'
+
+const volume = await Volume.create('my-volume')
+
+const directoryPath = '/local/dir'
+const files = fs.readdirSync(directoryPath)
+
+for (const file of files) {
+  const fullPath = path.join(directoryPath, file)
+
+  // Skip directories
+  if (!fs.statSync(fullPath).isFile()) continue
+
+  const content = fs.readFileSync(fullPath)
+  await volume.writeFile(`/upload/${file}`, content)
+}
+```
+```python Python
+import os
+from e2b import Volume
+
+volume = Volume.create('my-volume')
+
+directory_path = '/local/dir'
+
+for filename in os.listdir(directory_path):
+    file_path = os.path.join(directory_path, filename)
+
+    # Skip directories
+    if not os.path.isfile(file_path):
+        continue
+
+    with open(file_path, 'rb') as file:
+        volume.write_file(f'/upload/{filename}', file)
+```
+</CodeGroup>
