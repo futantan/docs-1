@@ -1,0 +1,1233 @@
+openapi: 3.1.0
+info:
+  title: envd
+  version: 0.1.0
+paths:
+  /filesystem.Filesystem/CreateWatcher:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: CreateWatcher
+      description: Non-streaming versions of WatchDir
+      operationId: filesystem.Filesystem.CreateWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.CreateWatcherRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
+  /filesystem.Filesystem/GetWatcherEvents:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: GetWatcherEvents
+      operationId: filesystem.Filesystem.GetWatcherEvents
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.GetWatcherEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
+  /filesystem.Filesystem/ListDir:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: ListDir
+      operationId: filesystem.Filesystem.ListDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.ListDirRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.ListDirResponse'
+  /filesystem.Filesystem/MakeDir:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: MakeDir
+      operationId: filesystem.Filesystem.MakeDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MakeDirRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MakeDirResponse'
+  /filesystem.Filesystem/Move:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Move
+      operationId: filesystem.Filesystem.Move
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MoveRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MoveResponse'
+  /filesystem.Filesystem/Remove:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Remove
+      operationId: filesystem.Filesystem.Remove
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveResponse'
+  /filesystem.Filesystem/RemoveWatcher:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: RemoveWatcher
+      operationId: filesystem.Filesystem.RemoveWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveWatcherRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
+  /filesystem.Filesystem/Stat:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Stat
+      operationId: filesystem.Filesystem.Stat
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.StatRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.StatResponse'
+  /filesystem.Filesystem/WatchDir: {}
+  /process.Process/CloseStdin:
+    post:
+      tags:
+      - process.Process
+      summary: CloseStdin
+      description: "Close stdin to signal EOF to the process.\n Only works for non-PTY\
+        \ processes. For PTY, send Ctrl+D (0x04) instead."
+      operationId: process.Process.CloseStdin
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.CloseStdinRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.CloseStdinResponse'
+  /process.Process/Connect: {}
+  /process.Process/List:
+    post:
+      tags:
+      - process.Process
+      summary: List
+      operationId: process.Process.List
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.ListRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.ListResponse'
+  /process.Process/SendInput:
+    post:
+      tags:
+      - process.Process
+      summary: SendInput
+      operationId: process.Process.SendInput
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendInputRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendInputResponse'
+  /process.Process/SendSignal:
+    post:
+      tags:
+      - process.Process
+      summary: SendSignal
+      operationId: process.Process.SendSignal
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendSignalRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendSignalResponse'
+  /process.Process/Start: {}
+  /process.Process/StreamInput: {}
+  /process.Process/Update:
+    post:
+      tags:
+      - process.Process
+      summary: Update
+      operationId: process.Process.Update
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.UpdateRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.UpdateResponse'
+components:
+  schemas:
+    connect-protocol-version:
+      type: number
+      title: Connect-Protocol-Version
+      enum:
+      - 1
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+          - not_found
+          enum:
+          - canceled
+          - unknown
+          - invalid_argument
+          - deadline_exceeded
+          - not_found
+          - already_exists
+          - permission_denied
+          - resource_exhausted
+          - failed_precondition
+          - aborted
+          - out_of_range
+          - unimplemented
+          - internal
+          - unavailable
+          - data_loss
+          - unauthenticated
+          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+        message:
+          type: string
+          description: A developer-facing error message, which should be in English.
+            Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details]
+            field, or localized by the client.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/connect.error_details.Any'
+          description: A list of messages that carry the error details. There is no
+            limit on the number of messages.
+      title: Connect Error
+      additionalProperties: true
+      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
+    connect.error_details.Any:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'A URL that acts as a globally unique identifier for the type
+            of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`.
+            This is used to determine the schema of the data in the `value` field
+            and is the discriminator for the `debug` field.'
+        value:
+          type: string
+          format: binary
+          description: The Protobuf message, serialized as bytes and base64-encoded.
+            The specific message type is identified by the `type` field.
+        debug:
+          oneOf:
+          - type: object
+            title: Any
+            additionalProperties: true
+            description: Detailed error information.
+          discriminator:
+            propertyName: type
+          title: Debug
+          description: Deserialized error detail payload. The 'type' field indicates
+            the schema. This field is for easier debugging and should not be relied
+            upon for application logic.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that
+        describes the type of the serialized message, with an additional debug field
+        for ConnectRPC error details.
+    filesystem.CreateWatcherRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: CreateWatcherRequest
+      additionalProperties: false
+    filesystem.CreateWatcherResponse:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: CreateWatcherResponse
+      additionalProperties: false
+    filesystem.EntryInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/filesystem.FileType'
+        path:
+          type: string
+          title: path
+        size:
+          type:
+          - integer
+          - string
+          title: size
+          format: int64
+        mode:
+          type: integer
+          title: mode
+        permissions:
+          type: string
+          title: permissions
+        owner:
+          type: string
+          title: owner
+        group:
+          type: string
+          title: group
+        modifiedTime:
+          title: modified_time
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        symlinkTarget:
+          type:
+          - string
+          - 'null'
+          title: symlink_target
+          description: If the entry is a symlink, this field contains the target of
+            the symlink.
+      title: EntryInfo
+      additionalProperties: false
+    filesystem.EventType:
+      type: string
+      title: EventType
+      enum:
+      - EVENT_TYPE_UNSPECIFIED
+      - EVENT_TYPE_CREATE
+      - EVENT_TYPE_WRITE
+      - EVENT_TYPE_REMOVE
+      - EVENT_TYPE_RENAME
+      - EVENT_TYPE_CHMOD
+    filesystem.FileType:
+      type: string
+      title: FileType
+      enum:
+      - FILE_TYPE_UNSPECIFIED
+      - FILE_TYPE_FILE
+      - FILE_TYPE_DIRECTORY
+    filesystem.FilesystemEvent:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/filesystem.EventType'
+      title: FilesystemEvent
+      additionalProperties: false
+    filesystem.GetWatcherEventsRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: GetWatcherEventsRequest
+      additionalProperties: false
+    filesystem.GetWatcherEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/filesystem.FilesystemEvent'
+          title: events
+      title: GetWatcherEventsResponse
+      additionalProperties: false
+    filesystem.ListDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        depth:
+          type: integer
+          title: depth
+      title: ListDirRequest
+      additionalProperties: false
+    filesystem.ListDirResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/filesystem.EntryInfo'
+          title: entries
+      title: ListDirResponse
+      additionalProperties: false
+    filesystem.MakeDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: MakeDirRequest
+      additionalProperties: false
+    filesystem.MakeDirResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: MakeDirResponse
+      additionalProperties: false
+    filesystem.MoveRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          title: source
+        destination:
+          type: string
+          title: destination
+      title: MoveRequest
+      additionalProperties: false
+    filesystem.MoveResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: MoveResponse
+      additionalProperties: false
+    filesystem.RemoveRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: RemoveRequest
+      additionalProperties: false
+    filesystem.RemoveResponse:
+      type: object
+      title: RemoveResponse
+      additionalProperties: false
+    filesystem.RemoveWatcherRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: RemoveWatcherRequest
+      additionalProperties: false
+    filesystem.RemoveWatcherResponse:
+      type: object
+      title: RemoveWatcherResponse
+      additionalProperties: false
+    filesystem.StatRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: StatRequest
+      additionalProperties: false
+    filesystem.StatResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: StatResponse
+      additionalProperties: false
+    filesystem.WatchDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: WatchDirRequest
+      additionalProperties: false
+    filesystem.WatchDirResponse:
+      type: object
+      oneOf:
+      - properties:
+          filesystem:
+            title: filesystem
+            $ref: '#/components/schemas/filesystem.FilesystemEvent'
+        title: filesystem
+        required:
+        - filesystem
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/filesystem.WatchDirResponse.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/filesystem.WatchDirResponse.StartEvent'
+        title: start
+        required:
+        - start
+      title: WatchDirResponse
+      additionalProperties: false
+    filesystem.WatchDirResponse.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    filesystem.WatchDirResponse.StartEvent:
+      type: object
+      title: StartEvent
+      additionalProperties: false
+    google.protobuf.Timestamp:
+      type: string
+      examples:
+      - '2023-01-15T01:30:15.01Z'
+      - '2024-12-25T12:00:00Z'
+      format: date-time
+      description: "A Timestamp represents a point in time independent of any time\
+        \ zone or local\n calendar, encoded as a count of seconds and fractions of\
+        \ seconds at\n nanosecond resolution. The count is relative to an epoch at\
+        \ UTC midnight on\n January 1, 1970, in the proleptic Gregorian calendar which\
+        \ extends the\n Gregorian calendar backwards to year one.\n\n All minutes\
+        \ are 60 seconds long. Leap seconds are \"smeared\" so that no leap\n second\
+        \ table is needed for interpretation, using a [24-hour linear\n smear](https://developers.google.com/time/smear).\n\
+        \n The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.\
+        \ By\n restricting to that range, we ensure that we can convert to and from\
+        \ [RFC\n 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.\n\n # Examples\n\
+        \n Example 1: Compute Timestamp from POSIX `time()`.\n\n     Timestamp timestamp;\n\
+        \     timestamp.set_seconds(time(NULL));\n     timestamp.set_nanos(0);\n\n\
+        \ Example 2: Compute Timestamp from POSIX `gettimeofday()`.\n\n     struct\
+        \ timeval tv;\n     gettimeofday(&tv, NULL);\n\n     Timestamp timestamp;\n\
+        \     timestamp.set_seconds(tv.tv_sec);\n     timestamp.set_nanos(tv.tv_usec\
+        \ * 1000);\n\n Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.\n\
+        \n     FILETIME ft;\n     GetSystemTimeAsFileTime(&ft);\n     UINT64 ticks\
+        \ = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;\n\n     // A Windows\
+        \ tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z\n     // is\
+        \ 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.\n     Timestamp\
+        \ timestamp;\n     timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));\n\
+        \     timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));\n\n Example\
+        \ 4: Compute Timestamp from Java `System.currentTimeMillis()`.\n\n     long\
+        \ millis = System.currentTimeMillis();\n\n     Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis\
+        \ / 1000)\n         .setNanos((int) ((millis % 1000) * 1000000)).build();\n\
+        \n Example 5: Compute Timestamp from Java `Instant.now()`.\n\n     Instant\
+        \ now = Instant.now();\n\n     Timestamp timestamp =\n         Timestamp.newBuilder().setSeconds(now.getEpochSecond())\n\
+        \             .setNanos(now.getNano()).build();\n\n Example 6: Compute Timestamp\
+        \ from current time in Python.\n\n     timestamp = Timestamp()\n     timestamp.GetCurrentTime()\n\
+        \n # JSON Mapping\n\n In JSON format, the Timestamp type is encoded as a string\
+        \ in the\n [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is,\
+        \ the\n format is \"{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z\"\
+        \n where {year} is always expressed using four digits while {month}, {day},\n\
+        \ {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional\n\
+        \ seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),\n\
+        \ are optional. The \"Z\" suffix indicates the timezone (\"UTC\"); the timezone\n\
+        \ is required. A proto3 JSON serializer should always use UTC (as indicated\
+        \ by\n \"Z\") when printing the Timestamp type and a proto3 JSON parser should\
+        \ be\n able to accept both UTC and other timezones (as indicated by an offset).\n\
+        \n For example, \"2017-01-15T01:30:15.01Z\" encodes 15.01 seconds past\n 01:30\
+        \ UTC on January 15, 2017.\n\n In JavaScript, one can convert a Date object\
+        \ to this format using the\n standard\n [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)\n\
+        \ method. In Python, a standard `datetime.datetime` object can be converted\n\
+        \ to this format using\n [`strftime`](https://docs.python.org/2/library/time.html#time.strftime)\
+        \ with\n the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java,\
+        \ one can use\n the Joda Time's [`ISODateTimeFormat.dateTime()`](\n http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()\n\
+        \ ) to obtain a formatter capable of generating timestamps in this format."
+    process.CloseStdinRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: CloseStdinRequest
+      additionalProperties: false
+    process.CloseStdinResponse:
+      type: object
+      title: CloseStdinResponse
+      additionalProperties: false
+    process.ConnectRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: ConnectRequest
+      additionalProperties: false
+    process.ConnectResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/process.ProcessEvent'
+      title: ConnectResponse
+      additionalProperties: false
+    process.ListRequest:
+      type: object
+      title: ListRequest
+      additionalProperties: false
+    process.ListResponse:
+      type: object
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/process.ProcessInfo'
+          title: processes
+      title: ListResponse
+      additionalProperties: false
+    process.PTY:
+      type: object
+      properties:
+        size:
+          title: size
+          $ref: '#/components/schemas/process.PTY.Size'
+      title: PTY
+      additionalProperties: false
+    process.PTY.Size:
+      type: object
+      properties:
+        cols:
+          type: integer
+          title: cols
+        rows:
+          type: integer
+          title: rows
+      title: Size
+      additionalProperties: false
+    process.ProcessConfig:
+      type: object
+      properties:
+        cmd:
+          type: string
+          title: cmd
+        args:
+          type: array
+          items:
+            type: string
+          title: args
+        envs:
+          type: object
+          title: envs
+          additionalProperties:
+            type: string
+            title: value
+        cwd:
+          type:
+          - string
+          - 'null'
+          title: cwd
+      title: ProcessConfig
+      additionalProperties: false
+    process.ProcessConfig.EnvsEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+        value:
+          type: string
+          title: value
+      title: EnvsEntry
+      additionalProperties: false
+    process.ProcessEvent:
+      type: object
+      oneOf:
+      - properties:
+          data:
+            title: data
+            $ref: '#/components/schemas/process.ProcessEvent.DataEvent'
+        title: data
+        required:
+        - data
+      - properties:
+          end:
+            title: end
+            $ref: '#/components/schemas/process.ProcessEvent.EndEvent'
+        title: end
+        required:
+        - end
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/process.ProcessEvent.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/process.ProcessEvent.StartEvent'
+        title: start
+        required:
+        - start
+      title: ProcessEvent
+      additionalProperties: false
+    process.ProcessEvent.DataEvent:
+      type: object
+      oneOf:
+      - properties:
+          pty:
+            type: string
+            title: pty
+            format: byte
+        title: pty
+        required:
+        - pty
+      - properties:
+          stderr:
+            type: string
+            title: stderr
+            format: byte
+        title: stderr
+        required:
+        - stderr
+      - properties:
+          stdout:
+            type: string
+            title: stdout
+            format: byte
+        title: stdout
+        required:
+        - stdout
+      title: DataEvent
+      additionalProperties: false
+    process.ProcessEvent.EndEvent:
+      type: object
+      properties:
+        exitCode:
+          type: integer
+          title: exit_code
+          format: int32
+        exited:
+          type: boolean
+          title: exited
+        status:
+          type: string
+          title: status
+        error:
+          type:
+          - string
+          - 'null'
+          title: error
+      title: EndEvent
+      additionalProperties: false
+    process.ProcessEvent.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    process.ProcessEvent.StartEvent:
+      type: object
+      properties:
+        pid:
+          type: integer
+          title: pid
+      title: StartEvent
+      additionalProperties: false
+    process.ProcessInfo:
+      type: object
+      properties:
+        config:
+          title: config
+          $ref: '#/components/schemas/process.ProcessConfig'
+        pid:
+          type: integer
+          title: pid
+        tag:
+          type:
+          - string
+          - 'null'
+          title: tag
+      title: ProcessInfo
+      additionalProperties: false
+    process.ProcessInput:
+      type: object
+      oneOf:
+      - properties:
+          pty:
+            type: string
+            title: pty
+            format: byte
+        title: pty
+        required:
+        - pty
+      - properties:
+          stdin:
+            type: string
+            title: stdin
+            format: byte
+        title: stdin
+        required:
+        - stdin
+      title: ProcessInput
+      additionalProperties: false
+    process.ProcessSelector:
+      type: object
+      oneOf:
+      - properties:
+          pid:
+            type: integer
+            title: pid
+        title: pid
+        required:
+        - pid
+      - properties:
+          tag:
+            type: string
+            title: tag
+        title: tag
+        required:
+        - tag
+      title: ProcessSelector
+      additionalProperties: false
+    process.SendInputRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        input:
+          title: input
+          $ref: '#/components/schemas/process.ProcessInput'
+      title: SendInputRequest
+      additionalProperties: false
+    process.SendInputResponse:
+      type: object
+      title: SendInputResponse
+      additionalProperties: false
+    process.SendSignalRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        signal:
+          title: signal
+          $ref: '#/components/schemas/process.Signal'
+      title: SendSignalRequest
+      additionalProperties: false
+    process.SendSignalResponse:
+      type: object
+      title: SendSignalResponse
+      additionalProperties: false
+    process.Signal:
+      type: string
+      title: Signal
+      enum:
+      - SIGNAL_UNSPECIFIED
+      - SIGNAL_SIGTERM
+      - SIGNAL_SIGKILL
+    process.StartRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessConfig'
+        pty:
+          oneOf:
+          - $ref: '#/components/schemas/process.PTY'
+          - type: 'null'
+          title: pty
+        tag:
+          type:
+          - string
+          - 'null'
+          title: tag
+        stdin:
+          type:
+          - boolean
+          - 'null'
+          title: stdin
+          description: "This is optional for backwards compatibility.\n We default\
+            \ to true. New SDK versions will set this to false by default."
+      title: StartRequest
+      additionalProperties: false
+    process.StartResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/process.ProcessEvent'
+      title: StartResponse
+      additionalProperties: false
+    process.StreamInputRequest:
+      type: object
+      oneOf:
+      - properties:
+          data:
+            title: data
+            $ref: '#/components/schemas/process.StreamInputRequest.DataEvent'
+        title: data
+        required:
+        - data
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/process.StreamInputRequest.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/process.StreamInputRequest.StartEvent'
+        title: start
+        required:
+        - start
+      title: StreamInputRequest
+      additionalProperties: false
+    process.StreamInputRequest.DataEvent:
+      type: object
+      properties:
+        input:
+          title: input
+          $ref: '#/components/schemas/process.ProcessInput'
+      title: DataEvent
+      additionalProperties: false
+    process.StreamInputRequest.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    process.StreamInputRequest.StartEvent:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: StartEvent
+      additionalProperties: false
+    process.StreamInputResponse:
+      type: object
+      title: StreamInputResponse
+      additionalProperties: false
+    process.UpdateRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        pty:
+          oneOf:
+          - $ref: '#/components/schemas/process.PTY'
+          - type: 'null'
+          title: pty
+      title: UpdateRequest
+      additionalProperties: false
+    process.UpdateResponse:
+      type: object
+      title: UpdateResponse
+      additionalProperties: false

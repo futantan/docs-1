@@ -6,7 +6,15 @@ Tests ALL endpoints and ALL non-destructive status codes against the live
 E2B API to verify that documented responses match actual behavior.
 
 Usage:
-    E2B_API_KEY=e2b_... python3 scripts/test_api_docs.py [--create-sandbox]
+    E2B_API_KEY=e2b_... python3 scripts/test_api_docs.py [--create-sandbox] [--filter PATTERN]
+
+Options:
+    --create-sandbox   Create a real sandbox for integration + data plane tests
+    --filter PATTERN   Run only tests matching PATTERN (case-insensitive substring).
+                       Use --list to see available test names.
+    --list             Print available test names and exit.
+    --endpoints        List all endpoints from the OpenAPI spec and exit.
+    --verbose          Show full request/response details for each API call.
 
 Tested status codes:
   401  Unauthenticated (no API key / access token)
@@ -105,6 +113,20 @@ class TestSuite:
 # ---------------------------------------------------------------------------
 
 _ctx = ssl.create_default_context()
+VERBOSE = False
+
+
+def _redact_headers(headers: dict | None) -> dict:
+    """Redact sensitive header values for display."""
+    if not headers:
+        return {}
+    out = {}
+    for k, v in headers.items():
+        if k.lower() in ("x-api-key", "x-access-token", "authorization"):
+            out[k] = v[:12] + "..." if len(v) > 12 else "***"
+        else:
+            out[k] = v
+    return out
 
 
 def http_request(
@@ -118,6 +140,16 @@ def http_request(
     """Make an HTTP request, return (status_code, parsed_body)."""
     if params:
         url += "?" + urllib.parse.urlencode(params, doseq=True)
+
+    if VERBOSE:
+        print(f"\n         >>> {method} {url}")
+        if headers:
+            print(f"         Headers: {_redact_headers(headers)}")
+        if body is not None:
+            body_str = json.dumps(body, indent=2)
+            if len(body_str) > 200:
+                body_str = body_str[:200] + "..."
+            print(f"         Body: {body_str}")
 
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -135,12 +167,24 @@ def http_request(
         status = e.code
         raw = e.read().decode("utf-8") if e.fp else ""
     except Exception as e:
+        if VERBOSE:
+            print(f"         <<< ERROR: {e}")
         return 0, f"Connection error: {e}"
 
     try:
         parsed = json.loads(raw) if raw else None
     except json.JSONDecodeError:
         parsed = raw[:300] if raw else None
+
+    if VERBOSE:
+        print(f"         <<< {status}")
+        if parsed is not None:
+            resp_str = json.dumps(parsed, indent=2) if isinstance(parsed, (dict, list)) else str(parsed)
+            if len(resp_str) > 500:
+                resp_str = resp_str[:500] + "..."
+            print(f"         Response: {resp_str}")
+        elif raw:
+            print(f"         Response: {raw[:500]}")
 
     return status, parsed
 
@@ -937,16 +981,111 @@ def discover_team_id(api_key: str, env_team_id: str | None) -> str | None:
 # MAIN
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# TEST REGISTRY — maps short names to (function, needs_team_id, needs_sandbox)
+# ---------------------------------------------------------------------------
+
+# Each entry: (name, description, callable_key)
+# callable_key is used to look up how to invoke the test in main().
+TEST_REGISTRY = [
+    ("401",                "401 for all control plane endpoints (no auth)",       "ctrl_plane"),
+    ("sandbox-list",       "GET /sandboxes, GET /v2/sandboxes — 200, 400",        "sandbox"),
+    ("sandbox-get-delete", "GET/DELETE /sandboxes/{id} — 404",                    "sandbox"),
+    ("sandbox-actions",    "POST pause/resume/connect/timeout/refreshes — 404",   "sandbox"),
+    ("sandbox-create",     "POST /sandboxes — 400, 404 error cases",             "sandbox"),
+    ("sandbox-logs",       "GET /sandboxes/{id}/logs — 200/404",                  "sandbox"),
+    ("sandbox-metrics",    "GET /sandboxes/metrics, /sandboxes/{id}/metrics",     "sandbox"),
+    ("team-metrics",       "GET /teams/{id}/metrics — 200, 400, 403",            "team"),
+    ("template-reads",     "GET /templates, /templates/{id}, /aliases/{alias}",   "sandbox"),
+    ("template-create",    "POST /v2/templates, /v3/templates — 400",            "sandbox"),
+    ("template-update",    "POST/DELETE/PATCH /templates/{id} — 404",            "sandbox"),
+    ("template-builds",    "GET/POST .../builds/{buildID} — 404",                "sandbox"),
+    ("template-files",     "GET /templates/{id}/files/{hash} — 404",             "sandbox"),
+    ("template-tags",      "POST/DELETE /templates/tags — 400",                  "sandbox"),
+    ("sandbox-integration","Real sandbox + data plane (requires --create-sandbox)","integration"),
+]
+
+
+def print_endpoints():
+    """Print all endpoints from the OpenAPI spec grouped by tag."""
+    with open(SPEC_PATH) as f:
+        spec = yaml.safe_load(f)
+
+    # Collect endpoints grouped by tag
+    by_tag: dict[str, list[str]] = {}
+    for path_str, methods in sorted(spec.get("paths", {}).items()):
+        for method, operation in methods.items():
+            if not isinstance(operation, dict) or "responses" not in operation:
+                continue
+            tags = operation.get("tags", ["Untagged"])
+            label = f"{method.upper():7s} {path_str}"
+            summary = operation.get("summary", "")
+            if summary:
+                label += f"  — {summary}"
+            for tag in tags:
+                by_tag.setdefault(tag, []).append(label)
+
+    print(f"Endpoints from {SPEC_PATH.name} ({sum(len(v) for v in by_tag.values())} total):\n")
+    for tag, endpoints in by_tag.items():
+        print(f"  [{tag}]")
+        for ep in endpoints:
+            print(f"    {ep}")
+        print()
+
+
+def print_test_list():
+    print("Available tests:\n")
+    for name, desc, _ in TEST_REGISTRY:
+        print(f"  {name:24s} {desc}")
+    print("\nUsage: --filter <pattern>  (case-insensitive substring match)")
+    print("Examples:")
+    print("  --filter 401              # Run only 401 unauthenticated tests")
+    print("  --filter sandbox          # Run all sandbox-related tests")
+    print("  --filter template         # Run all template tests")
+    print("  --filter team             # Run team metrics tests")
+    print("  --filter sandbox-integration  # Run data plane integration tests")
+
+
+def matches_filter(name: str, pattern: str) -> bool:
+    return pattern.lower() in name.lower()
+
+
 def main():
+    # Parse args
+    if "--endpoints" in sys.argv:
+        print_endpoints()
+        sys.exit(0)
+    if "--list" in sys.argv:
+        print_test_list()
+        sys.exit(0)
+
     api_key = os.environ.get("E2B_API_KEY")
     if not api_key:
         print("Error: E2B_API_KEY environment variable is required")
         print("Usage: E2B_API_KEY=e2b_... python3 scripts/test_api_docs.py"
-              " [--create-sandbox]")
+              " [--create-sandbox] [--filter PATTERN]")
         sys.exit(1)
 
     env_team_id = os.environ.get("E2B_TEAM_ID")
     create_sandbox = "--create-sandbox" in sys.argv
+
+    global VERBOSE
+    VERBOSE = "--verbose" in sys.argv
+
+    # Parse --filter
+    test_filter = None
+    if "--filter" in sys.argv:
+        idx = sys.argv.index("--filter")
+        if idx + 1 < len(sys.argv):
+            test_filter = sys.argv[idx + 1]
+        else:
+            print("Error: --filter requires a PATTERN argument")
+            print("Use --list to see available test names")
+            sys.exit(1)
+
+    def should_run(name: str) -> bool:
+        return test_filter is None or matches_filter(name, test_filter)
 
     print("=" * 60)
     print("  E2B API Documentation Verification — Comprehensive")
@@ -955,6 +1094,10 @@ def main():
     print(f"  API Key:         {api_key[:10]}...{api_key[-4:]}")
     print(f"  Create sandbox:  {create_sandbox}")
     print(f"  Spec:            {SPEC_PATH.name}")
+    print(f"  Verbose:         {VERBOSE}")
+    if test_filter:
+        matched = [n for n, _, _ in TEST_REGISTRY if should_run(n)]
+        print(f"  Filter:          '{test_filter}' ({len(matched)} tests matched)")
 
     with open(SPEC_PATH) as f:
         spec = yaml.safe_load(f)
@@ -970,38 +1113,57 @@ def main():
     suite = TestSuite()
 
     # ---- Section 1: 401 for ALL control plane endpoints ----
-    test_401_all_control_plane(suite)
+    if should_run("401"):
+        test_401_all_control_plane(suite)
 
     # ---- Section 2: Sandbox endpoints ----
-    test_sandbox_list(suite, api_key)
-    test_sandbox_get_delete_404(suite, api_key)
-    test_sandbox_actions_404(suite, api_key)
-    test_create_sandbox_errors(suite, api_key)
-    test_sandbox_logs(suite, api_key)
+    if should_run("sandbox-list"):
+        test_sandbox_list(suite, api_key)
+    if should_run("sandbox-get-delete"):
+        test_sandbox_get_delete_404(suite, api_key)
+    if should_run("sandbox-actions"):
+        test_sandbox_actions_404(suite, api_key)
+    if should_run("sandbox-create"):
+        test_create_sandbox_errors(suite, api_key)
+    if should_run("sandbox-logs"):
+        test_sandbox_logs(suite, api_key)
 
     # ---- Section 4: Metrics ----
-    test_sandbox_metrics(suite, api_key)
-    if team_id:
-        test_team_metrics(suite, api_key, team_id)
-    else:
-        print("\n  [SKIP] Team metrics tests — no team ID available")
+    if should_run("sandbox-metrics"):
+        test_sandbox_metrics(suite, api_key)
+    if should_run("team-metrics"):
+        if team_id:
+            test_team_metrics(suite, api_key, team_id)
+        else:
+            print("\n  [SKIP] Team metrics tests — no team ID available")
 
     # Note: GET /teams excluded from spec (Supabase session auth only)
 
     # ---- Section 5: Templates ----
-    test_template_reads(suite, api_key)
-    test_template_create_errors(suite, api_key)
-    test_template_update_delete_404(suite, api_key)
-    test_template_builds(suite, api_key)
-    test_template_files(suite, api_key)
-    test_template_tags(suite, api_key)
+    if should_run("template-reads"):
+        test_template_reads(suite, api_key)
+    if should_run("template-create"):
+        test_template_create_errors(suite, api_key)
+    if should_run("template-update"):
+        test_template_update_delete_404(suite, api_key)
+    if should_run("template-builds"):
+        test_template_builds(suite, api_key)
+    if should_run("template-files"):
+        test_template_files(suite, api_key)
+    if should_run("template-tags"):
+        test_template_tags(suite, api_key)
 
     # ---- Section 7: Real sandbox + data plane (opt-in) ----
-    if create_sandbox:
-        test_with_real_sandbox(suite, api_key)
-    else:
-        print("\n  [SKIP] Sandbox integration + data plane tests"
-              " (pass --create-sandbox to enable)")
+    if should_run("sandbox-integration"):
+        if create_sandbox:
+            test_with_real_sandbox(suite, api_key)
+        else:
+            print("\n  [SKIP] Sandbox integration + data plane tests"
+                  " (pass --create-sandbox to enable)")
+
+    if not suite.results:
+        print("\n  No tests matched the filter. Use --list to see available tests.")
+        sys.exit(1)
 
     all_passed = suite.summary()
     sys.exit(0 if all_passed else 1)
