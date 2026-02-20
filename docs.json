@@ -139,7 +139,8 @@
                   "docs/template/examples/expo",
                   "docs/template/examples/desktop",
                   "docs/template/examples/claude-code",
-                  "docs/template/examples/docker"
+                  "docs/template/examples/docker",
+                  "docs/template/examples/docker-compose"
                 ]
               },
               "docs/template/migration-v2",
