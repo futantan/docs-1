@@ -90,3 +90,157 @@ print(result.stdout)
 sbx.kill()
 ```
 </CodeGroup>
+
+## Docker Compose (separate template)
+
+Keep Compose in a separate template so your Docker-only template stays simple.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+// template-compose.ts
+import { Template } from 'e2b'
+
+export const composeTemplate = Template()
+  .fromUbuntuImage('24.04')
+  .runCmd([
+    'set -euxo pipefail',
+    'sudo apt-get update',
+    'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io',
+    'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin || true',
+    'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 || true',
+    'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose || true',
+    'sudo docker compose version || sudo docker-compose --version',
+  ])
+```
+
+```python Python
+# template_compose.py
+from e2b import Template
+
+compose_template = (
+    Template()
+    .from_ubuntu_image("24.04")
+    .run_cmd(
+        [
+            "set -euxo pipefail",
+            "sudo apt-get update",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin || true",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 || true",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose || true",
+            "sudo docker compose version || sudo docker-compose --version",
+        ]
+    )
+)
+```
+</CodeGroup>
+
+### Build the Docker Compose template
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+// build-compose.ts
+import { Template, defaultBuildLogger } from 'e2b'
+import { composeTemplate } from './template-compose'
+
+Template.build(composeTemplate, 'docker-compose', {
+  cpuCount: 2,
+  memoryMB: 2048,
+  onBuildLogs: defaultBuildLogger(),
+})
+```
+
+```python Python
+# build_compose.py
+from e2b import Template, default_build_logger
+from template_compose import compose_template
+
+Template.build(compose_template, "docker-compose",
+    cpu_count=2,
+    memory_mb=2048,
+    on_build_logs=default_build_logger(),
+)
+```
+</CodeGroup>
+
+### Run Docker Compose
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+// sandbox-compose.ts
+import { Sandbox } from 'e2b'
+
+const sbx = await Sandbox.create('docker-compose')
+
+await sbx.commands.run('mkdir -p /tmp/docker-compose-test')
+await sbx.files.write('/tmp/docker-compose-test/compose.yaml', [
+  'services:',
+  '  hello:',
+  '    image: busybox:1.36',
+  '    command: ["sh", "-lc", "echo docker-compose-ok"]',
+  '',
+].join('\n'))
+
+const result = await sbx.commands.run(`
+set -euxo pipefail
+cd /tmp/docker-compose-test
+
+if sudo docker compose version >/dev/null 2>&1; then
+  sudo docker compose up --abort-on-container-exit --remove-orphans
+  sudo docker compose down --remove-orphans -v
+  echo "Docker Compose ran successfully"
+elif sudo docker-compose --version >/dev/null 2>&1; then
+  sudo docker-compose up --abort-on-container-exit --remove-orphans
+  sudo docker-compose down --remove-orphans -v
+  echo "Docker Compose ran successfully"
+else
+  echo "No compose command available"
+  exit 127
+fi
+`)
+
+console.log(result.stdout)
+await sbx.kill()
+```
+
+```python Python
+# sandbox_compose.py
+from e2b import Sandbox
+
+sbx = Sandbox.create("docker-compose")
+
+sbx.commands.run("mkdir -p /tmp/docker-compose-test")
+sbx.files.write(
+    "/tmp/docker-compose-test/compose.yaml",
+    """
+services:
+  hello:
+    image: busybox:1.36
+    command: ["sh", "-lc", "echo docker-compose-ok"]
+""",
+)
+
+result = sbx.commands.run(
+    """
+set -euxo pipefail
+cd /tmp/docker-compose-test
+
+if sudo docker compose version >/dev/null 2>&1; then
+  sudo docker compose up --abort-on-container-exit --remove-orphans
+  sudo docker compose down --remove-orphans -v
+  echo "Docker Compose ran successfully"
+elif sudo docker-compose --version >/dev/null 2>&1; then
+  sudo docker-compose up --abort-on-container-exit --remove-orphans
+  sudo docker-compose down --remove-orphans -v
+  echo "Docker Compose ran successfully"
+else
+  echo "No compose command available"
+  exit 127
+fi
+    """
+)
+
+print(result.stdout)
+sbx.kill()
+```
+</CodeGroup>
