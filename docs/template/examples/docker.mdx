@@ -145,6 +145,8 @@ compose_template = (
 ```
 </CodeGroup>
 
+Expected result: you now have a local `template-compose.ts` or `template_compose.py` file.
+
 ### Step 2: Build the template
 
 <CodeGroup>
@@ -172,6 +174,12 @@ Template.build(compose_template, "docker-compose",
 )
 ```
 </CodeGroup>
+
+Expected output (example):
+
+```text
+BuildInfo(... name='docker-compose', alias='docker-compose', tags=['default'])
+```
 
 ### Step 3: Run Docker Compose
 
@@ -255,3 +263,10 @@ print(result.stdout)
 sbx.kill()
 ```
 </CodeGroup>
+
+Expected output (example):
+
+```text
+hello_1  | docker-compose-ok
+Docker Compose ran successfully
+```
