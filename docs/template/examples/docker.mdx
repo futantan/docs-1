@@ -1,6 +1,6 @@
 ---
 title: "Docker"
-description: "Sandbox with Docker installed for running containers"
+description: "Sandbox with Docker or Docker-Compose installed for running containers"
 ---
 
 ## Docker
@@ -101,7 +101,7 @@ This example installs Docker and Docker Compose, then validates the setup with a
 Run Docker and Docker Compose commands as `root` in this setup. The Docker daemon socket is not accessible to the default `user` account.
 </Note>
 
-### Step 1: Create a new template file
+### Template
 
 Create a new file named `template-compose.ts` (or `template_compose.py`).
 
@@ -147,7 +147,7 @@ compose_template = (
 
 Expected result: you now have a local `template-compose.ts` or `template_compose.py` file.
 
-### Step 2: Build the template
+### Build
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
@@ -181,7 +181,7 @@ Expected output (example):
 BuildInfo(... name='docker-compose', alias='docker-compose', tags=['default'])
 ```
 
-### Step 3: Run Docker Compose
+### Run
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
