@@ -58,17 +58,3 @@ template = (
 )
 ```
 </CodeGroup>
-
-### Legacy build system
-
-If you are using the legacy build system, you need to use Code Interpreter image as a base image:
-
-```Dockerfile
-FROM e2bdev/code-interpreter:latest
-```
-
-And build the sandbox template with the start command:
-
-```sh
-e2b template build -c "/root/.jupyter/start-up.sh"
-```

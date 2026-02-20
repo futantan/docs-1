@@ -142,16 +142,7 @@
                   "docs/template/examples/docker"
                 ]
               },
-              "docs/template/migration-v2",
-              {
-                "group": "Legacy Docs",
-                "pages": [
-                  "docs/sandbox-template",
-                  "docs/sandbox-template/start-cmd",
-                  "docs/sandbox-template/ready-cmd",
-                  "docs/sandbox-template/customize-cpu-ram"
-                ]
-              }
+              "docs/template/migration-v2"
             ]
           },
           {
@@ -301,12 +292,212 @@
     },
     {
       "source": "/docs/sandbox-templates/overview",
-      "destination": "/docs/sandbox-template",
+      "destination": "/docs/template/quickstart",
       "permanent": true
     },
     {
       "source": "/docs/sandbox-templates",
-      "destination": "/docs/sandbox-template",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/sandbox-template",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/sandbox-template/start-cmd",
+      "destination": "/docs/template/start-ready-command",
+      "permanent": true
+    },
+    {
+      "source": "/docs/sandbox-template/ready-cmd",
+      "destination": "/docs/template/start-ready-command",
+      "permanent": true
+    },
+    {
+      "source": "/docs/sandbox-template/customize-cpu-ram",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/hello-world/js",
+      "destination": "/docs/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/hello-world/py",
+      "destination": "/docs/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/getting-started/api-key",
+      "destination": "/docs/api-key",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/getting-started/installation",
+      "destination": "/docs/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/cli/commands",
+      "destination": "/docs/cli",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/cli/installation",
+      "destination": "/docs/cli",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/overview",
+      "destination": "/docs/sandbox",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/compute",
+      "destination": "/docs/sandbox",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/custom",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/process",
+      "destination": "/docs/commands",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/filesystem",
+      "destination": "/docs/filesystem",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/upload",
+      "destination": "/docs/filesystem/upload",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/download",
+      "destination": "/docs/filesystem/download",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/cwd",
+      "destination": "/docs/commands",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/envs",
+      "destination": "/docs/sandbox/environment-variables",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/timeouts",
+      "destination": "/docs/sandbox",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/reconnect",
+      "destination": "/docs/sandbox/connect",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/url",
+      "destination": "/docs/sandbox/internet-access",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/metadata",
+      "destination": "/docs/sandbox/metadata",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/api/debugging",
+      "destination": "/docs/sandbox",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/templates/overview",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/sandbox/templates/template-file",
+      "destination": "/docs/template/defining-template",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/code-interpreter/installation",
+      "destination": "/docs/code-interpreting/analyze-data-with-ai",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/code-interpreter/execution",
+      "destination": "/docs/code-interpreting/analyze-data-with-ai",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/code-interpreter/examples",
+      "destination": "/docs/code-interpreting/analyze-data-with-ai",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/code-interpreter/kernels",
+      "destination": "/docs/code-interpreting/supported-languages",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/code-interpreter/template",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/pricing",
+      "destination": "/docs/billing",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/getting-help",
+      "destination": "/docs/support",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/open-source",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/supported",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/guide/custom-sandbox",
+      "destination": "/docs/template/quickstart",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/guide/beta-code-interpreter-language-runtimes",
+      "destination": "/docs/code-interpreting/supported-languages",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/guide/beta-migration",
+      "destination": "/docs/template/migration-v2",
+      "permanent": true
+    },
+    {
+      "source": "/docs/legacy/examples/clone-repo",
+      "destination": "/docs/sandbox/git-integration",
       "permanent": true
     },
     {
