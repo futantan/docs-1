@@ -219,9 +219,17 @@
         ]
       },
       {
-        "anchor": "SDK reference",
+        "anchor": "SDK Reference",
         "icon": "brackets-curly",
         "href": "https://e2b.dev/docs/sdk-reference"
+      },
+      {
+        "anchor": "API Reference",
+        "icon": "code",
+        "openapi": {
+          "source": "openapi-public.yml",
+          "directory": "docs/api-reference"
+        }
       }
     ],
     "global": {}

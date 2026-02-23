@@ -1,0 +1,4105 @@
+openapi: 3.1.0
+info:
+  title: E2B API
+  version: 0.1.0
+  description: Complete E2B developer API. Platform endpoints are served on api.e2b.app.
+    Sandbox endpoints (envd) are served on {port}-{sandboxID}.e2b.app.
+servers:
+- &id006
+  url: https://api.e2b.app
+  description: E2B Platform API
+paths:
+  /health:
+    get:
+      summary: Check the health of the service
+      responses:
+        '204':
+          description: The service is healthy
+          content: &id003
+            application/json:
+              schema:
+                type: object
+                description: Empty response
+        '502': &id001
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - sandboxId
+                - message
+                - code
+                properties:
+                  sandboxId:
+                    type: string
+                    description: Identifier of the sandbox
+                    example: i1234abcd5678efgh90jk
+                  message:
+                    type: string
+                    description: Error message
+                    example: The sandbox was not found
+                  code:
+                    type: integer
+                    description: Error code
+                    example: 502
+      security:
+      - &id004
+        SandboxAccessTokenAuth: []
+      - &id005 {}
+      operationId: getHealth
+    servers:
+    - &id002
+      url: https://{port}-{sandboxID}.e2b.app
+      description: Sandbox API (envd) — runs inside each sandbox
+      variables:
+        port:
+          default: '49983'
+          description: Port number
+        sandboxID:
+          default: '{sandbox-id}'
+          description: Sandbox identifier
+  /metrics:
+    get:
+      summary: Get the stats of the service
+      security:
+      - SandboxAccessTokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: The resource usage metrics of the service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '502': *id001
+      operationId: getMetrics
+    servers:
+    - *id002
+  /envs:
+    get:
+      summary: Get the environment variables
+      security:
+      - SandboxAccessTokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Environment variables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvVars'
+        '502': *id001
+      operationId: getEnvVars
+    servers:
+    - *id002
+  /files:
+    get:
+      summary: Download a file
+      tags:
+      - files
+      security:
+      - SandboxAccessTokenAuth: []
+      - {}
+      parameters:
+      - $ref: '#/components/parameters/FilePath'
+      - $ref: '#/components/parameters/User'
+      - $ref: '#/components/parameters/Signature'
+      - $ref: '#/components/parameters/SignatureExpiration'
+      responses:
+        '200':
+          $ref: '#/components/responses/DownloadSuccess'
+          content: *id003
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '404':
+          $ref: '#/components/responses/FileNotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502': *id001
+      operationId: downloadFile
+    post:
+      summary: Upload a file and ensure the parent directories exist. If the file
+        exists, it will be overwritten.
+      tags:
+      - files
+      security:
+      - SandboxAccessTokenAuth: []
+      - {}
+      parameters:
+      - $ref: '#/components/parameters/FilePath'
+      - $ref: '#/components/parameters/User'
+      - $ref: '#/components/parameters/Signature'
+      - $ref: '#/components/parameters/SignatureExpiration'
+      requestBody:
+        $ref: '#/components/requestBodies/File'
+      responses:
+        '200':
+          $ref: '#/components/responses/UploadSuccess'
+          content: *id003
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '507':
+          $ref: '#/components/responses/NotEnoughDiskSpace'
+        '502': *id001
+      operationId: uploadFile
+    servers:
+    - *id002
+  /filesystem.Filesystem/CreateWatcher:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: CreateWatcher
+      description: Non-streaming versions of WatchDir
+      operationId: filesystem.Filesystem.CreateWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.CreateWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/GetWatcherEvents:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: GetWatcherEvents
+      operationId: filesystem.Filesystem.GetWatcherEvents
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.GetWatcherEventsRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/ListDir:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: ListDir
+      operationId: filesystem.Filesystem.ListDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.ListDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.ListDirResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/MakeDir:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: MakeDir
+      operationId: filesystem.Filesystem.MakeDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MakeDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MakeDirResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/Move:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Move
+      operationId: filesystem.Filesystem.Move
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MoveResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/Remove:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Remove
+      operationId: filesystem.Filesystem.Remove
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/RemoveWatcher:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: RemoveWatcher
+      operationId: filesystem.Filesystem.RemoveWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/Stat:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: Stat
+      operationId: filesystem.Filesystem.Stat
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.StatRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.StatResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /filesystem.Filesystem/WatchDir:
+    post:
+      tags:
+      - filesystem.Filesystem
+      summary: WatchDir
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: filesystem.Filesystem.WatchDir
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.WatchDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of WatchDirResponse events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.WatchDirResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/CloseStdin:
+    post:
+      tags:
+      - process.Process
+      summary: CloseStdin
+      description: "Close stdin to signal EOF to the process.\n Only works for non-PTY\
+        \ processes. For PTY, send Ctrl+D (0x04) instead."
+      operationId: process.Process.CloseStdin
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.CloseStdinRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.CloseStdinResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/Connect:
+    post:
+      tags:
+      - process.Process
+      summary: Connect
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: process.Process.Connect
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.ConnectRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of ConnectResponse events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.ConnectResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/List:
+    post:
+      tags:
+      - process.Process
+      summary: List
+      operationId: process.Process.List
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.ListRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.ListResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/SendInput:
+    post:
+      tags:
+      - process.Process
+      summary: SendInput
+      operationId: process.Process.SendInput
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendInputResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/SendSignal:
+    post:
+      tags:
+      - process.Process
+      summary: SendSignal
+      operationId: process.Process.SendSignal
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendSignalRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendSignalResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/Start:
+    post:
+      tags:
+      - process.Process
+      summary: Start
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: process.Process.Start
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.StartRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of StartResponse events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.StartResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/StreamInput:
+    post:
+      tags:
+      - process.Process
+      summary: StreamInput
+      description: Client-streaming RPC. Client input stream ensures ordering of messages.
+        Use the Connect protocol with streaming support.
+      operationId: process.Process.StreamInput
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.StreamInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of StreamInputResponse events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.StreamInputResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /process.Process/Update:
+    post:
+      tags:
+      - process.Process
+      summary: Update
+      operationId: process.Process.Update
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.UpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.UpdateResponse'
+        '502': *id001
+      security:
+      - *id004
+      - *id005
+    servers:
+    - *id002
+  /teams:
+    get:
+      description: List all teams
+      tags:
+      - auth
+      security:
+      - SandboxAccessTokenAuth: []
+      responses:
+        '200':
+          description: Successfully returned all teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/Team'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /teams/{teamID}/metrics:
+    get:
+      description: Get metrics for the team
+      tags:
+      - auth
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/teamID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the start of the interval, in seconds, for
+          which the metrics
+      - in: query
+        name: end
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Unix timestamp for the end of the interval, in seconds, for
+            which the metrics
+      responses:
+        '200':
+          description: Successfully returned the team metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamMetric'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /teams/{teamID}/metrics/max:
+    get:
+      description: Get the maximum metrics for the team in the given interval
+      tags:
+      - auth
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/teamID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the start of the interval, in seconds, for
+          which the metrics
+      - in: query
+        name: end
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Unix timestamp for the end of the interval, in seconds, for
+            which the metrics
+      - in: query
+        name: metric
+        required: true
+        schema:
+          type: string
+          enum:
+          - concurrent_sandboxes
+          - sandbox_start_rate
+        description: Metric to retrieve the maximum value for
+      responses:
+        '200':
+          description: Successfully returned the team metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaxTeamMetric'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes:
+    get:
+      description: List all running sandboxes
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: metadata
+        in: query
+        description: Metadata query used to filter the sandboxes (e.g. "user=abc&app=prod").
+          Each key and values must be URL encoded.
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successfully returned all running sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/ListedSandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+    post:
+      description: Create a sandbox from the template
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewSandbox'
+      responses:
+        '201':
+          description: The sandbox was created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /v2/sandboxes:
+    get:
+      description: List all sandboxes
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: metadata
+        in: query
+        description: Metadata query used to filter the sandboxes (e.g. "user=abc&app=prod").
+          Each key and values must be URL encoded.
+        required: false
+        schema:
+          type: string
+      - name: state
+        in: query
+        description: Filter sandboxes by one or more states
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxState'
+        style: form
+        explode: false
+      - $ref: '#/components/parameters/paginationNextToken'
+      - $ref: '#/components/parameters/paginationLimit'
+      responses:
+        '200':
+          description: Successfully returned all running sandboxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/ListedSandbox'
+        '401':
+          $ref: '#/components/responses/401'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/metrics:
+    get:
+      description: List metrics for given sandboxes
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: sandbox_ids
+        in: query
+        required: true
+        description: Comma-separated list of sandbox IDs to get metrics for
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+          uniqueItems: true
+      responses:
+        '200':
+          description: Successfully returned all running sandboxes with metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxesWithMetrics'
+        '401':
+          $ref: '#/components/responses/401'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/logs:
+    get:
+      description: Get sandbox logs. Use /v2/sandboxes/{sandboxID}/logs instead.
+      deprecated: true
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Starting timestamp of the logs that should be returned in milliseconds
+      - in: query
+        name: limit
+        schema:
+          default: 1000
+          format: int32
+          minimum: 0
+          type: integer
+        description: Maximum number of logs that should be returned
+      responses:
+        '200':
+          description: Successfully returned the sandbox logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxLogs'
+        '404':
+          $ref: '#/components/responses/404'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}:
+    get:
+      description: Get a sandbox by id
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '200':
+          description: Successfully returned the sandbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxDetail'
+        '404':
+          $ref: '#/components/responses/404'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      description: Kill a sandbox
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: The sandbox was killed successfully
+          content: *id003
+        '404':
+          $ref: '#/components/responses/404'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/metrics:
+    get:
+      description: Get sandbox metrics
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the start of the interval, in seconds, for
+          which the metrics
+      - in: query
+        name: end
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Unix timestamp for the end of the interval, in seconds, for
+            which the metrics
+      responses:
+        '200':
+          description: Successfully returned the sandbox metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SandboxMetric'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/pause:
+    post:
+      description: Pause the sandbox
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: The sandbox was paused successfully and can be resumed
+          content: *id003
+        '409':
+          $ref: '#/components/responses/409'
+        '404':
+          $ref: '#/components/responses/404'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/resume:
+    post:
+      deprecated: true
+      description: Resume the sandbox
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumedSandbox'
+      responses:
+        '201':
+          description: The sandbox was resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '409':
+          $ref: '#/components/responses/409'
+        '404':
+          $ref: '#/components/responses/404'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/connect:
+    post:
+      description: Returns sandbox details. If the sandbox is paused, it will be resumed.
+        TTL is only extended.
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectSandbox'
+      responses:
+        '200':
+          description: The sandbox was already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '201':
+          description: The sandbox was resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sandbox'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/timeout:
+    post:
+      description: Set the timeout for the sandbox. The sandbox will expire x seconds
+        from the time of the request. Calling this method multiple times overwrites
+        the TTL, each time using the current timestamp as the starting point to measure
+        the timeout duration.
+      security:
+      - ApiKeyAuth: []
+      tags:
+      - sandboxes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - timeout
+              properties:
+                timeout:
+                  description: Timeout in seconds from the current time after which
+                    the sandbox should expire
+                  type: integer
+                  format: int32
+                  minimum: 0
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: Successfully set the sandbox timeout
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/refreshes:
+    post:
+      description: Refresh the sandbox extending its time to live
+      security:
+      - ApiKeyAuth: []
+      tags:
+      - sandboxes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration:
+                  description: Duration for which the sandbox should be kept alive
+                    in seconds
+                  type: integer
+                  maximum: 3600
+                  minimum: 0
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      responses:
+        '204':
+          description: Successfully refreshed the sandbox
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+    servers:
+    - *id006
+  /sandboxes/{sandboxID}/snapshots:
+    post:
+      description: Create a persistent snapshot from the sandbox's current state.
+        Snapshots can be used to create new sandboxes and persist beyond the original
+        sandbox's lifetime.
+      tags:
+      - sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Optional name for the snapshot template. If a snapshot
+                    template with this name already exists, a new build will be assigned
+                    to the existing template instead of creating a new one.
+      responses:
+        '201':
+          description: Snapshot created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotInfo'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /snapshots:
+    get:
+      description: List all snapshots for the team
+      tags:
+      - snapshots
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: sandboxID
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filter snapshots by source sandbox ID
+      - $ref: '#/components/parameters/paginationLimit'
+      - $ref: '#/components/parameters/paginationNextToken'
+      responses:
+        '200':
+          description: Successfully returned snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SnapshotInfo'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /v3/templates:
+    post:
+      description: Create a new template
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateBuildRequestV3'
+      responses:
+        '202':
+          description: The build was requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRequestResponseV3'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /v2/templates:
+    post:
+      description: Create a new template
+      deprecated: true
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateBuildRequestV2'
+      responses:
+        '202':
+          description: The build was requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateLegacy'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}/files/{hash}:
+    get:
+      description: Get an upload link for a tar file containing build layer files
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - in: path
+        name: hash
+        required: true
+        schema:
+          type: string
+          description: Hash of the files
+      responses:
+        '201':
+          description: The upload link where to upload the tar file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateBuildFileUpload'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates:
+    get:
+      description: List all templates
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - in: query
+        required: false
+        name: teamID
+        schema:
+          type: string
+          description: Identifier of the team
+      responses:
+        '200':
+          description: Successfully returned all templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/Template'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    post:
+      description: Create a new template
+      deprecated: true
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateBuildRequest'
+      responses:
+        '202':
+          description: The build was accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateLegacy'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}:
+    get:
+      description: List all builds for a template
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - $ref: '#/components/parameters/paginationNextToken'
+      - $ref: '#/components/parameters/paginationLimit'
+      responses:
+        '200':
+          description: Successfully returned the template with its builds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateWithBuilds'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    post:
+      description: Rebuild an template
+      deprecated: true
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateBuildRequest'
+      responses:
+        '202':
+          description: The build was accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateLegacy'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      description: Delete a template
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      responses:
+        '204':
+          description: The template was deleted successfully
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    patch:
+      description: Update template
+      deprecated: true
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateUpdateRequest'
+      responses:
+        '200':
+          description: The template was updated successfully
+          content: *id003
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}/builds/{buildID}:
+    post:
+      description: Start the build
+      deprecated: true
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - $ref: '#/components/parameters/buildID'
+      responses:
+        '202':
+          description: The build has started
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /v2/templates/{templateID}/builds/{buildID}:
+    post:
+      description: Start the build
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - $ref: '#/components/parameters/buildID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateBuildStartV2'
+      responses:
+        '202':
+          description: The build has started
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /v2/templates/{templateID}:
+    patch:
+      description: Update template
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      - SandboxAccessTokenAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateUpdateRequest'
+      responses:
+        '200':
+          description: The template was updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateUpdateResponse'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}/builds/{buildID}/status:
+    get:
+      description: Get template build info
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - $ref: '#/components/parameters/buildID'
+      - in: query
+        name: logsOffset
+        schema:
+          default: 0
+          type: integer
+          format: int32
+          minimum: 0
+        description: Index of the starting build log that should be returned with
+          the template
+      - in: query
+        name: limit
+        schema:
+          default: 100
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        description: Maximum number of logs that should be returned
+      - in: query
+        name: level
+        schema:
+          $ref: '#/components/schemas/LogLevel'
+      responses:
+        '200':
+          description: Successfully returned the template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateBuildInfo'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}/builds/{buildID}/logs:
+    get:
+      description: Get template build logs
+      tags:
+      - templates
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      - $ref: '#/components/parameters/buildID'
+      - in: query
+        name: cursor
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Starting timestamp of the logs that should be returned in milliseconds
+      - in: query
+        name: limit
+        schema:
+          default: 100
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        description: Maximum number of logs that should be returned
+      - in: query
+        name: direction
+        schema:
+          $ref: '#/components/schemas/LogsDirection'
+      - in: query
+        name: level
+        schema:
+          $ref: '#/components/schemas/LogLevel'
+      - in: query
+        name: source
+        schema:
+          $ref: '#/components/schemas/LogsSource'
+        description: Source of the logs that should be returned from
+      responses:
+        '200':
+          description: Successfully returned the template build logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateBuildLogsResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/tags:
+    post:
+      description: Assign tag(s) to a template build
+      tags:
+      - tags
+      security:
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTemplateTagsRequest'
+      responses:
+        '201':
+          description: Tag assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignedTemplateTags'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      description: Delete multiple tags from templates
+      tags:
+      - tags
+      security:
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteTemplateTagsRequest'
+      responses:
+        '204':
+          description: Tags deleted successfully
+          content: *id003
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/{templateID}/tags:
+    get:
+      description: List all tags for a template
+      tags:
+      - tags
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/templateID'
+      responses:
+        '200':
+          description: Successfully returned the template tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateTag'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /templates/aliases/{alias}:
+    get:
+      description: Check if template with given alias exists
+      tags:
+      - templates
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: alias
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Template alias
+      responses:
+        '200':
+          description: Successfully queried template by alias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateAliasResponse'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /volumes:
+    get:
+      description: List all team volumes
+      tags:
+      - volumes
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Successfully listed all team volumes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Volume'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    post:
+      description: Create a new team volume
+      tags:
+      - volumes
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewVolume'
+      responses:
+        '201':
+          description: Successfully created a new team volume
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Volume'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+  /volumes/{volumeID}:
+    get:
+      description: Get team volume info
+      tags:
+      - volumes
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/volumeID'
+      responses:
+        '200':
+          description: Successfully retrieved a team volume
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Volume'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      description: Delete a team volume
+      tags:
+      - volumes
+      security:
+      - SandboxAccessTokenAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/volumeID'
+      responses:
+        '204':
+          description: Successfully deleted a team volume
+          content: *id003
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+    servers:
+    - *id006
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    SandboxAccessTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: access_token
+  parameters:
+    FilePath:
+      name: path
+      in: query
+      required: false
+      description: Path to the file, URL encoded. Can be relative to the user's home
+        directory (e.g. "file.txt" resolves to ~/file.txt).
+      schema:
+        type: string
+    User:
+      name: username
+      in: query
+      required: false
+      description: User for setting file ownership and resolving relative paths. Defaults
+        to the sandbox's default user.
+      schema:
+        type: string
+    Signature:
+      name: signature
+      in: query
+      required: false
+      description: HMAC signature for access verification. Required when no X-Access-Token
+        header is provided. Format is "v1_<sha256hash>".
+      schema:
+        type: string
+    SignatureExpiration:
+      name: signature_expiration
+      in: query
+      required: false
+      description: Unix timestamp (seconds) after which the signature expires. Only
+        used with the signature parameter.
+      schema:
+        type: integer
+    templateID:
+      name: templateID
+      in: path
+      required: true
+      schema:
+        type: string
+    buildID:
+      name: buildID
+      in: path
+      required: true
+      schema:
+        type: string
+    sandboxID:
+      name: sandboxID
+      in: path
+      required: true
+      schema:
+        type: string
+    teamID:
+      name: teamID
+      in: path
+      required: true
+      schema:
+        type: string
+    nodeID:
+      name: nodeID
+      in: path
+      required: true
+      schema:
+        type: string
+    apiKeyID:
+      name: apiKeyID
+      in: path
+      required: true
+      schema:
+        type: string
+    accessTokenID:
+      name: accessTokenID
+      in: path
+      required: true
+      schema:
+        type: string
+    snapshotID:
+      name: snapshotID
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Identifier of the snapshot (template ID)
+    tag:
+      name: tag
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Tag name
+    paginationLimit:
+      name: limit
+      in: query
+      description: Maximum number of items to return per page
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 100
+        maximum: 100
+    paginationNextToken:
+      name: nextToken
+      in: query
+      description: Cursor to start the list from
+      required: false
+      schema:
+        type: string
+    volumeID:
+      name: volumeID
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    File:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
+  responses:
+    UploadSuccess:
+      description: The file was uploaded successfully.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/EntryInfo'
+          example:
+          - path: /home/user/hello.txt
+            name: hello.txt
+            type: file
+    DownloadSuccess:
+      description: File content. Content-Type is detected from the file extension
+        (defaults to application/octet-stream). Content-Disposition header contains
+        the filename.
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: The raw file content
+    NotAcceptable:
+      description: Requested encoding is not supported
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: 'no acceptable encoding found, supported: [identity, gzip]'
+            code: 406
+    InvalidPath:
+      description: Invalid path
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: path '/home/user/docs' is a directory
+            code: 400
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: 'error opening file ''/home/user/file.txt'': permission denied'
+            code: 500
+    FileNotFound:
+      description: File not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: path '/home/user/missing.txt' does not exist
+            code: 404
+    InvalidUser:
+      description: Invalid user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: 'error looking up user ''nonexistent'': user: unknown user nonexistent'
+            code: 401
+    NotEnoughDiskSpace:
+      description: Not enough disk space
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: not enough disk space available
+            code: 507
+    '400':
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '401':
+      description: Authentication error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '409':
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '500':
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Error code
+        message:
+          type: string
+          description: Error
+    EntryInfo:
+      required:
+      - path
+      - name
+      - type
+      properties:
+        path:
+          type: string
+          description: Path to the file
+        name:
+          type: string
+          description: Name of the file
+        type:
+          type: string
+          description: Type of the file
+          enum:
+          - file
+    EnvVars:
+      additionalProperties:
+        type: string
+        description: Environment variables for the sandbox
+    Metrics:
+      type: object
+      description: Resource usage metrics
+      properties:
+        ts:
+          type: integer
+          format: int64
+          description: Unix timestamp in UTC for current sandbox time
+        cpu_count:
+          type: integer
+          description: Number of CPU cores
+        cpu_used_pct:
+          type: number
+          format: float
+          description: CPU usage percentage
+        mem_total:
+          type: integer
+          description: Total virtual memory in bytes
+        mem_used:
+          type: integer
+          description: Used virtual memory in bytes
+        mem_total_mib:
+          type: integer
+          description: Total virtual memory in MiB
+        mem_used_mib:
+          type: integer
+          description: Used virtual memory in MiB
+        disk_used:
+          type: integer
+          description: Used disk space in bytes
+        disk_total:
+          type: integer
+          description: Total disk space in bytes
+    connect-protocol-version:
+      type: number
+      title: Connect-Protocol-Version
+      enum:
+      - 1
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    filesystem.CreateWatcherRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: CreateWatcherRequest
+      additionalProperties: false
+    filesystem.CreateWatcherResponse:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: CreateWatcherResponse
+      additionalProperties: false
+    filesystem.EntryInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/filesystem.FileType'
+        path:
+          type: string
+          title: path
+        size:
+          type:
+          - integer
+          - string
+          title: size
+          format: int64
+        mode:
+          type: integer
+          title: mode
+        permissions:
+          type: string
+          title: permissions
+        owner:
+          type: string
+          title: owner
+        group:
+          type: string
+          title: group
+        modifiedTime:
+          title: modified_time
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        symlinkTarget:
+          type:
+          - string
+          - 'null'
+          title: symlink_target
+          description: If the entry is a symlink, this field contains the target of
+            the symlink.
+      title: EntryInfo
+      additionalProperties: false
+    filesystem.EventType:
+      type: string
+      title: EventType
+      enum:
+      - EVENT_TYPE_UNSPECIFIED
+      - EVENT_TYPE_CREATE
+      - EVENT_TYPE_WRITE
+      - EVENT_TYPE_REMOVE
+      - EVENT_TYPE_RENAME
+      - EVENT_TYPE_CHMOD
+    filesystem.FileType:
+      type: string
+      title: FileType
+      enum:
+      - FILE_TYPE_UNSPECIFIED
+      - FILE_TYPE_FILE
+      - FILE_TYPE_DIRECTORY
+    filesystem.FilesystemEvent:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          title: type
+          $ref: '#/components/schemas/filesystem.EventType'
+      title: FilesystemEvent
+      additionalProperties: false
+    filesystem.GetWatcherEventsRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: GetWatcherEventsRequest
+      additionalProperties: false
+    filesystem.GetWatcherEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/filesystem.FilesystemEvent'
+          title: events
+      title: GetWatcherEventsResponse
+      additionalProperties: false
+    filesystem.ListDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        depth:
+          type: integer
+          title: depth
+      title: ListDirRequest
+      additionalProperties: false
+    filesystem.ListDirResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/filesystem.EntryInfo'
+          title: entries
+      title: ListDirResponse
+      additionalProperties: false
+    filesystem.MakeDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: MakeDirRequest
+      additionalProperties: false
+    filesystem.MakeDirResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: MakeDirResponse
+      additionalProperties: false
+    filesystem.MoveRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          title: source
+        destination:
+          type: string
+          title: destination
+      title: MoveRequest
+      additionalProperties: false
+    filesystem.MoveResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: MoveResponse
+      additionalProperties: false
+    filesystem.RemoveRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: RemoveRequest
+      additionalProperties: false
+    filesystem.RemoveResponse:
+      type: object
+      title: RemoveResponse
+      additionalProperties: false
+    filesystem.RemoveWatcherRequest:
+      type: object
+      properties:
+        watcherId:
+          type: string
+          title: watcher_id
+      title: RemoveWatcherRequest
+      additionalProperties: false
+    filesystem.RemoveWatcherResponse:
+      type: object
+      title: RemoveWatcherResponse
+      additionalProperties: false
+    filesystem.StatRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+      title: StatRequest
+      additionalProperties: false
+    filesystem.StatResponse:
+      type: object
+      properties:
+        entry:
+          title: entry
+          $ref: '#/components/schemas/filesystem.EntryInfo'
+      title: StatResponse
+      additionalProperties: false
+    filesystem.WatchDirRequest:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        recursive:
+          type: boolean
+          title: recursive
+      title: WatchDirRequest
+      additionalProperties: false
+    filesystem.WatchDirResponse:
+      type: object
+      oneOf:
+      - properties:
+          filesystem:
+            title: filesystem
+            $ref: '#/components/schemas/filesystem.FilesystemEvent'
+        title: filesystem
+        required:
+        - filesystem
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/filesystem.WatchDirResponse.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/filesystem.WatchDirResponse.StartEvent'
+        title: start
+        required:
+        - start
+      title: WatchDirResponse
+      additionalProperties: false
+    filesystem.WatchDirResponse.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    filesystem.WatchDirResponse.StartEvent:
+      type: object
+      title: StartEvent
+      additionalProperties: false
+    google.protobuf.Timestamp:
+      type: string
+      examples:
+      - '2023-01-15T01:30:15.01Z'
+      - '2024-12-25T12:00:00Z'
+      format: date-time
+      description: "A Timestamp represents a point in time independent of any time\
+        \ zone or local\n calendar, encoded as a count of seconds and fractions of\
+        \ seconds at\n nanosecond resolution. The count is relative to an epoch at\
+        \ UTC midnight on\n January 1, 1970, in the proleptic Gregorian calendar which\
+        \ extends the\n Gregorian calendar backwards to year one.\n\n All minutes\
+        \ are 60 seconds long. Leap seconds are \"smeared\" so that no leap\n second\
+        \ table is needed for interpretation, using a [24-hour linear\n smear](https://developers.google.com/time/smear).\n\
+        \n The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.\
+        \ By\n restricting to that range, we ensure that we can convert to and from\
+        \ [RFC\n 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.\n\n # Examples\n\
+        \n Example 1: Compute Timestamp from POSIX `time()`.\n\n     Timestamp timestamp;\n\
+        \     timestamp.set_seconds(time(NULL));\n     timestamp.set_nanos(0);\n\n\
+        \ Example 2: Compute Timestamp from POSIX `gettimeofday()`.\n\n     struct\
+        \ timeval tv;\n     gettimeofday(&tv, NULL);\n\n     Timestamp timestamp;\n\
+        \     timestamp.set_seconds(tv.tv_sec);\n     timestamp.set_nanos(tv.tv_usec\
+        \ * 1000);\n\n Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.\n\
+        \n     FILETIME ft;\n     GetSystemTimeAsFileTime(&ft);\n     UINT64 ticks\
+        \ = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;\n\n     // A Windows\
+        \ tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z\n     // is\
+        \ 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.\n     Timestamp\
+        \ timestamp;\n     timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));\n\
+        \     timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));\n\n Example\
+        \ 4: Compute Timestamp from Java `System.currentTimeMillis()`.\n\n     long\
+        \ millis = System.currentTimeMillis();\n\n     Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis\
+        \ / 1000)\n         .setNanos((int) ((millis % 1000) * 1000000)).build();\n\
+        \n Example 5: Compute Timestamp from Java `Instant.now()`.\n\n     Instant\
+        \ now = Instant.now();\n\n     Timestamp timestamp =\n         Timestamp.newBuilder().setSeconds(now.getEpochSecond())\n\
+        \             .setNanos(now.getNano()).build();\n\n Example 6: Compute Timestamp\
+        \ from current time in Python.\n\n     timestamp = Timestamp()\n     timestamp.GetCurrentTime()\n\
+        \n # JSON Mapping\n\n In JSON format, the Timestamp type is encoded as a string\
+        \ in the\n [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is,\
+        \ the\n format is \"{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z\"\
+        \n where {year} is always expressed using four digits while {month}, {day},\n\
+        \ {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional\n\
+        \ seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),\n\
+        \ are optional. The \"Z\" suffix indicates the timezone (\"UTC\"); the timezone\n\
+        \ is required. A proto3 JSON serializer should always use UTC (as indicated\
+        \ by\n \"Z\") when printing the Timestamp type and a proto3 JSON parser should\
+        \ be\n able to accept both UTC and other timezones (as indicated by an offset).\n\
+        \n For example, \"2017-01-15T01:30:15.01Z\" encodes 15.01 seconds past\n 01:30\
+        \ UTC on January 15, 2017.\n\n In JavaScript, one can convert a Date object\
+        \ to this format using the\n standard\n [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)\n\
+        \ method. In Python, a standard `datetime.datetime` object can be converted\n\
+        \ to this format using\n [`strftime`](https://docs.python.org/2/library/time.html#time.strftime)\
+        \ with\n the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java,\
+        \ one can use\n the Joda Time's [`ISODateTimeFormat.dateTime()`](\n http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()\n\
+        \ ) to obtain a formatter capable of generating timestamps in this format."
+    process.CloseStdinRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: CloseStdinRequest
+      additionalProperties: false
+    process.CloseStdinResponse:
+      type: object
+      title: CloseStdinResponse
+      additionalProperties: false
+    process.ConnectRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: ConnectRequest
+      additionalProperties: false
+    process.ConnectResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/process.ProcessEvent'
+      title: ConnectResponse
+      additionalProperties: false
+    process.ListRequest:
+      type: object
+      title: ListRequest
+      additionalProperties: false
+    process.ListResponse:
+      type: object
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/process.ProcessInfo'
+          title: processes
+      title: ListResponse
+      additionalProperties: false
+    process.PTY:
+      type: object
+      properties:
+        size:
+          title: size
+          $ref: '#/components/schemas/process.PTY.Size'
+      title: PTY
+      additionalProperties: false
+    process.PTY.Size:
+      type: object
+      properties:
+        cols:
+          type: integer
+          title: cols
+        rows:
+          type: integer
+          title: rows
+      title: Size
+      additionalProperties: false
+    process.ProcessConfig:
+      type: object
+      properties:
+        cmd:
+          type: string
+          title: cmd
+        args:
+          type: array
+          items:
+            type: string
+          title: args
+        envs:
+          type: object
+          title: envs
+          additionalProperties:
+            type: string
+            title: value
+        cwd:
+          type:
+          - string
+          - 'null'
+          title: cwd
+      title: ProcessConfig
+      additionalProperties: false
+    process.ProcessEvent:
+      type: object
+      oneOf:
+      - properties:
+          data:
+            title: data
+            $ref: '#/components/schemas/process.ProcessEvent.DataEvent'
+        title: data
+        required:
+        - data
+      - properties:
+          end:
+            title: end
+            $ref: '#/components/schemas/process.ProcessEvent.EndEvent'
+        title: end
+        required:
+        - end
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/process.ProcessEvent.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/process.ProcessEvent.StartEvent'
+        title: start
+        required:
+        - start
+      title: ProcessEvent
+      additionalProperties: false
+    process.ProcessEvent.DataEvent:
+      type: object
+      oneOf:
+      - properties:
+          pty:
+            type: string
+            title: pty
+            format: byte
+        title: pty
+        required:
+        - pty
+      - properties:
+          stderr:
+            type: string
+            title: stderr
+            format: byte
+        title: stderr
+        required:
+        - stderr
+      - properties:
+          stdout:
+            type: string
+            title: stdout
+            format: byte
+        title: stdout
+        required:
+        - stdout
+      title: DataEvent
+      additionalProperties: false
+    process.ProcessEvent.EndEvent:
+      type: object
+      properties:
+        exitCode:
+          type: integer
+          title: exit_code
+          format: int32
+        exited:
+          type: boolean
+          title: exited
+        status:
+          type: string
+          title: status
+        error:
+          type:
+          - string
+          - 'null'
+          title: error
+      title: EndEvent
+      additionalProperties: false
+    process.ProcessEvent.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    process.ProcessEvent.StartEvent:
+      type: object
+      properties:
+        pid:
+          type: integer
+          title: pid
+      title: StartEvent
+      additionalProperties: false
+    process.ProcessInfo:
+      type: object
+      properties:
+        config:
+          title: config
+          $ref: '#/components/schemas/process.ProcessConfig'
+        pid:
+          type: integer
+          title: pid
+        tag:
+          type:
+          - string
+          - 'null'
+          title: tag
+      title: ProcessInfo
+      additionalProperties: false
+    process.ProcessInput:
+      type: object
+      oneOf:
+      - properties:
+          pty:
+            type: string
+            title: pty
+            format: byte
+        title: pty
+        required:
+        - pty
+      - properties:
+          stdin:
+            type: string
+            title: stdin
+            format: byte
+        title: stdin
+        required:
+        - stdin
+      title: ProcessInput
+      additionalProperties: false
+    process.ProcessSelector:
+      type: object
+      oneOf:
+      - properties:
+          pid:
+            type: integer
+            title: pid
+        title: pid
+        required:
+        - pid
+      - properties:
+          tag:
+            type: string
+            title: tag
+        title: tag
+        required:
+        - tag
+      title: ProcessSelector
+      additionalProperties: false
+    process.SendInputRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        input:
+          title: input
+          $ref: '#/components/schemas/process.ProcessInput'
+      title: SendInputRequest
+      additionalProperties: false
+    process.SendInputResponse:
+      type: object
+      title: SendInputResponse
+      additionalProperties: false
+    process.SendSignalRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        signal:
+          title: signal
+          $ref: '#/components/schemas/process.Signal'
+      title: SendSignalRequest
+      additionalProperties: false
+    process.SendSignalResponse:
+      type: object
+      title: SendSignalResponse
+      additionalProperties: false
+    process.Signal:
+      type: string
+      title: Signal
+      enum:
+      - SIGNAL_UNSPECIFIED
+      - SIGNAL_SIGTERM
+      - SIGNAL_SIGKILL
+    process.StartRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessConfig'
+        pty:
+          oneOf:
+          - $ref: '#/components/schemas/process.PTY'
+          - type: 'null'
+          title: pty
+        tag:
+          type:
+          - string
+          - 'null'
+          title: tag
+        stdin:
+          type:
+          - boolean
+          - 'null'
+          title: stdin
+          description: "This is optional for backwards compatibility.\n We default\
+            \ to true. New SDK versions will set this to false by default."
+      title: StartRequest
+      additionalProperties: false
+    process.StartResponse:
+      type: object
+      properties:
+        event:
+          title: event
+          $ref: '#/components/schemas/process.ProcessEvent'
+      title: StartResponse
+      additionalProperties: false
+    process.StreamInputRequest:
+      type: object
+      oneOf:
+      - properties:
+          data:
+            title: data
+            $ref: '#/components/schemas/process.StreamInputRequest.DataEvent'
+        title: data
+        required:
+        - data
+      - properties:
+          keepalive:
+            title: keepalive
+            $ref: '#/components/schemas/process.StreamInputRequest.KeepAlive'
+        title: keepalive
+        required:
+        - keepalive
+      - properties:
+          start:
+            title: start
+            $ref: '#/components/schemas/process.StreamInputRequest.StartEvent'
+        title: start
+        required:
+        - start
+      title: StreamInputRequest
+      additionalProperties: false
+    process.StreamInputRequest.DataEvent:
+      type: object
+      properties:
+        input:
+          title: input
+          $ref: '#/components/schemas/process.ProcessInput'
+      title: DataEvent
+      additionalProperties: false
+    process.StreamInputRequest.KeepAlive:
+      type: object
+      title: KeepAlive
+      additionalProperties: false
+    process.StreamInputRequest.StartEvent:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+      title: StartEvent
+      additionalProperties: false
+    process.StreamInputResponse:
+      type: object
+      title: StreamInputResponse
+      additionalProperties: false
+    process.UpdateRequest:
+      type: object
+      properties:
+        process:
+          title: process
+          $ref: '#/components/schemas/process.ProcessSelector'
+        pty:
+          oneOf:
+          - $ref: '#/components/schemas/process.PTY'
+          - type: 'null'
+          title: pty
+      title: UpdateRequest
+      additionalProperties: false
+    process.UpdateResponse:
+      type: object
+      title: UpdateResponse
+      additionalProperties: false
+    Team:
+      required:
+      - teamID
+      - name
+      - apiKey
+      - isDefault
+      properties:
+        teamID:
+          type: string
+          description: Identifier of the team
+        name:
+          type: string
+          description: Name of the team
+        apiKey:
+          type: string
+          description: API key for the team
+        isDefault:
+          type: boolean
+          description: Whether the team is the default team
+    TeamUser:
+      required:
+      - id
+      - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identifier of the user
+        email:
+          type: string
+          description: Email of the user
+    TemplateUpdateRequest:
+      properties:
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+    TemplateUpdateResponse:
+      required:
+      - names
+      properties:
+        names:
+          type: array
+          description: Names of the template (namespace/alias format when namespaced)
+          items:
+            type: string
+    CPUCount:
+      type: integer
+      format: int32
+      minimum: 1
+      description: CPU cores for the sandbox
+    MemoryMB:
+      type: integer
+      format: int32
+      minimum: 128
+      description: Memory for the sandbox in MiB
+    DiskSizeMB:
+      type: integer
+      format: int32
+      minimum: 0
+      description: Disk size for the sandbox in MiB
+    EnvdVersion:
+      type: string
+      description: Version of the envd running in the sandbox
+    SandboxMetadata:
+      additionalProperties:
+        type: string
+        description: Metadata of the sandbox
+    SandboxState:
+      type: string
+      description: State of the sandbox
+      enum:
+      - running
+      - paused
+    SnapshotInfo:
+      type: object
+      required:
+      - snapshotID
+      - names
+      properties:
+        snapshotID:
+          type: string
+          description: Identifier of the snapshot template including the tag. Uses
+            namespace/alias when a name was provided (e.g. team-slug/my-snapshot:default),
+            otherwise falls back to the raw template ID (e.g. abc123:default).
+        names:
+          type: array
+          items:
+            type: string
+          description: Full names of the snapshot template including team namespace
+            and tag (e.g. team-slug/my-snapshot:v2)
+    Mcp:
+      type: object
+      description: MCP configuration for the sandbox
+      additionalProperties: {}
+      nullable: true
+    SandboxNetworkConfig:
+      type: object
+      properties:
+        allowPublicTraffic:
+          type: boolean
+          default: true
+          description: Specify if the sandbox URLs should be accessible only with
+            authentication.
+        allowOut:
+          type: array
+          description: List of allowed CIDR blocks or IP addresses for egress traffic.
+            Allowed addresses always take precedence over blocked addresses.
+          items:
+            type: string
+        denyOut:
+          type: array
+          description: List of denied CIDR blocks or IP addresses for egress traffic
+          items:
+            type: string
+        maskRequestHost:
+          type: string
+          description: Specify host mask which will be used for all sandbox requests
+    SandboxAutoResumePolicy:
+      type: string
+      description: Auto-resume policy for paused sandboxes. Default is off.
+      default: 'off'
+      enum:
+      - any
+      - 'off'
+    SandboxAutoResumeConfig:
+      type: object
+      description: Auto-resume configuration for paused sandboxes. Default is off.
+      required:
+      - policy
+      properties:
+        policy:
+          $ref: '#/components/schemas/SandboxAutoResumePolicy'
+    SandboxLog:
+      description: Log entry with timestamp and line
+      required:
+      - timestamp
+      - line
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry
+        line:
+          type: string
+          description: Log line content
+    SandboxLogEntry:
+      required:
+      - timestamp
+      - level
+      - message
+      - fields
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry
+        message:
+          type: string
+          description: Log message content
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+    SandboxLogs:
+      required:
+      - logs
+      - logEntries
+      properties:
+        logs:
+          description: Logs of the sandbox
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxLog'
+        logEntries:
+          description: Structured logs of the sandbox
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxLogEntry'
+    SandboxMetric:
+      description: Metric entry with timestamp and line
+      required:
+      - timestamp
+      - timestampUnix
+      - cpuCount
+      - cpuUsedPct
+      - memUsed
+      - memTotal
+      - diskUsed
+      - diskTotal
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          deprecated: true
+          description: Timestamp of the metric entry
+        timestampUnix:
+          type: integer
+          format: int64
+          description: Timestamp of the metric entry in Unix time (seconds since epoch)
+        cpuCount:
+          type: integer
+          format: int32
+          description: Number of CPU cores
+        cpuUsedPct:
+          type: number
+          format: float
+          description: CPU usage percentage
+        memUsed:
+          type: integer
+          format: int64
+          description: Memory used in bytes
+        memTotal:
+          type: integer
+          format: int64
+          description: Total memory in bytes
+        diskUsed:
+          type: integer
+          format: int64
+          description: Disk used in bytes
+        diskTotal:
+          type: integer
+          format: int64
+          description: Total disk space in bytes
+    SandboxVolumeMount:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the volume
+        path:
+          type: string
+          description: Path of the volume
+      required:
+      - name
+      - path
+    Sandbox:
+      required:
+      - templateID
+      - sandboxID
+      - clientID
+      - envdVersion
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template from which is the sandbox created
+        sandboxID:
+          type: string
+          description: Identifier of the sandbox
+        alias:
+          type: string
+          description: Alias of the template
+        clientID:
+          type: string
+          deprecated: true
+          description: Identifier of the client
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+        envdAccessToken:
+          type: string
+          description: Access token used for envd communication
+        trafficAccessToken:
+          type: string
+          nullable: true
+          description: Token required for accessing sandbox via proxy.
+        domain:
+          type: string
+          nullable: true
+          description: Base domain where the sandbox traffic is accessible
+    SandboxDetail:
+      required:
+      - templateID
+      - sandboxID
+      - clientID
+      - startedAt
+      - cpuCount
+      - memoryMB
+      - diskSizeMB
+      - endAt
+      - state
+      - envdVersion
+      - volumeMounts
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template from which is the sandbox created
+        alias:
+          type: string
+          description: Alias of the template
+        sandboxID:
+          type: string
+          description: Identifier of the sandbox
+        clientID:
+          type: string
+          deprecated: true
+          description: Identifier of the client
+        startedAt:
+          type: string
+          format: date-time
+          description: Time when the sandbox was started
+        endAt:
+          type: string
+          format: date-time
+          description: Time when the sandbox will expire
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+        envdAccessToken:
+          type: string
+          description: Access token used for envd communication
+        domain:
+          type: string
+          nullable: true
+          description: Base domain where the sandbox traffic is accessible
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+        diskSizeMB:
+          $ref: '#/components/schemas/DiskSizeMB'
+        metadata:
+          $ref: '#/components/schemas/SandboxMetadata'
+        state:
+          $ref: '#/components/schemas/SandboxState'
+        volumeMounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxVolumeMount'
+    ListedSandbox:
+      required:
+      - templateID
+      - sandboxID
+      - clientID
+      - startedAt
+      - cpuCount
+      - memoryMB
+      - diskSizeMB
+      - endAt
+      - state
+      - envdVersion
+      - volumeMounts
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template from which is the sandbox created
+        alias:
+          type: string
+          description: Alias of the template
+        sandboxID:
+          type: string
+          description: Identifier of the sandbox
+        clientID:
+          type: string
+          deprecated: true
+          description: Identifier of the client
+        startedAt:
+          type: string
+          format: date-time
+          description: Time when the sandbox was started
+        endAt:
+          type: string
+          format: date-time
+          description: Time when the sandbox will expire
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+        diskSizeMB:
+          $ref: '#/components/schemas/DiskSizeMB'
+        metadata:
+          $ref: '#/components/schemas/SandboxMetadata'
+        state:
+          $ref: '#/components/schemas/SandboxState'
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+        volumeMounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxVolumeMount'
+    SandboxesWithMetrics:
+      required:
+      - sandboxes
+      properties:
+        sandboxes:
+          additionalProperties:
+            $ref: '#/components/schemas/SandboxMetric'
+    NewSandbox:
+      required:
+      - templateID
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the required template
+        timeout:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 15
+          description: Time to live for the sandbox in seconds.
+        autoPause:
+          type: boolean
+          default: false
+          description: Automatically pauses the sandbox after the timeout
+        autoResume:
+          $ref: '#/components/schemas/SandboxAutoResumeConfig'
+        secure:
+          type: boolean
+          description: Secure all system communication with sandbox
+        allow_internet_access:
+          type: boolean
+          description: Allow sandbox to access the internet. When set to false, it
+            behaves the same as specifying denyOut to 0.0.0.0/0 in the network config.
+        network:
+          $ref: '#/components/schemas/SandboxNetworkConfig'
+        metadata:
+          $ref: '#/components/schemas/SandboxMetadata'
+        envVars:
+          $ref: '#/components/schemas/EnvVars'
+        mcp:
+          $ref: '#/components/schemas/Mcp'
+        volumeMounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxVolumeMount'
+    ResumedSandbox:
+      properties:
+        timeout:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 15
+          description: Time to live for the sandbox in seconds.
+        autoPause:
+          type: boolean
+          deprecated: true
+          description: Automatically pauses the sandbox after the timeout
+    ConnectSandbox:
+      type: object
+      required:
+      - timeout
+      properties:
+        timeout:
+          description: Timeout in seconds from the current time after which the sandbox
+            should expire
+          type: integer
+          format: int32
+          minimum: 0
+    TeamMetric:
+      description: Team metric with timestamp
+      required:
+      - timestamp
+      - timestampUnix
+      - concurrentSandboxes
+      - sandboxStartRate
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          deprecated: true
+          description: Timestamp of the metric entry
+        timestampUnix:
+          type: integer
+          format: int64
+          description: Timestamp of the metric entry in Unix time (seconds since epoch)
+        concurrentSandboxes:
+          type: integer
+          format: int32
+          description: The number of concurrent sandboxes for the team
+        sandboxStartRate:
+          type: number
+          format: float
+          description: Number of sandboxes started per second
+    MaxTeamMetric:
+      description: Team metric with timestamp
+      required:
+      - timestamp
+      - timestampUnix
+      - value
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          deprecated: true
+          description: Timestamp of the metric entry
+        timestampUnix:
+          type: integer
+          format: int64
+          description: Timestamp of the metric entry in Unix time (seconds since epoch)
+        value:
+          type: number
+          description: The maximum value of the requested metric in the given interval
+    Template:
+      required:
+      - templateID
+      - buildID
+      - cpuCount
+      - memoryMB
+      - diskSizeMB
+      - public
+      - createdAt
+      - updatedAt
+      - createdBy
+      - lastSpawnedAt
+      - spawnCount
+      - buildCount
+      - envdVersion
+      - aliases
+      - names
+      - buildStatus
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template
+        buildID:
+          type: string
+          description: Identifier of the last successful build for given template
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+        diskSizeMB:
+          $ref: '#/components/schemas/DiskSizeMB'
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+        aliases:
+          type: array
+          description: Aliases of the template
+          deprecated: true
+          items:
+            type: string
+        names:
+          type: array
+          description: Names of the template (namespace/alias format when namespaced)
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Time when the template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Time when the template was last updated
+        createdBy:
+          allOf:
+          - $ref: '#/components/schemas/TeamUser'
+          nullable: true
+        lastSpawnedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Time when the template was last used
+        spawnCount:
+          type: integer
+          format: int64
+          description: Number of times the template was used
+        buildCount:
+          type: integer
+          format: int32
+          description: Number of times the template was built
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+        buildStatus:
+          $ref: '#/components/schemas/TemplateBuildStatus'
+    TemplateRequestResponseV3:
+      required:
+      - templateID
+      - buildID
+      - public
+      - aliases
+      - names
+      - tags
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template
+        buildID:
+          type: string
+          description: Identifier of the last successful build for given template
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+        names:
+          type: array
+          description: Names of the template
+          items:
+            type: string
+        tags:
+          type: array
+          description: Tags assigned to the template build
+          items:
+            type: string
+        aliases:
+          type: array
+          description: Aliases of the template
+          deprecated: true
+          items:
+            type: string
+    TemplateLegacy:
+      required:
+      - templateID
+      - buildID
+      - cpuCount
+      - memoryMB
+      - diskSizeMB
+      - public
+      - createdAt
+      - updatedAt
+      - createdBy
+      - lastSpawnedAt
+      - spawnCount
+      - buildCount
+      - envdVersion
+      - aliases
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template
+        buildID:
+          type: string
+          description: Identifier of the last successful build for given template
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+        diskSizeMB:
+          $ref: '#/components/schemas/DiskSizeMB'
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+        aliases:
+          type: array
+          description: Aliases of the template
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Time when the template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Time when the template was last updated
+        createdBy:
+          allOf:
+          - $ref: '#/components/schemas/TeamUser'
+          nullable: true
+        lastSpawnedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Time when the template was last used
+        spawnCount:
+          type: integer
+          format: int64
+          description: Number of times the template was used
+        buildCount:
+          type: integer
+          format: int32
+          description: Number of times the template was built
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+    TemplateBuild:
+      required:
+      - buildID
+      - status
+      - createdAt
+      - updatedAt
+      - cpuCount
+      - memoryMB
+      properties:
+        buildID:
+          type: string
+          format: uuid
+          description: Identifier of the build
+        status:
+          $ref: '#/components/schemas/TemplateBuildStatus'
+        createdAt:
+          type: string
+          format: date-time
+          description: Time when the build was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Time when the build was last updated
+        finishedAt:
+          type: string
+          format: date-time
+          description: Time when the build was finished
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+        diskSizeMB:
+          $ref: '#/components/schemas/DiskSizeMB'
+        envdVersion:
+          $ref: '#/components/schemas/EnvdVersion'
+    TemplateWithBuilds:
+      required:
+      - templateID
+      - public
+      - aliases
+      - names
+      - createdAt
+      - updatedAt
+      - lastSpawnedAt
+      - spawnCount
+      - builds
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+        aliases:
+          type: array
+          description: Aliases of the template
+          deprecated: true
+          items:
+            type: string
+        names:
+          type: array
+          description: Names of the template (namespace/alias format when namespaced)
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Time when the template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Time when the template was last updated
+        lastSpawnedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Time when the template was last used
+        spawnCount:
+          type: integer
+          format: int64
+          description: Number of times the template was used
+        builds:
+          type: array
+          description: List of builds for the template
+          items:
+            $ref: '#/components/schemas/TemplateBuild'
+    TemplateAliasResponse:
+      required:
+      - templateID
+      - public
+      properties:
+        templateID:
+          type: string
+          description: Identifier of the template
+        public:
+          type: boolean
+          description: Whether the template is public or only accessible by the team
+    TemplateBuildRequest:
+      required:
+      - dockerfile
+      properties:
+        alias:
+          description: Alias of the template
+          type: string
+        dockerfile:
+          description: Dockerfile for the template
+          type: string
+        teamID:
+          type: string
+          description: Identifier of the team
+        startCmd:
+          description: Start command to execute in the template after the build
+          type: string
+        readyCmd:
+          description: Ready check command to execute in the template after the build
+          type: string
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+    TemplateStep:
+      description: Step in the template build process
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          description: Type of the step
+        args:
+          default: []
+          type: array
+          description: Arguments for the step
+          items:
+            type: string
+        filesHash:
+          type: string
+          description: Hash of the files used in the step
+        force:
+          default: false
+          type: boolean
+          description: Whether the step should be forced to run regardless of the
+            cache
+    TemplateBuildRequestV3:
+      properties:
+        name:
+          description: Name of the template. Can include a tag with colon separator
+            (e.g. "my-template" or "my-template:v1"). If tag is included, it will
+            be treated as if the tag was provided in the tags array.
+          type: string
+        tags:
+          type: array
+          description: Tags to assign to the template build
+          items:
+            type: string
+        alias:
+          description: Alias of the template. Deprecated, use name instead.
+          type: string
+          deprecated: true
+        teamID:
+          deprecated: true
+          type: string
+          description: Identifier of the team
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+    TemplateBuildRequestV2:
+      required:
+      - alias
+      properties:
+        alias:
+          description: Alias of the template
+          type: string
+        teamID:
+          deprecated: true
+          type: string
+          description: Identifier of the team
+        cpuCount:
+          $ref: '#/components/schemas/CPUCount'
+        memoryMB:
+          $ref: '#/components/schemas/MemoryMB'
+    FromImageRegistry:
+      oneOf:
+      - $ref: '#/components/schemas/AWSRegistry'
+      - $ref: '#/components/schemas/GCPRegistry'
+      - $ref: '#/components/schemas/GeneralRegistry'
+      discriminator:
+        propertyName: type
+        mapping:
+          aws: '#/components/schemas/AWSRegistry'
+          gcp: '#/components/schemas/GCPRegistry'
+          registry: '#/components/schemas/GeneralRegistry'
+    AWSRegistry:
+      type: object
+      required:
+      - type
+      - awsAccessKeyId
+      - awsSecretAccessKey
+      - awsRegion
+      properties:
+        type:
+          type: string
+          enum:
+          - aws
+          description: Type of registry authentication
+        awsAccessKeyId:
+          type: string
+          description: AWS Access Key ID for ECR authentication
+        awsSecretAccessKey:
+          type: string
+          description: AWS Secret Access Key for ECR authentication
+        awsRegion:
+          type: string
+          description: AWS Region where the ECR registry is located
+    GCPRegistry:
+      type: object
+      required:
+      - type
+      - serviceAccountJson
+      properties:
+        type:
+          type: string
+          enum:
+          - gcp
+          description: Type of registry authentication
+        serviceAccountJson:
+          type: string
+          description: Service Account JSON for GCP authentication
+    GeneralRegistry:
+      type: object
+      required:
+      - type
+      - username
+      - password
+      properties:
+        type:
+          type: string
+          enum:
+          - registry
+          description: Type of registry authentication
+        username:
+          type: string
+          description: Username to use for the registry
+        password:
+          type: string
+          description: Password to use for the registry
+    TemplateBuildStartV2:
+      type: object
+      properties:
+        fromImage:
+          type: string
+          description: Image to use as a base for the template build
+        fromTemplate:
+          type: string
+          description: Template to use as a base for the template build
+        fromImageRegistry:
+          $ref: '#/components/schemas/FromImageRegistry'
+        force:
+          default: false
+          type: boolean
+          description: Whether the whole build should be forced to run regardless
+            of the cache
+        steps:
+          default: []
+          description: List of steps to execute in the template build
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateStep'
+        startCmd:
+          description: Start command to execute in the template after the build
+          type: string
+        readyCmd:
+          description: Ready check command to execute in the template after the build
+          type: string
+    TemplateBuildFileUpload:
+      required:
+      - present
+      properties:
+        present:
+          type: boolean
+          description: Whether the file is already present in the cache
+        url:
+          description: Url where the file should be uploaded to
+          type: string
+    LogLevel:
+      type: string
+      description: State of the sandbox
+      enum:
+      - debug
+      - info
+      - warn
+      - error
+    BuildLogEntry:
+      required:
+      - timestamp
+      - message
+      - level
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry
+        message:
+          type: string
+          description: Log message content
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        step:
+          type: string
+          description: Step in the build process related to the log entry
+    BuildStatusReason:
+      required:
+      - message
+      properties:
+        message:
+          type: string
+          description: Message with the status reason, currently reporting only for
+            error status
+        step:
+          type: string
+          description: Step that failed
+        logEntries:
+          default: []
+          description: Log entries related to the status reason
+          type: array
+          items:
+            $ref: '#/components/schemas/BuildLogEntry'
+    TemplateBuildStatus:
+      type: string
+      description: Status of the template build
+      enum:
+      - building
+      - waiting
+      - ready
+      - error
+    TemplateBuildInfo:
+      required:
+      - templateID
+      - buildID
+      - status
+      - logs
+      - logEntries
+      properties:
+        logs:
+          default: []
+          description: Build logs
+          type: array
+          items:
+            type: string
+        logEntries:
+          default: []
+          description: Build logs structured
+          type: array
+          items:
+            $ref: '#/components/schemas/BuildLogEntry'
+        templateID:
+          type: string
+          description: Identifier of the template
+        buildID:
+          type: string
+          description: Identifier of the build
+        status:
+          $ref: '#/components/schemas/TemplateBuildStatus'
+        reason:
+          $ref: '#/components/schemas/BuildStatusReason'
+    TemplateBuildLogsResponse:
+      required:
+      - logs
+      properties:
+        logs:
+          default: []
+          description: Build logs structured
+          type: array
+          items:
+            $ref: '#/components/schemas/BuildLogEntry'
+    LogsDirection:
+      type: string
+      description: Direction of the logs that should be returned
+      enum:
+      - forward
+      - backward
+      x-enum-varnames:
+      - LogsDirectionForward
+      - LogsDirectionBackward
+    LogsSource:
+      type: string
+      description: Source of the logs that should be returned
+      enum:
+      - temporary
+      - persistent
+      x-enum-varnames:
+      - LogsSourceTemporary
+      - LogsSourcePersistent
+    AssignedTemplateTags:
+      required:
+      - tags
+      - buildID
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+          description: Assigned tags of the template
+        buildID:
+          type: string
+          format: uuid
+          description: Identifier of the build associated with these tags
+    TemplateTag:
+      required:
+      - tag
+      - buildID
+      - createdAt
+      properties:
+        tag:
+          type: string
+          description: The tag name
+        buildID:
+          type: string
+          format: uuid
+          description: Identifier of the build associated with this tag
+        createdAt:
+          type: string
+          format: date-time
+          description: Time when the tag was assigned
+    AssignTemplateTagsRequest:
+      required:
+      - target
+      - tags
+      properties:
+        target:
+          type: string
+          description: Target template in "name:tag" format
+        tags:
+          description: Tags to assign to the template
+          type: array
+          items:
+            type: string
+    DeleteTemplateTagsRequest:
+      required:
+      - name
+      - tags
+      properties:
+        name:
+          type: string
+          description: Name of the template
+        tags:
+          description: Tags to delete
+          type: array
+          items:
+            type: string
+    Volume:
+      type: object
+      properties:
+        volumeID:
+          type: string
+          description: ID of the volume
+        name:
+          type: string
+          description: Name of the volume
+      required:
+      - volumeID
+      - name
+    NewVolume:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the volume
+          pattern: ^[a-zA-Z0-9_-]+$
+      required:
+      - name
+tags:
+- name: files
+- name: filesystem.Filesystem
+- name: process.Process
+- name: templates
+- name: sandboxes
+- name: auth
+- name: access-tokens
+- name: api-keys
+- name: tags
+- name: volumes
+security: []
