@@ -5,7 +5,7 @@ sidebarTitle: Overview
 
 Volumes provide persistent storage that exists independently of sandbox lifecycles. Data written to a volume persists even after a sandbox is shut down, and volumes can be mounted to multiple sandboxes over time.
 
-### One volume shared across multiple sandboxes
+**One volume shared across multiple sandboxes**
 
 ```mermaid
 graph LR
@@ -14,13 +14,15 @@ graph LR
   V1 --- S3[Sandbox 3]
 ```
 
-### Each sandbox with its own volume
+**Each sandbox with its own volume**
 
 ```mermaid
 graph LR
   V2[Volume A] --- S4[Sandbox 1]
   V3[Volume B] --- S5[Sandbox 2]
 ```
+
+When a volume is mounted to a sandbox, files can be read and written directly at the mount path. The SDK methods are meant to be used when the volume is not mounted to any sandbox.
 
 With E2B SDK you can:
 - [Read and write files to a volume.](/docs/volumes/read-write)
