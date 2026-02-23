@@ -30,6 +30,10 @@ With E2B SDK you can:
 
 ## Create a volume
 
+<Note>
+Volume names can only contain letters, numbers, and hyphens.
+</Note>
+
 <CodeGroup>
 ```js JavaScript & TypeScript
 import { Volume } from 'e2b'
@@ -78,9 +82,17 @@ import { Volume, Sandbox } from 'e2b'
 
 const volume = await Volume.create('my-volume')
 
+// You can pass a Volume object
 const sandbox = await Sandbox.create({
   volumeMounts: {
     '/mnt/my-data': volume,
+  },
+})
+
+// Or pass the volume name directly
+const sandbox2 = await Sandbox.create({
+  volumeMounts: {
+    '/mnt/my-data': 'my-volume',
   },
 })
 
@@ -92,9 +104,17 @@ from e2b import Volume, Sandbox
 
 volume = Volume.create('my-volume')
 
+# You can pass a Volume object
 sandbox = Sandbox.create(
     volume_mounts={
         '/mnt/my-data': volume,
+    },
+)
+
+# Or pass the volume name directly
+sandbox2 = Sandbox.create(
+    volume_mounts={
+        '/mnt/my-data': 'my-volume',
     },
 )
 
