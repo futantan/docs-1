@@ -69,8 +69,8 @@ volume = Volume.create('my-volume')
 
 volume.make_dir('/path/to/dir')
 
-# Create nested directories with create_parents option
-volume.make_dir('/path/to/nested/dir', create_parents=True)
+# Create nested directories with force option
+volume.make_dir('/path/to/nested/dir', force=True)
 ```
 </CodeGroup>
 

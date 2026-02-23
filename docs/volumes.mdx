@@ -30,6 +30,27 @@ print(volume.name)       # 'my-volume'
 ```
 </CodeGroup>
 
+## Connect to an existing volume
+
+You can connect to an existing volume by its ID using the `connect()` method.
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import { Volume } from 'e2b'
+
+const volume = await Volume.connect('volume-id')
+console.log(volume.volumeId) // Volume ID
+console.log(volume.name)     // Volume name
+```
+```python Python
+from e2b import Volume
+
+volume = Volume.connect('volume-id')
+print(volume.volume_id)  # Volume ID
+print(volume.name)       # Volume name
+```
+</CodeGroup>
+
 ## Mount a volume to a sandbox
 
 You can mount one or more volumes to a sandbox when creating it. The keys of the `volumeMounts` / `volume_mounts` object are the mount paths inside the sandbox.
