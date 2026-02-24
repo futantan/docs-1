@@ -75,7 +75,7 @@ SANDBOX_SERVER = {
     "description": "Sandbox API (envd) — runs inside each sandbox",
     "variables": {
         "port": {"default": "49983", "description": "Port number"},
-        "sandboxID": {"default": "{sandbox-id}", "description": "Sandbox identifier"},
+        "sandboxID": {"default": "$SANDBOX_ID", "description": "Sandbox identifier"},
     },
 }
 
@@ -504,12 +504,18 @@ def fill_streaming_endpoints(spec: dict[str, Any], streaming_rpcs: list[RpcMetho
             spec["paths"][rpc.path] = build_streaming_path(rpc)
 
 
+# Endpoints that don't require access token auth (matched as "METHOD/path")
+AUTH_EXEMPT_ENDPOINTS = {
+    "get/health",
+}
+
+
 def apply_sandbox_auth(spec: dict[str, Any], envd_paths: set[str]) -> None:
     """Ensure all envd/sandbox endpoints declare the SandboxAccessTokenAuth security.
 
     The hand-written envd.yaml already has security declarations, but the
-    proto-generated Connect RPC endpoints don't.  Add optional auth
-    (SandboxAccessTokenAuth or anonymous) to any envd endpoint missing it.
+    proto-generated Connect RPC endpoints don't. Endpoints listed in
+    AUTH_EXEMPT_ENDPOINTS are left without auth requirements.
     """
     auth_security = [{SANDBOX_AUTH_SCHEME: []}]
     for path in envd_paths:
@@ -518,7 +524,12 @@ def apply_sandbox_auth(spec: dict[str, Any], envd_paths: set[str]) -> None:
             continue
         for method in ("get", "post", "put", "patch", "delete"):
             op = path_item.get(method)
-            if op:
+            if not op:
+                continue
+            key = f"{method}{path}"
+            if key in AUTH_EXEMPT_ENDPOINTS:
+                op.pop("security", None)
+            else:
                 op["security"] = auth_security
 
 
@@ -533,31 +544,36 @@ def fix_security_schemes(spec: dict[str, Any]) -> None:
             scheme["in"] = scheme.pop("scheme")
 
 
-def rename_envd_auth_scheme(spec: dict[str, Any]) -> None:
-    """Rename AccessTokenAuth → SandboxAccessTokenAuth in the merged spec.
+def setup_sandbox_auth_scheme(spec: dict[str, Any]) -> None:
+    """Define the SandboxAccessTokenAuth security scheme.
 
-    The source envd.yaml uses AccessTokenAuth for code generation compatibility,
-    but the public docs need SandboxAccessTokenAuth to avoid collisions with
-    the platform API's AccessTokenAuth scheme.
+    Sandbox endpoints use X-Access-Token header (apiKey type),
+    not Bearer auth. The envd.yaml source defines an AccessTokenAuth
+    scheme that conflicts with the platform's AccessTokenAuth
+    (Authorization: Bearer), so we replace the envd one and keep
+    the platform one intact.
     """
-    old_name = "AccessTokenAuth"
-    new_name = SANDBOX_AUTH_SCHEME
-    schemes = spec.get("components", {}).get("securitySchemes", {})
-    if old_name in schemes:
-        schemes[new_name] = schemes.pop(old_name)
-    # Update all security references in operations
-    for path_item in spec.get("paths", {}).values():
-        for method in ("get", "post", "put", "patch", "delete", "head", "options"):
-            op = path_item.get(method)
-            if not op or "security" not in op:
-                continue
-            for sec_req in op["security"]:
-                if old_name in sec_req:
-                    sec_req[new_name] = sec_req.pop(old_name)
-    # Update top-level security
-    for sec_req in spec.get("security", []):
-        if old_name in sec_req:
-            sec_req[new_name] = sec_req.pop(old_name)
+    schemes = spec.setdefault("components", {}).setdefault("securitySchemes", {})
+    # The platform API's AccessTokenAuth is Authorization: Bearer.
+    # Ensure it is correctly defined (the source spec may already have it).
+    schemes["AccessTokenAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+    }
+    # Define the sandbox-specific scheme
+    schemes[SANDBOX_AUTH_SCHEME] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Access-Token",
+        "description": (
+            "Sandbox access token (`envdAccessToken`) for authenticating requests to a running sandbox. "
+            "Returned by: "
+            "[POST /sandboxes](/api-reference/sandboxes/create-a-sandbox) (on create), "
+            "[POST /sandboxes/{sandboxID}/connect](/api-reference/sandboxes/connect-to-a-sandbox) (on connect), "
+            "[POST /sandboxes/{sandboxID}/resume](/api-reference/sandboxes/resume-a-sandbox) (on resume), "
+            "and [GET /sandboxes/{sandboxID}](/api-reference/sandboxes/get-a-sandbox) (for running or paused sandboxes)."
+        ),
+    }
 
 
 # Mapping of (path, method) to desired operationId for the public docs.
@@ -879,7 +895,7 @@ def main() -> None:
 
         # Fix known issues
         fix_security_schemes(merged)
-        rename_envd_auth_scheme(merged)
+        setup_sandbox_auth_scheme(merged)
         add_operation_ids(merged)
 
         # Remove internal/unwanted paths

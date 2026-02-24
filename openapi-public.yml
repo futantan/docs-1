@@ -20,7 +20,7 @@ paths:
               schema:
                 type: object
                 description: Empty response
-        '502': &id002
+        '502': &id001
           description: Sandbox not found
           content:
             application/json:
@@ -43,12 +43,9 @@ paths:
                     type: integer
                     description: Error code
                     example: 502
-      security:
-      - &id001
-        SandboxAccessTokenAuth: []
       operationId: getHealth
     servers:
-    - &id003
+    - &id002
       url: https://{port}-{sandboxID}.e2b.app
       description: Sandbox API (envd) — runs inside each sandbox
       variables:
@@ -56,13 +53,14 @@ paths:
           default: '49983'
           description: Port number
         sandboxID:
-          default: '{sandbox-id}'
+          default: $SANDBOX_ID
           description: Sandbox identifier
   /metrics:
     get:
       summary: Get the stats of the service
       security:
-      - *id001
+      - &id003
+        SandboxAccessTokenAuth: []
       responses:
         '200':
           description: The resource usage metrics of the service
@@ -70,15 +68,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Metrics'
-        '502': *id002
+        '502': *id001
       operationId: getMetrics
     servers:
-    - *id003
+    - *id002
   /envs:
     get:
       summary: Get the environment variables
       security:
-      - *id001
+      - *id003
       responses:
         '200':
           description: Environment variables
@@ -86,17 +84,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnvVars'
-        '502': *id002
+        '502': *id001
       operationId: getEnvVars
     servers:
-    - *id003
+    - *id002
   /files:
     get:
       summary: Download a file
       tags:
       - files
       security:
-      - *id001
+      - *id003
       parameters:
       - $ref: '#/components/parameters/FilePath'
       - $ref: '#/components/parameters/User'
@@ -114,7 +112,7 @@ paths:
           $ref: '#/components/responses/FileNotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-        '502': *id002
+        '502': *id001
       operationId: downloadFile
     post:
       summary: Upload a file and ensure the parent directories exist. If the file
@@ -122,7 +120,7 @@ paths:
       tags:
       - files
       security:
-      - *id001
+      - *id003
       parameters:
       - $ref: '#/components/parameters/FilePath'
       - $ref: '#/components/parameters/User'
@@ -142,10 +140,10 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '507':
           $ref: '#/components/responses/NotEnoughDiskSpace'
-        '502': *id002
+        '502': *id001
       operationId: uploadFile
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/CreateWatcher:
     post:
       tags:
@@ -176,11 +174,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/GetWatcherEvents:
     post:
       tags:
@@ -210,11 +208,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/ListDir:
     post:
       tags:
@@ -244,11 +242,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.ListDirResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/MakeDir:
     post:
       tags:
@@ -278,11 +276,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.MakeDirResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/Move:
     post:
       tags:
@@ -312,11 +310,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.MoveResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/Remove:
     post:
       tags:
@@ -346,11 +344,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.RemoveResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/RemoveWatcher:
     post:
       tags:
@@ -380,11 +378,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/Stat:
     post:
       tags:
@@ -414,11 +412,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.StatResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /filesystem.Filesystem/WatchDir:
     post:
       tags:
@@ -439,11 +437,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.WatchDirResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/CloseStdin:
     post:
       tags:
@@ -475,11 +473,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.CloseStdinResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/Connect:
     post:
       tags:
@@ -500,11 +498,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.ConnectResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/List:
     post:
       tags:
@@ -534,11 +532,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.ListResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/SendInput:
     post:
       tags:
@@ -568,11 +566,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.SendInputResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/SendSignal:
     post:
       tags:
@@ -602,11 +600,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.SendSignalResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/Start:
     post:
       tags:
@@ -627,11 +625,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.StartResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/StreamInput:
     post:
       tags:
@@ -653,11 +651,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.StreamInputResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /process.Process/Update:
     post:
       tags:
@@ -687,18 +685,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.UpdateResponse'
-        '502': *id002
+        '502': *id001
       security:
-      - *id001
+      - *id003
     servers:
-    - *id003
+    - *id002
   /teams:
     get:
       description: List all teams
       tags:
       - auth
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       responses:
         '200':
           description: Successfully returned all teams
@@ -1371,7 +1369,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
@@ -1405,7 +1403,7 @@ paths:
       - templates
       security:
       - ApiKeyAuth: []
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - in: query
         required: false
@@ -1433,7 +1431,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       requestBody:
         required: true
         content:
@@ -1483,7 +1481,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       requestBody:
@@ -1509,7 +1507,7 @@ paths:
       - templates
       security:
       - ApiKeyAuth: []
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       responses:
@@ -1527,7 +1525,7 @@ paths:
       - templates
       security:
       - ApiKeyAuth: []
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       requestBody:
@@ -1555,7 +1553,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       - $ref: '#/components/parameters/buildID'
@@ -1602,7 +1600,7 @@ paths:
       - templates
       security:
       - ApiKeyAuth: []
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
       requestBody:
@@ -1632,7 +1630,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
@@ -1680,7 +1678,7 @@ paths:
       tags:
       - templates
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       parameters:
       - $ref: '#/components/parameters/templateID'
@@ -1848,7 +1846,7 @@ paths:
       tags:
       - volumes
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       responses:
         '200':
@@ -1868,7 +1866,7 @@ paths:
       tags:
       - volumes
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       requestBody:
         required: true
@@ -1897,7 +1895,7 @@ paths:
       tags:
       - volumes
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       parameters:
       - $ref: '#/components/parameters/volumeID'
@@ -1919,7 +1917,7 @@ paths:
       tags:
       - volumes
       security:
-      - SandboxAccessTokenAuth: []
+      - AccessTokenAuth: []
       - ApiKeyAuth: []
       parameters:
       - $ref: '#/components/parameters/volumeID'
@@ -1937,14 +1935,23 @@ paths:
     - *id005
 components:
   securitySchemes:
+    AccessTokenAuth:
+      type: http
+      scheme: bearer
     ApiKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
     SandboxAccessTokenAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: access_token
+      type: apiKey
+      in: header
+      name: X-Access-Token
+      description: 'Sandbox access token (`envdAccessToken`) for authenticating requests
+        to a running sandbox. Returned by: [POST /sandboxes](/api-reference/sandboxes/create-a-sandbox)
+        (on create), [POST /sandboxes/{sandboxID}/connect](/api-reference/sandboxes/connect-to-a-sandbox)
+        (on connect), [POST /sandboxes/{sandboxID}/resume](/api-reference/sandboxes/resume-a-sandbox)
+        (on resume), and [GET /sandboxes/{sandboxID}](/api-reference/sandboxes/get-a-sandbox)
+        (for running or paused sandboxes).'
   parameters:
     FilePath:
       name: path

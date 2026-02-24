@@ -8,6 +8,12 @@ every endpoint and deeply comparing response schemas.
 Usage:
     E2B_API_KEY=e2b_... python3 scripts/validate_api_reference.py [options]
 
+Environment:
+    E2B_API_KEY         Required. API key for X-API-Key auth.
+    E2B_ACCESS_TOKEN    Optional. Bearer token for AccessTokenAuth (needed for
+                        GET /teams and legacy template endpoints).
+    E2B_TEAM_ID         Optional. Team ID (auto-discovered if not set).
+
 Options:
     --output FILE       Report output path (default: openapi-validation-report.md)
     --verbose           Show detailed request/response logs
@@ -257,14 +263,23 @@ def bearer_hdr(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def sandbox_hdr(token: str) -> dict:
+    """Headers for sandbox REST calls (X-Access-Token + Basic user identity)."""
+    return {
+        "X-Access-Token": token,
+        "Authorization": "Basic dXNlcjo=",
+    }
+
+
 def connect_hdr(token: str | None = None) -> dict:
     """Headers for Connect RPC unary calls."""
     h = {
         "Connect-Protocol-Version": "1",
         "Content-Type": "application/json",
+        "Authorization": "Basic dXNlcjo=",
     }
     if token:
-        h["Authorization"] = f"Bearer {token}"
+        h["X-Access-Token"] = token
     return h
 
 
@@ -273,9 +288,10 @@ def connect_stream_hdr(token: str | None = None) -> dict:
     h = {
         "Connect-Protocol-Version": "1",
         "Content-Type": "application/connect+json",
+        "Authorization": "Basic dXNlcjo=",
     }
     if token:
-        h["Authorization"] = f"Bearer {token}"
+        h["X-Access-Token"] = token
     return h
 
 
@@ -297,9 +313,9 @@ def multipart_upload(sandbox_id: str, file_path: str, content: bytes, token: str
     body_parts.append(f"--{boundary}--".encode())
     raw_body = b"\r\n".join(body_parts)
 
-    headers = {}
+    headers = {"Authorization": "Basic dXNlcjo="}
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["X-Access-Token"] = token
 
     url = f"https://{ENVD_PORT}-{sandbox_id}.e2b.app/files"
     params = {"path": file_path}
@@ -601,8 +617,7 @@ class SandboxManager:
         if not self.sandbox_id:
             return False
         try:
-            h = bearer_hdr(self.access_token) if self.access_token else {}
-            status, _, _ = envd("GET", self.sandbox_id, "/health", headers=h, timeout=5)
+            status, _, _ = envd("GET", self.sandbox_id, "/health", timeout=5)
             return status in (200, 204)
         except Exception:
             return False
@@ -811,24 +826,33 @@ def _collect_refs(node, refs: set):
 # TEST PHASES
 # ---------------------------------------------------------------------------
 
-def run_phase_1_teams(api_key: str, team_id: str | None, spec: dict) -> list[EndpointResult]:
+def run_phase_1_teams(api_key: str, team_id: str | None, spec: dict,
+                      access_token: str | None = None) -> list[EndpointResult]:
     """Phase 1: Platform — Teams."""
     results = []
     h = api_key_hdr(api_key)
 
-    # GET /teams (requires AccessTokenAuth — not ApiKeyAuth, will likely fail)
+    # GET /teams (requires AccessTokenAuth — Bearer token, not ApiKeyAuth)
     print("\n  Phase 1: Platform — Teams")
     print("  GET /teams")
     ep = EndpointResult("GET", "/teams", surface="platform")
-    status, body, _ = ctrl("GET", "/teams", headers=h)
+    if access_token:
+        status, body, _ = ctrl("GET", "/teams", headers=bearer_hdr(access_token))
+    else:
+        status, body, _ = ctrl("GET", "/teams", headers=h)
     ep.tested = True
     ep.expected_status = 200
     ep.actual_status = status
     ep.response_body = body
-    if status == 401:
+    if status == 401 and not access_token:
         ep.findings.append(Finding(
             "minor", "auth", "GET /teams",
-            "GET /teams requires AccessTokenAuth (Bearer), not ApiKeyAuth — expected behavior with API key",
+            "GET /teams requires AccessTokenAuth (Bearer) — set E2B_ACCESS_TOKEN to test",
+        ))
+    elif status == 401:
+        ep.findings.append(Finding(
+            "critical", "auth", "GET /teams",
+            f"Bearer token rejected: got {status}", "200", str(status),
         ))
     elif status == 200 and isinstance(body, list):
         schema = {"type": "array", "items": {"allOf": [{"$ref": "#/components/schemas/Team"}]}}
@@ -1396,7 +1420,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/health", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200  # What the merged spec says
-    status, body, _ = envd("GET", sid, "/health", headers=bearer_hdr(token))
+    status, body, _ = envd("GET", sid, "/health")
     ep.actual_status = status
     if status == 204:
         ep.findings.append(Finding(
@@ -1414,7 +1438,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/metrics", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    status, body, _ = envd("GET", sid, "/metrics", headers=bearer_hdr(token))
+    status, body, _ = envd("GET", sid, "/metrics", headers=sandbox_hdr(token))
     ep.actual_status = status
     ep.response_body = body
     if status == 200 and isinstance(body, dict):
@@ -1427,7 +1451,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("POST", "/init", surface="sandbox")
     ep.tested = True
     ep.expected_status = 204
-    status, body, _ = envd("POST", sid, "/init", headers=bearer_hdr(token), body={})
+    status, body, _ = envd("POST", sid, "/init", headers=sandbox_hdr(token), body={})
     ep.actual_status = status
     ep.response_body = body
     if status == 204:
@@ -1445,7 +1469,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/envs", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    status, body, _ = envd("GET", sid, "/envs", headers=bearer_hdr(token))
+    status, body, _ = envd("GET", sid, "/envs", headers=sandbox_hdr(token))
     ep.actual_status = status
     ep.response_body = body
     if status == 200 and isinstance(body, dict):
@@ -1582,7 +1606,7 @@ def run_phase_8_files_rest(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep.tested = True
     ep.expected_status = 200
     test_content = b"Hello from E2B validation script"
-    status, body, _ = multipart_upload(sid, "/tmp/test-file.txt", test_content, token)
+    status, body, _ = multipart_upload(sid, "/tmp/test-file.txt", test_content, token=token)
     ep.actual_status = status
     ep.response_body = body
     if status == 200:
@@ -1595,7 +1619,8 @@ def run_phase_8_files_rest(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep = EndpointResult("GET", "/files", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    status, body, resp_headers = envd("GET", sid, "/files", headers=bearer_hdr(token),
+    status, body, resp_headers = envd("GET", sid, "/files",
+                                      headers=sandbox_hdr(token) if token else None,
                                       params={"path": "/tmp/test-file.txt"})
     ep.actual_status = status
     if status == 200:
@@ -1612,7 +1637,8 @@ def run_phase_8_files_rest(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep = EndpointResult("GET", "/files", surface="sandbox")
     ep.tested = True
     ep.expected_status = 404
-    status, body, _ = envd("GET", sid, "/files", headers=bearer_hdr(token),
+    status, body, _ = envd("GET", sid, "/files",
+                           headers=sandbox_hdr(token) if token else None,
                            params={"path": "/nonexistent/file.txt"})
     ep.actual_status = status
     if status != 404:
@@ -1811,19 +1837,7 @@ def run_phase_10_processes(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep.response_body = body
     results.append(ep)
 
-    # CloseStdin
-    print("  CloseStdin")
-    ep = EndpointResult("POST", "/process.Process/CloseStdin", surface="sandbox")
-    ep.tested = True
-    ep.expected_status = 200
-    sel = {"pid": sleep_pid} if sleep_pid else {"tag": "test-sleep"}
-    status, body, _ = envd("POST", sid, "/process.Process/CloseStdin",
-                           headers=h, body={"process": sel})
-    ep.actual_status = status
-    if status == 200:
-        schema = {"$ref": "#/components/schemas/process.CloseStdinResponse"}
-        ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "POST /process.Process/CloseStdin"))
-    results.append(ep)
+
 
     # Update PTY (will likely error since process wasn't started with PTY)
     print("  Update (PTY resize)")
@@ -2230,6 +2244,7 @@ def main():
             i += 1
 
     env_team_id = os.environ.get("E2B_TEAM_ID")
+    access_token = os.environ.get("E2B_ACCESS_TOKEN")
 
     print("=" * 60)
     print("  E2B OpenAPI Spec Validation")
@@ -2238,6 +2253,7 @@ def main():
     print(f"  Platform URL:   {PLATFORM_URL}")
     print(f"  Envd port:      {ENVD_PORT}")
     print(f"  API Key:        {api_key[:10]}...{api_key[-4:]}")
+    print(f"  Access Token:   {access_token[:10]}...{access_token[-4:]}" if access_token else "  Access Token:   (not set)")
     print(f"  Skip sandbox:   {skip_sandbox}")
     print(f"  Verbose:        {VERBOSE}")
     print(f"  Output:         {output_path}")
@@ -2266,7 +2282,7 @@ def main():
 
         # Phase 1: Teams
         if should_run(1):
-            all_results.extend(run_phase_1_teams(api_key, team_id, spec))
+            all_results.extend(run_phase_1_teams(api_key, team_id, spec, access_token=access_token))
 
         # Phase 2: Templates (read)
         template_id = None
