@@ -639,9 +639,25 @@ class SandboxManager:
 # TEAM ID DISCOVERY
 # ---------------------------------------------------------------------------
 
-def discover_team_id(api_key: str, env_team_id: str | None) -> str | None:
+def discover_team_id(api_key: str, env_team_id: str | None,
+                     access_token: str | None = None) -> str | None:
     if env_team_id:
         return env_team_id
+    # Try GET /teams with Bearer token first (most reliable source)
+    if access_token:
+        status, body, _ = ctrl("GET", "/teams", headers=bearer_hdr(access_token))
+        if status == 200 and isinstance(body, list):
+            for team in body:
+                if team.get("isDefault"):
+                    tid = team.get("teamID")
+                    if tid:
+                        return tid
+            # Fall back to first team if none is default
+            for team in body:
+                tid = team.get("teamID")
+                if tid:
+                    return tid
+    # Fall back to templates/sandboxes with API key
     h = api_key_hdr(api_key)
     status, body, _ = ctrl("GET", "/templates", headers=h)
     if status == 200 and isinstance(body, list):
@@ -2265,7 +2281,7 @@ def main():
     print(f"  Spec paths:     {len(spec.get('paths', {}))}")
 
     # Discover team ID
-    team_id = discover_team_id(api_key, env_team_id)
+    team_id = discover_team_id(api_key, env_team_id, access_token=access_token)
     print(f"  Team ID:        {team_id[:16]}..." if team_id else "  Team ID:        (not found)")
 
     start_time = time.time()
