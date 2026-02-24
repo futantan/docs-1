@@ -608,6 +608,14 @@ def add_operation_ids(spec: dict[str, Any]) -> None:
         print(f"==> Added {count} operationIds to envd endpoints")
 
 
+STREAMING_ENDPOINTS = {
+    "/filesystem.Filesystem/WatchDir",
+    "/process.Process/Start",
+    "/process.Process/Connect",
+    "/process.Process/StreamInput",
+}
+
+
 def fix_spec_issues(spec: dict[str, Any]) -> None:
     """Fix known discrepancies between the source spec and the live API.
 
@@ -615,6 +623,7 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
     so the published docs match actual API behavior.
     """
     schemas = spec.get("components", {}).get("schemas", {})
+    paths = spec.get("paths", {})
     fixes = []
 
     # 1. TemplateBuildStatus enum missing 'uploaded'
@@ -633,9 +642,11 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
 
     # 3. LogLevel enum too strict — server returns empty/whitespace values
     log_level = schemas.get("LogLevel")
-    if log_level and "enum" in log_level:
-        del log_level["enum"]
-        fixes.append("LogLevel: removed enum constraint (server sends non-enum values)")
+    if log_level:
+        if "enum" in log_level:
+            del log_level["enum"]
+        log_level["description"] = "Severity level for log entries (e.g. info, warn, error)"
+        fixes.append("LogLevel: removed enum constraint, fixed description")
 
     # 4. Metrics schema missing mem_used_mib and mem_total_mib
     metrics = schemas.get("Metrics")
@@ -653,6 +664,97 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
                 "description": "Total virtual memory in MiB",
             }
             fixes.append("Metrics: added 'mem_total_mib'")
+
+    # 5. Streaming RPC endpoints: wrong content-type and missing headers
+    #    Server requires application/connect+json with envelope framing,
+    #    not application/json.
+    connect_version_param = {
+        "name": "Connect-Protocol-Version",
+        "in": "header",
+        "required": True,
+        "schema": {"$ref": "#/components/schemas/connect-protocol-version"},
+    }
+    connect_timeout_param = {
+        "name": "Connect-Timeout-Ms",
+        "in": "header",
+        "schema": {"$ref": "#/components/schemas/connect-timeout-header"},
+    }
+    for ep_path in STREAMING_ENDPOINTS:
+        path_item = paths.get(ep_path, {})
+        op = path_item.get("post")
+        if not op:
+            continue
+        # Fix request content-type
+        rb = op.get("requestBody", {}).get("content", {})
+        if "application/json" in rb and "application/connect+json" not in rb:
+            rb["application/connect+json"] = rb.pop("application/json")
+        # Fix response content-type
+        for status_code, resp in op.get("responses", {}).items():
+            if not isinstance(resp, dict):
+                continue
+            rc = resp.get("content", {})
+            if "application/json" in rc and "application/connect+json" not in rc:
+                rc["application/connect+json"] = rc.pop("application/json")
+        # Add Connect-Protocol-Version and Connect-Timeout-Ms headers
+        params = op.setdefault("parameters", [])
+        has_cpv = any(p.get("name") == "Connect-Protocol-Version" for p in params)
+        if not has_cpv:
+            params.insert(0, connect_version_param)
+            params.insert(1, connect_timeout_param)
+        fixes.append(f"{ep_path}: content-type → application/connect+json, added Connect headers")
+
+    # 6. EndEvent.exitCode not populated — API returns status string instead
+    end_event = schemas.get("process.ProcessEvent.EndEvent")
+    if end_event and "properties" in end_event:
+        ec = end_event["properties"].get("exitCode")
+        if ec:
+            ec["deprecated"] = True
+            ec["description"] = (
+                "Deprecated: not populated by the server. "
+                "Parse the exit code from the `status` string (e.g. \"exit status 0\")."
+            )
+        st = end_event["properties"].get("status")
+        if st and not st.get("description"):
+            st["description"] = (
+                "Process exit status string (e.g. \"exit status 0\"). "
+                "Parse the integer exit code from this field."
+            )
+        fixes.append("EndEvent: marked exitCode as deprecated, documented status string")
+
+    # 7. envdAccessToken description misleading — only returned when secure: true
+    for schema_name in ("Sandbox", "SandboxDetail"):
+        schema = schemas.get(schema_name, {})
+        eat = schema.get("properties", {}).get("envdAccessToken")
+        if eat:
+            eat["nullable"] = True
+            eat["description"] = (
+                "Access token for authenticating envd requests to this sandbox. "
+                "Only returned when the sandbox is created with `secure: true`. "
+                "Null for non-secure sandboxes (envd endpoints work without auth)."
+            )
+    fixes.append("envdAccessToken: clarified secure-only behavior, marked nullable")
+
+    # 8. Sandbox.domain always null — mark as deprecated
+    for schema_name in ("Sandbox", "SandboxDetail"):
+        schema = schemas.get(schema_name, {})
+        dom = schema.get("properties", {}).get("domain")
+        if dom:
+            dom["deprecated"] = True
+            dom["description"] = (
+                "Deprecated: always null. Construct sandbox URLs as "
+                "`https://{port}-{sandboxID}.e2b.app`."
+            )
+    fixes.append("Sandbox.domain: marked as deprecated (always null)")
+
+    # 9. GET /templates/{templateID}/files/{hash} returns 201, not 200
+    files_path = paths.get("/templates/{templateID}/files/{hash}", {})
+    files_get = files_path.get("get")
+    if files_get:
+        responses = files_get.get("responses", {})
+        if "201" in responses and "200" not in responses:
+            responses["200"] = responses.pop("201")
+            responses["200"]["description"] = "Upload link for the tar file containing build layer files"
+            fixes.append("/templates/{templateID}/files/{hash}: changed 201 → 200 response")
 
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")

@@ -5,7 +5,7 @@ info:
   description: Complete E2B developer API. Platform endpoints are served on api.e2b.app.
     Sandbox endpoints (envd) are served on {port}-{sandboxID}.e2b.app.
 servers:
-- &id005
+- &id007
   url: https://api.e2b.app
   description: E2B Platform API
 paths:
@@ -18,7 +18,7 @@ paths:
         '502': &id001
           description: Sandbox not found
           content:
-            application/json:
+            application/connect+json:
               schema:
                 type: object
                 required:
@@ -425,7 +425,7 @@ paths:
       operationId: filesystem.Filesystem.WatchDir
       requestBody:
         content:
-          application/json:
+          application/connect+json:
             schema:
               $ref: '#/components/schemas/filesystem.WatchDirRequest'
         required: true
@@ -433,12 +433,24 @@ paths:
         '200':
           description: Stream of WatchDirResponse events
           content:
-            application/json:
+            application/connect+json:
               schema:
                 $ref: '#/components/schemas/filesystem.WatchDirResponse'
         '502': *id001
       security:
       - *id003
+      parameters:
+      - &id005
+        name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - &id006
+        name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
     servers:
     - *id002
   /process.Process/CloseStdin:
@@ -486,7 +498,7 @@ paths:
       operationId: process.Process.Connect
       requestBody:
         content:
-          application/json:
+          application/connect+json:
             schema:
               $ref: '#/components/schemas/process.ConnectRequest'
         required: true
@@ -494,12 +506,15 @@ paths:
         '200':
           description: Stream of ConnectResponse events
           content:
-            application/json:
+            application/connect+json:
               schema:
                 $ref: '#/components/schemas/process.ConnectResponse'
         '502': *id001
       security:
       - *id003
+      parameters:
+      - *id005
+      - *id006
     servers:
     - *id002
   /process.Process/List:
@@ -613,7 +628,7 @@ paths:
       operationId: process.Process.Start
       requestBody:
         content:
-          application/json:
+          application/connect+json:
             schema:
               $ref: '#/components/schemas/process.StartRequest'
         required: true
@@ -621,12 +636,15 @@ paths:
         '200':
           description: Stream of StartResponse events
           content:
-            application/json:
+            application/connect+json:
               schema:
                 $ref: '#/components/schemas/process.StartResponse'
         '502': *id001
       security:
       - *id003
+      parameters:
+      - *id005
+      - *id006
     servers:
     - *id002
   /process.Process/StreamInput:
@@ -639,7 +657,7 @@ paths:
       operationId: process.Process.StreamInput
       requestBody:
         content:
-          application/json:
+          application/connect+json:
             schema:
               $ref: '#/components/schemas/process.StreamInputRequest'
         required: true
@@ -647,12 +665,15 @@ paths:
         '200':
           description: Stream of StreamInputResponse events
           content:
-            application/json:
+            application/connect+json:
               schema:
                 $ref: '#/components/schemas/process.StreamInputResponse'
         '502': *id001
       security:
       - *id003
+      parameters:
+      - *id005
+      - *id006
     servers:
     - *id002
   /process.Process/Update:
@@ -711,7 +732,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /teams/{teamID}/metrics:
     get:
       description: Get metrics for the team
@@ -755,7 +776,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /teams/{teamID}/metrics/max:
     get:
       description: Get the maximum metrics for the team in the given interval
@@ -806,7 +827,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes:
     get:
       description: List all running sandboxes
@@ -864,7 +885,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /v2/sandboxes:
     get:
       description: List all sandboxes
@@ -909,7 +930,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/metrics:
     get:
       description: List metrics for given sandboxes
@@ -943,7 +964,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/logs:
     get:
       description: Get sandbox logs. Use /v2/sandboxes/{sandboxID}/logs instead.
@@ -983,7 +1004,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}:
     get:
       description: Get a sandbox by id
@@ -1024,7 +1045,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/metrics:
     get:
       description: Get sandbox metrics
@@ -1068,7 +1089,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/pause:
     post:
       description: Pause the sandbox
@@ -1090,7 +1111,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/resume:
     post:
       deprecated: true
@@ -1123,7 +1144,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/connect:
     post:
       description: Returns sandbox details. If the sandbox is paused, it will be resumed.
@@ -1162,7 +1183,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/timeout:
     post:
       description: Set the timeout for the sandbox. The sandbox will expire x seconds
@@ -1199,7 +1220,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/refreshes:
     post:
       description: Refresh the sandbox extending its time to live
@@ -1229,7 +1250,7 @@ paths:
         '404':
           $ref: '#/components/responses/404'
     servers:
-    - *id005
+    - *id007
   /sandboxes/{sandboxID}/snapshots:
     post:
       description: Create a persistent snapshot from the sandbox's current state.
@@ -1269,7 +1290,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /snapshots:
     get:
       description: List all snapshots for the team
@@ -1300,7 +1321,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /v3/templates:
     post:
       description: Create a new template
@@ -1328,7 +1349,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /v2/templates:
     post:
       description: Create a new template
@@ -1357,7 +1378,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}/files/{hash}:
     get:
       description: Get an upload link for a tar file containing build layer files
@@ -1375,12 +1396,6 @@ paths:
           type: string
           description: Hash of the files
       responses:
-        '201':
-          description: The upload link where to upload the tar file
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplateBuildFileUpload'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1389,8 +1404,14 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+        '200':
+          description: Upload link for the tar file containing build layer files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateBuildFileUpload'
     servers:
-    - *id005
+    - *id007
   /templates:
     get:
       description: List all templates
@@ -1447,7 +1468,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}:
     get:
       description: List all builds for a template
@@ -1539,7 +1560,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1560,7 +1581,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1586,7 +1607,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /v2/templates/{templateID}:
     patch:
       description: Update template
@@ -1617,7 +1638,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}/builds/{buildID}/status:
     get:
       description: Get template build info
@@ -1665,7 +1686,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       description: Get template build logs
@@ -1720,7 +1741,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/tags:
     post:
       description: Assign tag(s) to a template build
@@ -1773,7 +1794,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/{templateID}/tags:
     get:
       description: List all tags for a template
@@ -1801,7 +1822,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /templates/aliases/{alias}:
     get:
       description: Check if template with given alias exists
@@ -1832,7 +1853,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /volumes:
     get:
       description: List all team volumes
@@ -1881,7 +1902,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
   /volumes/{volumeID}:
     get:
       description: Get team volume info
@@ -1924,7 +1945,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id005
+    - *id007
 components:
   securitySchemes:
     AccessTokenAuth:
@@ -2681,12 +2702,17 @@ components:
           type: integer
           title: exit_code
           format: int32
+          deprecated: true
+          description: 'Deprecated: not populated by the server. Parse the exit code
+            from the `status` string (e.g. "exit status 0").'
         exited:
           type: boolean
           title: exited
         status:
           type: string
           title: status
+          description: Process exit status string (e.g. "exit status 0"). Parse the
+            integer exit code from this field.
         error:
           type:
           - string
@@ -3160,7 +3186,10 @@ components:
           $ref: '#/components/schemas/EnvdVersion'
         envdAccessToken:
           type: string
-          description: Access token used for envd communication
+          description: 'Access token for authenticating envd requests to this sandbox.
+            Only returned when the sandbox is created with `secure: true`. Null for
+            non-secure sandboxes (envd endpoints work without auth).'
+          nullable: true
         trafficAccessToken:
           type: string
           nullable: true
@@ -3168,7 +3197,8 @@ components:
         domain:
           type: string
           nullable: true
-          description: Base domain where the sandbox traffic is accessible
+          description: 'Deprecated: always null. Construct sandbox URLs as `https://{port}-{sandboxID}.e2b.app`.'
+          deprecated: true
     SandboxDetail:
       required:
       - templateID
@@ -3207,11 +3237,15 @@ components:
           $ref: '#/components/schemas/EnvdVersion'
         envdAccessToken:
           type: string
-          description: Access token used for envd communication
+          description: 'Access token for authenticating envd requests to this sandbox.
+            Only returned when the sandbox is created with `secure: true`. Null for
+            non-secure sandboxes (envd endpoints work without auth).'
+          nullable: true
         domain:
           type: string
           nullable: true
-          description: Base domain where the sandbox traffic is accessible
+          description: 'Deprecated: always null. Construct sandbox URLs as `https://{port}-{sandboxID}.e2b.app`.'
+          deprecated: true
         cpuCount:
           $ref: '#/components/schemas/CPUCount'
         memoryMB:
@@ -3846,7 +3880,7 @@ components:
           type: string
     LogLevel:
       type: string
-      description: State of the sandbox
+      description: Severity level for log entries (e.g. info, warn, error)
     BuildLogEntry:
       required:
       - timestamp
