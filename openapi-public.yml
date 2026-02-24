@@ -2217,6 +2217,12 @@ components:
         disk_total:
           type: integer
           description: Total disk space in bytes
+        mem_used_mib:
+          type: integer
+          description: Used virtual memory in MiB
+        mem_total_mib:
+          type: integer
+          description: Total virtual memory in MiB
     connect-protocol-version:
       type: number
       title: Connect-Protocol-Version
@@ -3183,7 +3189,6 @@ components:
       - endAt
       - state
       - envdVersion
-      - volumeMounts
       properties:
         templateID:
           type: string
@@ -3241,7 +3246,6 @@ components:
       - endAt
       - state
       - envdVersion
-      - volumeMounts
       properties:
         templateID:
           type: string
@@ -3851,11 +3855,6 @@ components:
     LogLevel:
       type: string
       description: State of the sandbox
-      enum:
-      - debug
-      - info
-      - warn
-      - error
     BuildLogEntry:
       required:
       - timestamp
@@ -3899,6 +3898,7 @@ components:
       - waiting
       - ready
       - error
+      - uploaded
     TemplateBuildInfo:
       required:
       - templateID

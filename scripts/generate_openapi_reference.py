@@ -608,6 +608,58 @@ def add_operation_ids(spec: dict[str, Any]) -> None:
         print(f"==> Added {count} operationIds to envd endpoints")
 
 
+def fix_spec_issues(spec: dict[str, Any]) -> None:
+    """Fix known discrepancies between the source spec and the live API.
+
+    These are upstream spec issues that we patch during post-processing
+    so the published docs match actual API behavior.
+    """
+    schemas = spec.get("components", {}).get("schemas", {})
+    fixes = []
+
+    # 1. TemplateBuildStatus enum missing 'uploaded'
+    build_status = schemas.get("TemplateBuildStatus")
+    if build_status and "uploaded" not in build_status.get("enum", []):
+        build_status["enum"].append("uploaded")
+        fixes.append("TemplateBuildStatus: added 'uploaded' to enum")
+
+    # 2. volumeMounts required but API doesn't always return it
+    for name in ("SandboxDetail", "ListedSandbox"):
+        schema = schemas.get(name, {})
+        req = schema.get("required", [])
+        if "volumeMounts" in req:
+            req.remove("volumeMounts")
+            fixes.append(f"{name}: made 'volumeMounts' optional")
+
+    # 3. LogLevel enum too strict — server returns empty/whitespace values
+    log_level = schemas.get("LogLevel")
+    if log_level and "enum" in log_level:
+        del log_level["enum"]
+        fixes.append("LogLevel: removed enum constraint (server sends non-enum values)")
+
+    # 4. Metrics schema missing mem_used_mib and mem_total_mib
+    metrics = schemas.get("Metrics")
+    if metrics and "properties" in metrics:
+        props = metrics["properties"]
+        if "mem_used_mib" not in props:
+            props["mem_used_mib"] = {
+                "type": "integer",
+                "description": "Used virtual memory in MiB",
+            }
+            fixes.append("Metrics: added 'mem_used_mib'")
+        if "mem_total_mib" not in props:
+            props["mem_total_mib"] = {
+                "type": "integer",
+                "description": "Total virtual memory in MiB",
+            }
+            fixes.append("Metrics: added 'mem_total_mib'")
+
+    if fixes:
+        print(f"==> Fixed {len(fixes)} spec issues:")
+        for f in fixes:
+            print(f"    {f}")
+
+
 def _strip_supabase_security(path_item: dict[str, Any]) -> None:
     """Remove Supabase security entries from all operations in a path item.
 
@@ -897,6 +949,7 @@ def main() -> None:
         fix_security_schemes(merged)
         setup_sandbox_auth_scheme(merged)
         add_operation_ids(merged)
+        fix_spec_issues(merged)
 
         # Remove internal/unwanted paths
         filter_paths(merged)

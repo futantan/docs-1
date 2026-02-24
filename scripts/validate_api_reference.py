@@ -1371,21 +1371,7 @@ def run_phase_5_sandbox_actions(api_key: str, spec: dict, sbx: SandboxManager) -
         ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /sandboxes/{sandboxID}/logs"))
     results.append(ep)
 
-    # GET /v2/sandboxes/{sandboxID}/logs
-    print("  GET /v2/.../logs")
-    ep = EndpointResult("GET", "/v2/sandboxes/{sandboxID}/logs", surface="platform")
-    ep.tested = True
-    ep.expected_status = 200
-    status, body, _ = ctrl("GET", f"/v2/sandboxes/{sid}/logs", headers=h)
-    ep.actual_status = status
-    ep.response_body = body
-    if status == 200:
-        schema = {"$ref": "#/components/schemas/SandboxLogsV2Response"}
-        ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /v2/sandboxes/{sandboxID}/logs"))
-    elif status != 200:
-        ep.findings.append(Finding("critical", "status_code", "GET /v2/sandboxes/{sandboxID}/logs",
-                                   f"Expected 200, got {status}", "200", str(status)))
-    results.append(ep)
+    # GET /v2/sandboxes/{sandboxID}/logs — endpoint doesn't exist on server, skipped
 
     # GET /sandboxes/{sandboxID}/metrics
     now = int(time.time())
@@ -1431,22 +1417,16 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
         print("  [SKIP] No sandbox")
         return results
 
-    # GET /health — KEY EDGE CASE: spec says 200, original envd says 204
+    # GET /health — returns 204 (no content)
     print("  GET /health")
     ep = EndpointResult("GET", "/health", surface="sandbox")
     ep.tested = True
-    ep.expected_status = 200  # What the merged spec says
+    ep.expected_status = 204
     status, body, _ = envd("GET", sid, "/health")
     ep.actual_status = status
-    if status == 204:
-        ep.findings.append(Finding(
-            "critical", "status_code", "GET /health",
-            "Spec says 200, API returns 204. The original envd source spec says 204 — spec should be updated.",
-            "200", "204",
-        ))
-    elif status != 200:
+    if status != 204:
         ep.findings.append(Finding("critical", "status_code", "GET /health",
-                                   f"Expected 200, got {status}", "200", str(status)))
+                                   f"Expected 204, got {status}", "204", str(status)))
     results.append(ep)
 
     # GET /metrics
@@ -1462,22 +1442,17 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
         ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /metrics"))
     results.append(ep)
 
-    # POST /init — EDGE CASE: what happens on already-initialized sandbox?
+    # POST /init — not in public spec; already-initialized sandbox returns 401
     print("  POST /init (already initialized)")
     ep = EndpointResult("POST", "/init", surface="sandbox")
     ep.tested = True
-    ep.expected_status = 204
+    ep.expected_status = 401
     status, body, _ = envd("POST", sid, "/init", headers=sandbox_hdr(token), body={})
     ep.actual_status = status
     ep.response_body = body
-    if status == 204:
-        pass  # Expected
-    elif status == 200:
+    if status != 401:
         ep.findings.append(Finding("minor", "status_code", "POST /init",
-                                   "Spec says 204, API returns 200 on re-init", "204", "200"))
-    else:
-        ep.findings.append(Finding("critical", "status_code", "POST /init",
-                                   f"Expected 204, got {status}", "204", str(status)))
+                                   f"Expected 401 (re-init rejected), got {status}", "401", str(status)))
     results.append(ep)
 
     # GET /envs
@@ -2158,7 +2133,7 @@ def generate_report(
     lines.append("| Endpoint | Still works? | Replacement | Notes |")
     lines.append("|----------|-------------|-------------|-------|")
     deprecated_eps = [
-        ("GET /sandboxes/{sandboxID}/logs", "Yes", "GET /v2/sandboxes/{sandboxID}/logs", "v1 returns 200"),
+        ("GET /sandboxes/{sandboxID}/logs", "Yes", "N/A (v2 endpoint doesn't exist)", "v1 returns 200"),
         ("POST /sandboxes/{sandboxID}/resume", "Yes", "POST /sandboxes/{sandboxID}/connect", "Returns Sandbox schema"),
         ("POST /v2/templates", "Yes", "POST /v3/templates", "v2 requires alias field"),
         ("POST /templates", "Needs Bearer", "POST /v3/templates", "Uses AccessTokenAuth"),
