@@ -849,7 +849,13 @@ def fill_empty_responses(spec: dict[str, Any]) -> None:
                 del responses["default"]
                 stripped += 1
             for status, resp in responses.items():
-                if isinstance(resp, dict) and str(status).startswith("2") and "content" not in resp:
+                if not isinstance(resp, dict):
+                    continue
+                # 204 = No Content: remove any content block
+                if str(status) == "204":
+                    resp.pop("content", None)
+                    continue
+                if str(status).startswith("2") and "content" not in resp:
                     resp["content"] = EMPTY_RESPONSE_CONTENT
                     filled += 1
     if filled:

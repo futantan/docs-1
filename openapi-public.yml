@@ -15,11 +15,6 @@ paths:
       responses:
         '204':
           description: The service is healthy
-          content: &id004
-            application/json:
-              schema:
-                type: object
-                description: Empty response
         '502': &id001
           description: Sandbox not found
           content:
@@ -103,7 +98,11 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DownloadSuccess'
-          content: *id004
+          content: &id004
+            application/json:
+              schema:
+                type: object
+                description: Empty response
         '401':
           $ref: '#/components/responses/InvalidUser'
         '400':
@@ -1018,7 +1017,6 @@ paths:
       responses:
         '204':
           description: The sandbox was killed successfully
-          content: *id004
         '404':
           $ref: '#/components/responses/404'
         '401':
@@ -1083,7 +1081,6 @@ paths:
       responses:
         '204':
           description: The sandbox was paused successfully and can be resumed
-          content: *id004
         '409':
           $ref: '#/components/responses/409'
         '404':
@@ -1195,7 +1192,6 @@ paths:
       responses:
         '204':
           description: Successfully set the sandbox timeout
-          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
@@ -1228,7 +1224,6 @@ paths:
       responses:
         '204':
           description: Successfully refreshed the sandbox
-          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
@@ -1513,7 +1508,6 @@ paths:
       responses:
         '204':
           description: The template was deleted successfully
-          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '500':
@@ -1770,7 +1764,6 @@ paths:
       responses:
         '204':
           description: Tags deleted successfully
-          content: *id004
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1924,7 +1917,6 @@ paths:
       responses:
         '204':
           description: Successfully deleted a team volume
-          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
