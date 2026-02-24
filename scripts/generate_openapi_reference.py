@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate a merged OpenAPI spec for the full E2B developer-facing API.
 
-Combines multiple sources into a single e2b-openapi.yml:
+Fetches specs from e2b-dev/infra at specified commits (or latest main),
+combines multiple sources into a single openapi-public.yml:
 
   Sandbox API (served on <port>-<sandboxID>.e2b.app):
     - Proto-generated OpenAPI for process/filesystem Connect RPC
@@ -12,9 +13,13 @@ Combines multiple sources into a single e2b-openapi.yml:
     - Main E2B API spec (spec/openapi.yml)
 
 Usage:
-    python3 scripts/generate_openapi_reference.py
+    python3 scripts/generate_openapi_reference.py [options]
 
-Outputs e2b-openapi.yml in the current working directory.
+Options:
+    --envd-commit HASH   Commit/branch/tag in e2b-dev/infra for envd specs (default: main)
+    --api-commit HASH    Commit/branch/tag in e2b-dev/infra for platform API spec (default: main)
+    --output FILE        Output path (default: openapi-public.yml in repo root)
+
 Requires: Docker, PyYAML (pip install pyyaml).
 """
 
@@ -36,16 +41,16 @@ import yaml
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DOCS_REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 
-# Sandbox (envd) specs
-ENVD_SPEC_DIR = os.path.join(REPO_ROOT, "packages/envd/spec")
-ENVD_REST_SPEC = os.path.join(ENVD_SPEC_DIR, "envd.yaml")
+INFRA_REPO = "https://github.com/e2b-dev/infra.git"
 
-# Platform API specs
-API_SPEC = os.path.join(REPO_ROOT, "spec/openapi.yml")
+# Paths within e2b-dev/infra
+INFRA_ENVD_SPEC_DIR = "packages/envd/spec"
+INFRA_ENVD_REST_SPEC = "packages/envd/spec/envd.yaml"
+INFRA_API_SPEC = "spec/openapi.yml"
 
-DOCKER_IMAGE = "protoc-gen-connect-openapi"
+DOCKER_IMAGE = "e2b-openapi-generator"
 
 DOCKERFILE = """\
 FROM golang:1.25-alpine
@@ -59,7 +64,7 @@ BUF_GEN_YAML = """\
 version: v1
 plugins:
   - plugin: connect-openapi
-    out: /output
+    out: /output/generated
     opt:
       - format=yaml
 """
@@ -248,7 +253,7 @@ def build_streaming_path(rpc: RpcMethod) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Docker build & proto generation
+# Docker: fetch specs from e2b-dev/infra and generate OpenAPI from protos
 # ---------------------------------------------------------------------------
 
 def docker_build_image() -> None:
@@ -261,51 +266,151 @@ def docker_build_image() -> None:
         subprocess.run(
             ["docker", "build", "-t", DOCKER_IMAGE, "-f", dockerfile_path, "."],
             check=True,
-            cwd=REPO_ROOT,
+            cwd=DOCS_REPO_ROOT,
         )
     finally:
         os.unlink(dockerfile_path)
 
 
-def docker_generate_specs() -> list[str]:
-    """Run buf generate inside Docker, return list of generated YAML strings."""
-    print("==> Generating OpenAPI specs from proto files")
-    with tempfile.TemporaryDirectory() as tmpdir:
-        buf_gen_path = os.path.join(tmpdir, "buf.gen.yaml")
-        with open(buf_gen_path, "w") as f:
-            f.write(BUF_GEN_YAML)
+@dataclass
+class FetchedSpecs:
+    """Paths to specs fetched from e2b-dev/infra."""
+    envd_spec_dir: str       # directory containing .proto files
+    envd_rest_spec: str      # path to envd.yaml
+    api_spec: str            # path to spec/openapi.yml
+    generated_docs: list[str]  # raw YAML strings from buf generate
+    tmpdir: str              # temp directory (caller must not delete until done)
 
-        output_dir = os.path.join(tmpdir, "output")
-        os.makedirs(output_dir)
 
-        subprocess.run(
-            [
-                "docker", "run", "--rm",
-                "-v", f"{ENVD_SPEC_DIR}:/spec:ro",
-                "-v", f"{buf_gen_path}:/config/buf.gen.yaml:ro",
-                "-v", f"{output_dir}:/output",
-                DOCKER_IMAGE,
-                "sh", "-c",
-                "cd /spec && buf generate --template /config/buf.gen.yaml",
-            ],
-            check=True,
-        )
+def docker_fetch_and_generate(envd_commit: str, api_commit: str) -> FetchedSpecs:
+    """Clone e2b-dev/infra at specified commits, run buf generate, return paths.
 
-        generated: list[str] = []
-        for root, _, files in os.walk(output_dir):
-            for name in sorted(files):
-                if name.endswith((".yaml", ".yml")):
-                    path = os.path.join(root, name)
-                    rel = os.path.relpath(path, output_dir)
-                    print(f"    Generated: {rel}")
-                    with open(path) as f:
-                        generated.append(f.read())
+    Uses a single Docker container that:
+    1. Clones the repo at the envd commit
+    2. Copies envd spec files to /output/envd/
+    3. Runs buf generate on the proto files
+    4. If api_commit differs, checks out that commit
+    5. Copies spec/openapi.yml to /output/api/
+    """
+    print(f"==> Fetching specs from e2b-dev/infra")
+    print(f"    envd commit: {envd_commit}")
+    print(f"    api commit:  {api_commit}")
 
-        if not generated:
-            print("ERROR: No files were generated", file=sys.stderr)
+    tmpdir = tempfile.mkdtemp(prefix="e2b-openapi-")
+    output_dir = tmpdir
+
+    # Create output subdirectories
+    for subdir in ("envd", "api", "generated"):
+        os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
+
+    # Build the shell script that runs inside Docker
+    # It handles both commits in a single clone
+    same_commit = envd_commit == api_commit
+    if same_commit:
+        docker_script = f"""
+set -e
+echo "--- Cloning e2b-dev/infra at {envd_commit} ---"
+git clone --depth 1 --branch {envd_commit} {INFRA_REPO} /repo 2>/dev/null || {{
+    git clone {INFRA_REPO} /repo
+    cd /repo
+    git checkout {envd_commit}
+}}
+cd /repo
+
+echo "--- Copying envd specs ---"
+cp -r {INFRA_ENVD_SPEC_DIR}/. /output/envd/
+
+echo "--- Copying platform API spec ---"
+cp {INFRA_API_SPEC} /output/api/openapi.yml
+
+echo "--- Running buf generate ---"
+cd {INFRA_ENVD_SPEC_DIR}
+buf generate --template /config/buf.gen.yaml
+
+echo "--- Done ---"
+"""
+    else:
+        docker_script = f"""
+set -e
+echo "--- Cloning e2b-dev/infra ---"
+git clone {INFRA_REPO} /repo
+cd /repo
+
+echo "--- Checking out envd commit: {envd_commit} ---"
+git checkout {envd_commit}
+
+echo "--- Copying envd specs ---"
+cp -r {INFRA_ENVD_SPEC_DIR}/. /output/envd/
+
+echo "--- Running buf generate ---"
+cd {INFRA_ENVD_SPEC_DIR}
+buf generate --template /config/buf.gen.yaml
+cd /repo
+
+echo "--- Checking out api commit: {api_commit} ---"
+git checkout {api_commit}
+
+echo "--- Copying platform API spec ---"
+cp {INFRA_API_SPEC} /output/api/openapi.yml
+
+echo "--- Done ---"
+"""
+
+    # Write buf.gen.yaml config
+    buf_gen_path = os.path.join(tmpdir, "buf.gen.yaml")
+    with open(buf_gen_path, "w") as f:
+        f.write(BUF_GEN_YAML)
+
+    # Write the script to a file
+    script_path = os.path.join(tmpdir, "run.sh")
+    with open(script_path, "w") as f:
+        f.write(docker_script)
+
+    subprocess.run(
+        [
+            "docker", "run", "--rm",
+            "-v", f"{output_dir}:/output",
+            "-v", f"{buf_gen_path}:/config/buf.gen.yaml:ro",
+            "-v", f"{script_path}:/run.sh:ro",
+            DOCKER_IMAGE,
+            "sh", "/run.sh",
+        ],
+        check=True,
+    )
+
+    # Read generated OpenAPI YAML files
+    generated_dir = os.path.join(output_dir, "generated")
+    generated_docs: list[str] = []
+    for root, _, files in os.walk(generated_dir):
+        for name in sorted(files):
+            if name.endswith((".yaml", ".yml")):
+                path = os.path.join(root, name)
+                rel = os.path.relpath(path, generated_dir)
+                print(f"    Generated: {rel}")
+                with open(path) as f:
+                    generated_docs.append(f.read())
+
+    if not generated_docs:
+        print("ERROR: No files were generated by buf", file=sys.stderr)
+        sys.exit(1)
+
+    envd_spec_dir = os.path.join(output_dir, "envd")
+    envd_rest_spec = os.path.join(envd_spec_dir, "envd.yaml")
+    api_spec = os.path.join(output_dir, "api", "openapi.yml")
+
+    # Verify required files exist
+    for path, label in [(envd_rest_spec, "envd.yaml"), (api_spec, "openapi.yml")]:
+        if not os.path.exists(path):
+            print(f"ERROR: {label} not found at {path}", file=sys.stderr)
             sys.exit(1)
 
-        return generated
+    return FetchedSpecs(
+        envd_spec_dir=envd_spec_dir,
+        envd_rest_spec=envd_rest_spec,
+        api_spec=api_spec,
+        generated_docs=generated_docs,
+        tmpdir=tmpdir,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +419,7 @@ def docker_generate_specs() -> list[str]:
 
 def load_yaml_file(path: str) -> str:
     """Load a YAML file and return its raw content."""
-    print(f"==> Loading spec: {os.path.relpath(path, REPO_ROOT)}")
+    print(f"==> Loading spec: {os.path.basename(path)}")
     with open(path) as f:
         return f.read()
 
@@ -690,68 +795,112 @@ def fill_empty_responses(spec: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # Parse CLI args
+    envd_commit = "main"
+    api_commit = "main"
+    output_path = os.path.join(DOCS_REPO_ROOT, "openapi-public.yml")
+
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i] == "--envd-commit" and i + 1 < len(args):
+            envd_commit = args[i + 1]
+            i += 2
+        elif args[i] == "--api-commit" and i + 1 < len(args):
+            api_commit = args[i + 1]
+            i += 2
+        elif args[i] == "--output" and i + 1 < len(args):
+            output_path = args[i + 1]
+            i += 2
+        elif args[i] in ("--help", "-h"):
+            print(__doc__)
+            sys.exit(0)
+        else:
+            print(f"Unknown argument: {args[i]}", file=sys.stderr)
+            print(__doc__, file=sys.stderr)
+            sys.exit(2)
+            i += 1
+
+    print("=" * 60)
+    print("  E2B OpenAPI Reference Generator")
+    print("=" * 60)
+    print(f"  Source repo:    {INFRA_REPO}")
+    print(f"  envd commit:    {envd_commit}")
+    print(f"  api commit:     {api_commit}")
+    print(f"  Output:         {output_path}")
+    print()
+
+    # Build Docker image
     docker_build_image()
 
-    # --- Sandbox API (envd) ---
-    proto_docs = docker_generate_specs()
-    envd_rest_doc = load_yaml_file(ENVD_REST_SPEC)
+    # Fetch specs and generate proto OpenAPI
+    specs = docker_fetch_and_generate(envd_commit, api_commit)
 
-    # Track which paths come from envd so we can set their server
-    envd_raw_docs = [envd_rest_doc] + proto_docs
-    envd_paths: set[str] = set()
-    for raw in envd_raw_docs:
-        doc = yaml.safe_load(raw)
-        if doc and "paths" in doc:
-            envd_paths.update(doc["paths"].keys())
+    try:
+        # --- Sandbox API (envd) ---
+        envd_rest_doc = load_yaml_file(specs.envd_rest_spec)
+        proto_docs = specs.generated_docs
 
-    # --- Platform API ---
-    api_doc = load_yaml_file(API_SPEC)
+        # Track which paths come from envd so we can set their server
+        envd_raw_docs = [envd_rest_doc] + proto_docs
+        envd_paths: set[str] = set()
+        for raw in envd_raw_docs:
+            doc = yaml.safe_load(raw)
+            if doc and "paths" in doc:
+                envd_paths.update(doc["paths"].keys())
 
-    # --- Merge everything ---
-    # Order: envd first, then platform API (platform schemas take precedence
-    # for shared names like Error since they're more complete).
-    # Protect envd paths so the platform API doesn't overwrite them
-    # (e.g. /health exists in both but the envd version is authoritative).
-    merged = merge_specs(envd_raw_docs + [api_doc], protected_paths=envd_paths)
+        # --- Platform API ---
+        api_doc = load_yaml_file(specs.api_spec)
 
-    # Auto-detect and fill streaming RPC endpoints
-    streaming_rpcs = find_streaming_rpcs(ENVD_SPEC_DIR)
-    print(f"==> Found {len(streaming_rpcs)} streaming RPCs in proto files")
-    fill_streaming_endpoints(merged, streaming_rpcs)
-    for rpc in streaming_rpcs:
-        envd_paths.add(rpc.path)
+        # --- Merge everything ---
+        # Order: envd first, then platform API (platform schemas take precedence
+        # for shared names like Error since they're more complete).
+        # Protect envd paths so the platform API doesn't overwrite them
+        # (e.g. /health exists in both but the envd version is authoritative).
+        merged = merge_specs(envd_raw_docs + [api_doc], protected_paths=envd_paths)
 
-    # Attach per-path server overrides so each path has exactly one server
-    tag_paths_with_server(merged, envd_paths, SANDBOX_SERVER)
-    platform_paths = set(merged["paths"].keys()) - envd_paths
-    tag_paths_with_server(merged, platform_paths, PLATFORM_SERVER)
+        # Auto-detect and fill streaming RPC endpoints
+        streaming_rpcs = find_streaming_rpcs(specs.envd_spec_dir)
+        print(f"==> Found {len(streaming_rpcs)} streaming RPCs in proto files")
+        fill_streaming_endpoints(merged, streaming_rpcs)
+        for rpc in streaming_rpcs:
+            envd_paths.add(rpc.path)
 
-    # Ensure all sandbox endpoints declare auth
-    apply_sandbox_auth(merged, envd_paths)
+        # Attach per-path server overrides so each path has exactly one server
+        tag_paths_with_server(merged, envd_paths, SANDBOX_SERVER)
+        platform_paths = set(merged["paths"].keys()) - envd_paths
+        tag_paths_with_server(merged, platform_paths, PLATFORM_SERVER)
 
-    # Add 502 sandbox-not-found to all envd endpoints
-    add_sandbox_not_found(merged, envd_paths)
+        # Ensure all sandbox endpoints declare auth
+        apply_sandbox_auth(merged, envd_paths)
 
-    # Fix known issues
-    fix_security_schemes(merged)
-    rename_envd_auth_scheme(merged)
-    add_operation_ids(merged)
+        # Add 502 sandbox-not-found to all envd endpoints
+        add_sandbox_not_found(merged, envd_paths)
 
-    # Remove internal/unwanted paths
-    filter_paths(merged)
+        # Fix known issues
+        fix_security_schemes(merged)
+        rename_envd_auth_scheme(merged)
+        add_operation_ids(merged)
 
-    # Ensure all 2xx responses have a content block (required by Mintlify)
-    fill_empty_responses(merged)
+        # Remove internal/unwanted paths
+        filter_paths(merged)
 
-    # Clean up unreferenced schemas left over from filtered paths
-    remove_orphaned_schemas(merged)
+        # Ensure all 2xx responses have a content block (required by Mintlify)
+        fill_empty_responses(merged)
 
-    # Write output
-    output_path = os.path.join(os.getcwd(), "e2b-openapi.yml")
-    with open(output_path, "w") as f:
-        yaml.dump(merged, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        # Clean up unreferenced schemas left over from filtered paths
+        remove_orphaned_schemas(merged)
 
-    print(f"==> Written to {output_path}")
+        # Write output
+        with open(output_path, "w") as f:
+            yaml.dump(merged, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        print(f"\n==> Written to {output_path}")
+
+    finally:
+        # Clean up temp directory
+        import shutil
+        shutil.rmtree(specs.tmpdir, ignore_errors=True)
 
 
 if __name__ == "__main__":

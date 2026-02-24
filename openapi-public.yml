@@ -110,14 +110,12 @@ paths:
         '200':
           $ref: '#/components/responses/DownloadSuccess'
           content: *id003
-        '400':
-          $ref: '#/components/responses/InvalidPath'
         '401':
           $ref: '#/components/responses/InvalidUser'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
         '404':
           $ref: '#/components/responses/FileNotFound'
-        '406':
-          $ref: '#/components/responses/NotAcceptable'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '502': *id001
@@ -1974,32 +1972,29 @@ components:
       name: path
       in: query
       required: false
-      description: Path to the file, URL encoded. Can be relative to the user's home
-        directory (e.g. "file.txt" resolves to ~/file.txt).
+      description: Path to the file, URL encoded. Can be relative to user's home directory.
       schema:
         type: string
     User:
       name: username
       in: query
       required: false
-      description: User for setting file ownership and resolving relative paths. Defaults
-        to the sandbox's default user.
+      description: User used for setting the owner, or resolving relative paths.
       schema:
         type: string
     Signature:
       name: signature
       in: query
       required: false
-      description: HMAC signature for access verification. Required when no X-Access-Token
-        header is provided. Format is "v1_<sha256hash>".
+      description: Signature used for file access permission verification.
       schema:
         type: string
     SignatureExpiration:
       name: signature_expiration
       in: query
       required: false
-      description: Unix timestamp (seconds) after which the signature expires. Only
-        used with the signature parameter.
+      description: Signature expiration used for defining the expiration time of the
+        signature.
       schema:
         type: integer
     templateID:
@@ -2102,74 +2097,44 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/EntryInfo'
-          example:
-          - path: /home/user/hello.txt
-            name: hello.txt
-            type: file
     DownloadSuccess:
-      description: File content. Content-Type is detected from the file extension
-        (defaults to application/octet-stream). Content-Disposition header contains
-        the filename.
+      description: Entire file downloaded successfully.
       content:
         application/octet-stream:
           schema:
             type: string
             format: binary
-            description: The raw file content
-    NotAcceptable:
-      description: Requested encoding is not supported
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            message: 'no acceptable encoding found, supported: [identity, gzip]'
-            code: 406
+            description: The file content
     InvalidPath:
       description: Invalid path
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            message: path '/home/user/docs' is a directory
-            code: 400
     InternalServerError:
       description: Internal server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            message: 'error opening file ''/home/user/file.txt'': permission denied'
-            code: 500
     FileNotFound:
       description: File not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            message: path '/home/user/missing.txt' does not exist
-            code: 404
     InvalidUser:
       description: Invalid user
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            message: 'error looking up user ''nonexistent'': user: unknown user nonexistent'
-            code: 401
     NotEnoughDiskSpace:
       description: Not enough disk space
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            message: not enough disk space available
-            code: 507
     '400':
       description: Bad request
       content:
@@ -2261,12 +2226,6 @@ components:
         mem_used:
           type: integer
           description: Used virtual memory in bytes
-        mem_total_mib:
-          type: integer
-          description: Total virtual memory in MiB
-        mem_used_mib:
-          type: integer
-          description: Used virtual memory in MiB
         disk_used:
           type: integer
           description: Used disk space in bytes
