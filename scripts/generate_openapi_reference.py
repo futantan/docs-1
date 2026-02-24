@@ -568,10 +568,10 @@ def setup_sandbox_auth_scheme(spec: dict[str, Any]) -> None:
         "description": (
             "Sandbox access token (`envdAccessToken`) for authenticating requests to a running sandbox. "
             "Returned by: "
-            "[POST /sandboxes](/api-reference/sandboxes/create-a-sandbox) (on create), "
-            "[POST /sandboxes/{sandboxID}/connect](/api-reference/sandboxes/connect-to-a-sandbox) (on connect), "
-            "[POST /sandboxes/{sandboxID}/resume](/api-reference/sandboxes/resume-a-sandbox) (on resume), "
-            "and [GET /sandboxes/{sandboxID}](/api-reference/sandboxes/get-a-sandbox) (for running or paused sandboxes)."
+            "[POST /sandboxes](/docs/api-reference/sandboxes/create-a-sandbox) (on create), "
+            "[POST /sandboxes/{sandboxID}/connect](/docs/api-reference/sandboxes/connect-to-a-sandbox) (on connect), "
+            "[POST /sandboxes/{sandboxID}/resume](/docs/api-reference/sandboxes/resume-a-sandbox) (on resume), "
+            "and [GET /sandboxes/{sandboxID}](/docs/api-reference/sandboxes/get-a-sandbox) (for running or paused sandboxes)."
         ),
     }
 
