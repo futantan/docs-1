@@ -5,7 +5,7 @@ info:
   description: Complete E2B developer API. Platform endpoints are served on api.e2b.app.
     Sandbox endpoints (envd) are served on {port}-{sandboxID}.e2b.app.
 servers:
-- &id006
+- &id005
   url: https://api.e2b.app
   description: E2B Platform API
 paths:
@@ -15,12 +15,12 @@ paths:
       responses:
         '204':
           description: The service is healthy
-          content: &id003
+          content: &id004
             application/json:
               schema:
                 type: object
                 description: Empty response
-        '502': &id001
+        '502': &id002
           description: Sandbox not found
           content:
             application/json:
@@ -44,12 +44,11 @@ paths:
                     description: Error code
                     example: 502
       security:
-      - &id004
+      - &id001
         SandboxAccessTokenAuth: []
-      - &id005 {}
       operationId: getHealth
     servers:
-    - &id002
+    - &id003
       url: https://{port}-{sandboxID}.e2b.app
       description: Sandbox API (envd) — runs inside each sandbox
       variables:
@@ -63,8 +62,7 @@ paths:
     get:
       summary: Get the stats of the service
       security:
-      - SandboxAccessTokenAuth: []
-      - {}
+      - *id001
       responses:
         '200':
           description: The resource usage metrics of the service
@@ -72,16 +70,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Metrics'
-        '502': *id001
+        '502': *id002
       operationId: getMetrics
     servers:
-    - *id002
+    - *id003
   /envs:
     get:
       summary: Get the environment variables
       security:
-      - SandboxAccessTokenAuth: []
-      - {}
+      - *id001
       responses:
         '200':
           description: Environment variables
@@ -89,18 +86,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnvVars'
-        '502': *id001
+        '502': *id002
       operationId: getEnvVars
     servers:
-    - *id002
+    - *id003
   /files:
     get:
       summary: Download a file
       tags:
       - files
       security:
-      - SandboxAccessTokenAuth: []
-      - {}
+      - *id001
       parameters:
       - $ref: '#/components/parameters/FilePath'
       - $ref: '#/components/parameters/User'
@@ -109,7 +105,7 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DownloadSuccess'
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/InvalidUser'
         '400':
@@ -118,7 +114,7 @@ paths:
           $ref: '#/components/responses/FileNotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-        '502': *id001
+        '502': *id002
       operationId: downloadFile
     post:
       summary: Upload a file and ensure the parent directories exist. If the file
@@ -126,8 +122,7 @@ paths:
       tags:
       - files
       security:
-      - SandboxAccessTokenAuth: []
-      - {}
+      - *id001
       parameters:
       - $ref: '#/components/parameters/FilePath'
       - $ref: '#/components/parameters/User'
@@ -138,7 +133,7 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/UploadSuccess'
-          content: *id003
+          content: *id004
         '400':
           $ref: '#/components/responses/InvalidPath'
         '401':
@@ -147,10 +142,10 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '507':
           $ref: '#/components/responses/NotEnoughDiskSpace'
-        '502': *id001
+        '502': *id002
       operationId: uploadFile
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/CreateWatcher:
     post:
       tags:
@@ -181,12 +176,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/GetWatcherEvents:
     post:
       tags:
@@ -216,12 +210,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/ListDir:
     post:
       tags:
@@ -251,12 +244,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.ListDirResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/MakeDir:
     post:
       tags:
@@ -286,12 +278,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.MakeDirResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/Move:
     post:
       tags:
@@ -321,12 +312,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.MoveResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/Remove:
     post:
       tags:
@@ -356,12 +346,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.RemoveResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/RemoveWatcher:
     post:
       tags:
@@ -391,12 +380,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/Stat:
     post:
       tags:
@@ -426,12 +414,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.StatResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /filesystem.Filesystem/WatchDir:
     post:
       tags:
@@ -452,12 +439,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/filesystem.WatchDirResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/CloseStdin:
     post:
       tags:
@@ -489,12 +475,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.CloseStdinResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/Connect:
     post:
       tags:
@@ -515,12 +500,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.ConnectResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/List:
     post:
       tags:
@@ -550,12 +534,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.ListResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/SendInput:
     post:
       tags:
@@ -585,12 +568,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.SendInputResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/SendSignal:
     post:
       tags:
@@ -620,12 +602,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.SendSignalResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/Start:
     post:
       tags:
@@ -646,12 +627,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.StartResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/StreamInput:
     post:
       tags:
@@ -673,12 +653,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.StreamInputResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /process.Process/Update:
     post:
       tags:
@@ -708,12 +687,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/process.UpdateResponse'
-        '502': *id001
+        '502': *id002
       security:
-      - *id004
-      - *id005
+      - *id001
     servers:
-    - *id002
+    - *id003
   /teams:
     get:
       description: List all teams
@@ -736,7 +714,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /teams/{teamID}/metrics:
     get:
       description: Get metrics for the team
@@ -780,7 +758,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /teams/{teamID}/metrics/max:
     get:
       description: Get the maximum metrics for the team in the given interval
@@ -831,7 +809,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes:
     get:
       description: List all running sandboxes
@@ -889,7 +867,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /v2/sandboxes:
     get:
       description: List all sandboxes
@@ -934,7 +912,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/metrics:
     get:
       description: List metrics for given sandboxes
@@ -968,7 +946,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/logs:
     get:
       description: Get sandbox logs. Use /v2/sandboxes/{sandboxID}/logs instead.
@@ -1008,7 +986,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}:
     get:
       description: Get a sandbox by id
@@ -1042,7 +1020,7 @@ paths:
       responses:
         '204':
           description: The sandbox was killed successfully
-          content: *id003
+          content: *id004
         '404':
           $ref: '#/components/responses/404'
         '401':
@@ -1050,7 +1028,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/metrics:
     get:
       description: Get sandbox metrics
@@ -1094,7 +1072,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/pause:
     post:
       description: Pause the sandbox
@@ -1107,7 +1085,7 @@ paths:
       responses:
         '204':
           description: The sandbox was paused successfully and can be resumed
-          content: *id003
+          content: *id004
         '409':
           $ref: '#/components/responses/409'
         '404':
@@ -1117,7 +1095,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/resume:
     post:
       deprecated: true
@@ -1150,7 +1128,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/connect:
     post:
       description: Returns sandbox details. If the sandbox is paused, it will be resumed.
@@ -1189,7 +1167,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/timeout:
     post:
       description: Set the timeout for the sandbox. The sandbox will expire x seconds
@@ -1219,7 +1197,7 @@ paths:
       responses:
         '204':
           description: Successfully set the sandbox timeout
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
@@ -1227,7 +1205,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/refreshes:
     post:
       description: Refresh the sandbox extending its time to live
@@ -1252,13 +1230,13 @@ paths:
       responses:
         '204':
           description: Successfully refreshed the sandbox
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
           $ref: '#/components/responses/404'
     servers:
-    - *id006
+    - *id005
   /sandboxes/{sandboxID}/snapshots:
     post:
       description: Create a persistent snapshot from the sandbox's current state.
@@ -1298,7 +1276,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /snapshots:
     get:
       description: List all snapshots for the team
@@ -1329,7 +1307,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /v3/templates:
     post:
       description: Create a new template
@@ -1357,7 +1335,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /v2/templates:
     post:
       description: Create a new template
@@ -1386,7 +1364,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}/files/{hash}:
     get:
       description: Get an upload link for a tar file containing build layer files
@@ -1419,7 +1397,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates:
     get:
       description: List all templates
@@ -1476,7 +1454,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}:
     get:
       description: List all builds for a template
@@ -1537,7 +1515,7 @@ paths:
       responses:
         '204':
           description: The template was deleted successfully
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '500':
@@ -1561,7 +1539,7 @@ paths:
       responses:
         '200':
           description: The template was updated successfully
-          content: *id003
+          content: *id004
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1569,7 +1547,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1584,13 +1562,13 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1610,13 +1588,13 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /v2/templates/{templateID}:
     patch:
       description: Update template
@@ -1647,7 +1625,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}/builds/{buildID}/status:
     get:
       description: Get template build info
@@ -1695,7 +1673,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       description: Get template build logs
@@ -1750,7 +1728,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/tags:
     post:
       description: Assign tag(s) to a template build
@@ -1794,7 +1772,7 @@ paths:
       responses:
         '204':
           description: Tags deleted successfully
-          content: *id003
+          content: *id004
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1804,7 +1782,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/{templateID}/tags:
     get:
       description: List all tags for a template
@@ -1832,7 +1810,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /templates/aliases/{alias}:
     get:
       description: Check if template with given alias exists
@@ -1863,7 +1841,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /volumes:
     get:
       description: List all team volumes
@@ -1912,7 +1890,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
   /volumes/{volumeID}:
     get:
       description: Get team volume info
@@ -1948,7 +1926,7 @@ paths:
       responses:
         '204':
           description: Successfully deleted a team volume
-          content: *id003
+          content: *id004
         '401':
           $ref: '#/components/responses/401'
         '404':
@@ -1956,7 +1934,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
     servers:
-    - *id006
+    - *id005
 components:
   securitySchemes:
     ApiKeyAuth:

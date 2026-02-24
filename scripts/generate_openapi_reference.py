@@ -511,14 +511,14 @@ def apply_sandbox_auth(spec: dict[str, Any], envd_paths: set[str]) -> None:
     proto-generated Connect RPC endpoints don't.  Add optional auth
     (SandboxAccessTokenAuth or anonymous) to any envd endpoint missing it.
     """
-    auth_security = [{SANDBOX_AUTH_SCHEME: []}, {}]
+    auth_security = [{SANDBOX_AUTH_SCHEME: []}]
     for path in envd_paths:
         path_item = spec["paths"].get(path)
         if not path_item:
             continue
         for method in ("get", "post", "put", "patch", "delete"):
             op = path_item.get(method)
-            if op and "security" not in op:
+            if op:
                 op["security"] = auth_security
 
 

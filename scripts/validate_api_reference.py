@@ -575,7 +575,7 @@ class SandboxManager:
         print("\n  Creating test sandbox...")
         h = api_key_hdr(self.api_key)
         status, body, _ = ctrl("POST", "/sandboxes", headers=h,
-                               body={"templateID": "base", "timeout": 600})
+                               body={"templateID": "base", "timeout": 600, "secure": True})
         if status != 201 or not isinstance(body, dict):
             print(f"  FAILED to create sandbox: {status}")
             return False
@@ -601,7 +601,8 @@ class SandboxManager:
         if not self.sandbox_id:
             return False
         try:
-            status, _, _ = envd("GET", self.sandbox_id, "/health", timeout=5)
+            h = bearer_hdr(self.access_token) if self.access_token else {}
+            status, _, _ = envd("GET", self.sandbox_id, "/health", headers=h, timeout=5)
             return status in (200, 204)
         except Exception:
             return False
@@ -1183,7 +1184,7 @@ def run_phase_4_sandboxes_read(api_key: str, spec: dict, sbx: SandboxManager) ->
     ep.tested = True
     ep.expected_status = 201
     status, body, _ = ctrl("POST", "/sandboxes", headers=h,
-                           body={"templateID": "base", "timeout": 30})
+                           body={"templateID": "base", "timeout": 30, "secure": True})
     ep.actual_status = status
     ep.response_body = body
     if status == 201 and isinstance(body, dict):
@@ -1395,7 +1396,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/health", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200  # What the merged spec says
-    status, body, _ = envd("GET", sid, "/health")
+    status, body, _ = envd("GET", sid, "/health", headers=bearer_hdr(token))
     ep.actual_status = status
     if status == 204:
         ep.findings.append(Finding(
@@ -1413,8 +1414,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/metrics", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    h = bearer_hdr(token) if token else {}
-    status, body, _ = envd("GET", sid, "/metrics", headers=h)
+    status, body, _ = envd("GET", sid, "/metrics", headers=bearer_hdr(token))
     ep.actual_status = status
     ep.response_body = body
     if status == 200 and isinstance(body, dict):
@@ -1422,25 +1422,12 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
         ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /metrics"))
     results.append(ep)
 
-    # Test /metrics without auth (should also work per spec: security: [{}, {AccessTokenAuth}])
-    print("  GET /metrics (no auth)")
-    ep2 = EndpointResult("GET", "/metrics", surface="sandbox")
-    ep2.tested = True
-    ep2.expected_status = 200
-    status2, body2, _ = envd("GET", sid, "/metrics")
-    ep2.actual_status = status2
-    if status2 != 200:
-        ep2.findings.append(Finding("critical", "auth", "GET /metrics",
-                                    f"Spec says no auth required ({{}}) but got {status2}", "200", str(status2)))
-    results.append(ep2)
-
     # POST /init — EDGE CASE: what happens on already-initialized sandbox?
     print("  POST /init (already initialized)")
     ep = EndpointResult("POST", "/init", surface="sandbox")
     ep.tested = True
     ep.expected_status = 204
-    h = bearer_hdr(token) if token else {}
-    status, body, _ = envd("POST", sid, "/init", headers=h, body={})
+    status, body, _ = envd("POST", sid, "/init", headers=bearer_hdr(token), body={})
     ep.actual_status = status
     ep.response_body = body
     if status == 204:
@@ -1458,8 +1445,7 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     ep = EndpointResult("GET", "/envs", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    h = bearer_hdr(token) if token else {}
-    status, body, _ = envd("GET", sid, "/envs", headers=h)
+    status, body, _ = envd("GET", sid, "/envs", headers=bearer_hdr(token))
     ep.actual_status = status
     ep.response_body = body
     if status == 200 and isinstance(body, dict):
@@ -1609,8 +1595,7 @@ def run_phase_8_files_rest(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep = EndpointResult("GET", "/files", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
-    h = bearer_hdr(token) if token else {}
-    status, body, resp_headers = envd("GET", sid, "/files", headers=h,
+    status, body, resp_headers = envd("GET", sid, "/files", headers=bearer_hdr(token),
                                       params={"path": "/tmp/test-file.txt"})
     ep.actual_status = status
     if status == 200:
@@ -1627,7 +1612,7 @@ def run_phase_8_files_rest(spec: dict, sbx: SandboxManager) -> list[EndpointResu
     ep = EndpointResult("GET", "/files", surface="sandbox")
     ep.tested = True
     ep.expected_status = 404
-    status, body, _ = envd("GET", sid, "/files", headers=h,
+    status, body, _ = envd("GET", sid, "/files", headers=bearer_hdr(token),
                            params={"path": "/nonexistent/file.txt"})
     ep.actual_status = status
     if status != 404:
