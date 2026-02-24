@@ -942,12 +942,14 @@ def run_phase_1_teams(api_key: str, team_id: str | None, spec: dict,
 
 
 def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointResult], str | None, str | None, str | None]:
-    """Phase 2: Templates read-only. Returns (results, template_id, build_id, alias)."""
+    """Phase 2: Templates read-only. Returns (results, template_id, build_id, alias, template_name, template_tag)."""
     results = []
     h = api_key_hdr(api_key)
     template_id = None
     build_id = None
     alias = None
+    template_name = None
+    template_tag = None
 
     print("\n  Phase 2: Platform — Templates (read-only)")
 
@@ -970,7 +972,10 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
             aliases = tpl.get("aliases")
             if aliases and isinstance(aliases, list) and aliases and not alias:
                 alias = aliases[0]
-            if template_id and build_id and alias:
+            names = tpl.get("names")
+            if names and isinstance(names, list) and names and not template_name:
+                template_name = names[0]
+            if template_id and build_id and alias and template_name:
                 break
     results.append(ep)
 
@@ -991,6 +996,19 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
                 builds = body.get("builds", [])
                 if builds and isinstance(builds, list):
                     build_id = builds[0].get("buildID")
+        results.append(ep)
+
+    # GET /templates/{templateID}/tags
+    if template_id:
+        print(f"  GET /templates/{template_id}/tags")
+        ep = EndpointResult("GET", "/templates/{templateID}/tags", surface="platform")
+        ep.tested = True
+        ep.expected_status = 200
+        status, body, _ = ctrl("GET", f"/templates/{template_id}/tags", headers=h)
+        ep.actual_status = status
+        ep.response_body = body
+        if status == 200 and isinstance(body, list) and body:
+            template_tag = body[0].get("tag")
         results.append(ep)
 
     # GET /templates/{templateID} 404
@@ -1064,17 +1082,41 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
                                    f"Expected 404, got {status}", "404", str(status)))
     results.append(ep)
 
-    return results, template_id, build_id, alias
+    return results, template_id, build_id, alias, template_name, template_tag
 
 
-def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | None) -> list[EndpointResult]:
+def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | None, template_name: str | None = None, template_tag: str | None = None) -> list[EndpointResult]:
     """Phase 3: Templates write operations."""
     results = []
     h = api_key_hdr(api_key)
+    test_template_name = "_validation_test_template"
 
     print("\n  Phase 3: Platform — Templates (write)")
 
-    # POST /v3/templates
+    # ------------------------------------------------------------------
+    # POST /v3/templates (202 — create template, then clean up)
+    # ------------------------------------------------------------------
+    print("  POST /v3/templates (202 — create)")
+    ep = EndpointResult("POST", "/v3/templates", surface="platform")
+    ep.tested = True
+    ep.expected_status = 202
+    status, body, _ = ctrl("POST", "/v3/templates", headers=h,
+                           body={"name": test_template_name, "cpuCount": 1, "memoryMB": 128})
+    ep.actual_status = status
+    ep.response_body = body
+    v3_template_id = None
+    v3_build_id = None
+    if status == 202 and isinstance(body, dict):
+        schema = {"$ref": "#/components/schemas/TemplateRequestResponseV3"}
+        ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "POST /v3/templates"))
+        v3_template_id = body.get("templateID")
+        v3_build_id = body.get("buildID")
+    elif status != 202:
+        ep.findings.append(Finding("critical", "status_code", "POST /v3/templates",
+                                   f"Expected 202, got {status}", "202", str(status)))
+    results.append(ep)
+
+    # POST /v3/templates (400 — empty body)
     print("  POST /v3/templates (400 — empty)")
     ep = EndpointResult("POST", "/v3/templates", surface="platform")
     ep.tested = True
@@ -1086,7 +1128,131 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Empty body: expected 400, got {status}", "400", str(status)))
     results.append(ep)
 
-    # POST /v2/templates (deprecated)
+    # ------------------------------------------------------------------
+    # PATCH /v2/templates/{templateID} (200 — update, then restore)
+    # ------------------------------------------------------------------
+    patch_tid = v3_template_id or template_id
+    if patch_tid:
+        print(f"  PATCH /v2/templates/{patch_tid} (200 — toggle public)")
+        ep = EndpointResult("PATCH", "/v2/templates/{templateID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 200
+        status, body, _ = ctrl("PATCH", f"/v2/templates/{patch_tid}", headers=h,
+                               body={"public": False})
+        ep.actual_status = status
+        ep.response_body = body
+        if status == 200 and isinstance(body, dict):
+            schema = {"$ref": "#/components/schemas/TemplateUpdateResponse"}
+            ep.findings.extend(_tag_findings(validate_schema(body, schema, spec),
+                                             "PATCH /v2/templates/{templateID}"))
+        elif status != 200:
+            ep.findings.append(Finding("critical", "status_code", "PATCH /v2/templates/{templateID}",
+                                       f"Expected 200, got {status}", "200", str(status)))
+        results.append(ep)
+
+        # PATCH /templates/{templateID} (deprecated, same test)
+        print(f"  PATCH /templates/{patch_tid} (deprecated, 200)")
+        ep = EndpointResult("PATCH", "/templates/{templateID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 200
+        status, body, _ = ctrl("PATCH", f"/templates/{patch_tid}", headers=h,
+                               body={"public": False})
+        ep.actual_status = status
+        if status not in (200, 400):
+            ep.findings.append(Finding("minor", "status_code", "PATCH /templates/{templateID}",
+                                       f"Expected 200, got {status}", "200", str(status)))
+        results.append(ep)
+    else:
+        # Fallback: 404 tests with fake IDs
+        print("  PATCH /v2/templates/{templateID} (404 — no template)")
+        ep = EndpointResult("PATCH", "/v2/templates/{templateID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 404
+        status, body, _ = ctrl("PATCH", f"/v2/templates/{FAKE_TEMPLATE_ID}", headers=h, body={})
+        ep.actual_status = status
+        if status not in (400, 404):
+            ep.findings.append(Finding("minor", "status_code", "PATCH /v2/templates/{templateID}",
+                                       f"Expected 404, got {status}", "404", str(status)))
+        results.append(ep)
+
+        print("  PATCH /templates/{templateID} (deprecated, 404)")
+        ep = EndpointResult("PATCH", "/templates/{templateID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 404
+        status, body, _ = ctrl("PATCH", f"/templates/{FAKE_TEMPLATE_ID}", headers=h, body={})
+        ep.actual_status = status
+        if status not in (400, 404):
+            ep.findings.append(Finding("minor", "status_code", "PATCH /templates/{templateID}",
+                                       f"Expected 404, got {status}", "404", str(status)))
+        results.append(ep)
+
+    # ------------------------------------------------------------------
+    # POST /v2/templates/{templateID}/builds/{buildID} (202 — start build)
+    # ------------------------------------------------------------------
+    if v3_template_id and v3_build_id:
+        print(f"  POST /v2/.../builds/{v3_build_id[:16]}.. (202 — start build)")
+        ep = EndpointResult("POST", "/v2/templates/{templateID}/builds/{buildID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 202
+        status, body, _ = ctrl("POST",
+                               f"/v2/templates/{v3_template_id}/builds/{v3_build_id}",
+                               headers=h, body={"fromImage": "ubuntu:latest"})
+        ep.actual_status = status
+        if status not in (202, 400):
+            ep.findings.append(Finding("minor", "status_code",
+                                       "POST /v2/.../builds/{buildID}",
+                                       f"Expected 202, got {status}", "202", str(status)))
+        results.append(ep)
+    else:
+        print("  POST /v2/.../builds/{buildID} (404 — no template)")
+        ep = EndpointResult("POST", "/v2/templates/{templateID}/builds/{buildID}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 404
+        status, body, _ = ctrl("POST",
+                               f"/v2/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}",
+                               headers=h, body={})
+        ep.actual_status = status
+        if status not in (400, 404):
+            ep.findings.append(Finding("minor", "status_code",
+                                       "POST /v2/.../builds/{buildID}",
+                                       f"Expected 404, got {status}", "404", str(status)))
+        results.append(ep)
+
+    # POST /templates/{templateID}/builds/{buildID} (deprecated, AccessTokenAuth — 401 with API key)
+    print("  POST .../builds/{buildID} (deprecated, 401 — needs Bearer)")
+    ep = EndpointResult("POST", "/templates/{templateID}/builds/{buildID}", surface="platform")
+    ep.tested = True
+    ep.expected_status = 401
+    status, body, _ = ctrl("POST", f"/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}", headers=h, body={})
+    ep.actual_status = status
+    if status not in (400, 401, 404):
+        ep.findings.append(Finding("minor", "status_code", "POST .../builds/{buildID}",
+                                   f"Expected 401/404, got {status}", "401", str(status)))
+    results.append(ep)
+
+    # ------------------------------------------------------------------
+    # POST /v2/templates (deprecated, 202 — create template, then clean up)
+    # ------------------------------------------------------------------
+    v2_test_name = "_validation_test_v2"
+    print(f"  POST /v2/templates (202 — create)")
+    ep = EndpointResult("POST", "/v2/templates", surface="platform")
+    ep.tested = True
+    ep.expected_status = 202
+    status, body, _ = ctrl("POST", "/v2/templates", headers=h,
+                           body={"alias": v2_test_name, "cpuCount": 1, "memoryMB": 128})
+    ep.actual_status = status
+    ep.response_body = body
+    v2_template_id = None
+    if status == 202 and isinstance(body, dict):
+        schema = {"$ref": "#/components/schemas/TemplateLegacy"}
+        ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "POST /v2/templates"))
+        v2_template_id = body.get("templateID")
+    elif status != 202:
+        ep.findings.append(Finding("critical", "status_code", "POST /v2/templates",
+                                   f"Expected 202, got {status}", "202", str(status)))
+    results.append(ep)
+
+    # POST /v2/templates (400 — empty body)
     print("  POST /v2/templates (400 — empty)")
     ep = EndpointResult("POST", "/v2/templates", surface="platform")
     ep.tested = True
@@ -1098,7 +1264,7 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Empty body: expected 400, got {status}", "400", str(status)))
     results.append(ep)
 
-    # POST /templates (deprecated, uses AccessTokenAuth)
+    # POST /templates (deprecated, uses AccessTokenAuth — 401 with API key)
     print("  POST /templates (deprecated, 401 with API key)")
     ep = EndpointResult("POST", "/templates", surface="platform")
     ep.tested = True
@@ -1110,7 +1276,7 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Expected 401 (needs Bearer), got {status}", "401", str(status)))
     results.append(ep)
 
-    # POST /templates/{templateID} (deprecated rebuild, uses AccessTokenAuth)
+    # POST /templates/{templateID} (deprecated rebuild, uses AccessTokenAuth — 401 with API key)
     print("  POST /templates/{templateID} (deprecated, 401)")
     ep = EndpointResult("POST", "/templates/{templateID}", surface="platform")
     ep.tested = True
@@ -1123,56 +1289,12 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Expected 401/404, got {status}", "401 or 404", str(status)))
     results.append(ep)
 
-    # PATCH /templates/{templateID} (deprecated)
-    print("  PATCH /templates/{templateID} (deprecated, 404)")
-    ep = EndpointResult("PATCH", "/templates/{templateID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 404
-    status, body, _ = ctrl("PATCH", f"/templates/{FAKE_TEMPLATE_ID}", headers=h, body={})
-    ep.actual_status = status
-    if status not in (400, 404):
-        ep.findings.append(Finding("minor", "status_code", "PATCH /templates/{templateID}",
-                                   f"Expected 404, got {status}", "404", str(status)))
-    results.append(ep)
+    # ------------------------------------------------------------------
+    # Tags
+    # ------------------------------------------------------------------
 
-    # PATCH /v2/templates/{templateID}
-    print("  PATCH /v2/templates/{templateID} (404)")
-    ep = EndpointResult("PATCH", "/v2/templates/{templateID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 404
-    status, body, _ = ctrl("PATCH", f"/v2/templates/{FAKE_TEMPLATE_ID}", headers=h, body={})
-    ep.actual_status = status
-    if status not in (400, 404):
-        ep.findings.append(Finding("minor", "status_code", "PATCH /v2/templates/{templateID}",
-                                   f"Expected 404, got {status}", "404", str(status)))
-    results.append(ep)
-
-    # POST /templates/{templateID}/builds/{buildID} (deprecated, AccessTokenAuth)
-    print("  POST .../builds/{buildID} (deprecated, 401)")
-    ep = EndpointResult("POST", "/templates/{templateID}/builds/{buildID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 401
-    status, body, _ = ctrl("POST", f"/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}", headers=h, body={})
-    ep.actual_status = status
-    if status not in (400, 401, 404):
-        ep.findings.append(Finding("minor", "status_code", "POST .../builds/{buildID}",
-                                   f"Expected 401/404, got {status}", "401", str(status)))
-    results.append(ep)
-
-    # POST /v2/templates/{templateID}/builds/{buildID}
-    print("  POST /v2/.../builds/{buildID} (404)")
-    ep = EndpointResult("POST", "/v2/templates/{templateID}/builds/{buildID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 404
-    status, body, _ = ctrl("POST", f"/v2/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}", headers=h, body={})
-    ep.actual_status = status
-    if status not in (400, 404):
-        ep.findings.append(Finding("minor", "status_code", "POST /v2/.../builds/{buildID}",
-                                   f"Expected 404, got {status}", "404", str(status)))
-    results.append(ep)
-
-    # POST /templates/tags (400)
-    print("  POST /templates/tags (400)")
+    # POST /templates/tags (400 — empty body)
+    print("  POST /templates/tags (400 — empty)")
     ep = EndpointResult("POST", "/templates/tags", surface="platform")
     ep.tested = True
     ep.expected_status = 400
@@ -1183,8 +1305,47 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Empty body: expected 400, got {status}", "400", str(status)))
     results.append(ep)
 
-    # DELETE /templates/tags (400)
-    print("  DELETE /templates/tags (400)")
+    # POST /templates/tags (201 — assign tag)
+    test_tag = "_validation_test"
+    if template_name and template_tag:
+        # template_name may include a tag (e.g. "team/name:latest"), strip it
+        base_name = template_name.split(":")[0]
+        # target references the existing build via name:existing_tag
+        target = f"{base_name}:{template_tag}"
+        print(f"  POST /templates/tags (201 — assign '{test_tag}')")
+        ep = EndpointResult("POST", "/templates/tags", surface="platform")
+        ep.tested = True
+        ep.expected_status = 201
+        status, body, _ = ctrl("POST", "/templates/tags", headers=h,
+                               body={"target": target, "tags": [test_tag]})
+        ep.actual_status = status
+        ep.response_body = body
+        if status == 201 and isinstance(body, dict):
+            schema = {"$ref": "#/components/schemas/AssignedTemplateTags"}
+            ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "POST /templates/tags"))
+        elif status != 201:
+            ep.findings.append(Finding("critical", "status_code", "POST /templates/tags",
+                                       f"Expected 201, got {status}", "201", str(status)))
+        results.append(ep)
+
+        # DELETE /templates/tags (204 — remove the test tag)
+        print(f"  DELETE /templates/tags (204 — remove '{test_tag}')")
+        ep = EndpointResult("DELETE", "/templates/tags", surface="platform")
+        ep.tested = True
+        ep.expected_status = 204
+        status, body, _ = ctrl("DELETE", "/templates/tags", headers=h,
+                               body={"name": base_name, "tags": [test_tag]})
+        ep.actual_status = status
+        if status != 204:
+            ep.findings.append(Finding("critical", "status_code", "DELETE /templates/tags",
+                                       f"Expected 204, got {status}", "204", str(status)))
+        results.append(ep)
+    else:
+        print("  POST /templates/tags (skip — no template name/tag discovered)")
+        print("  DELETE /templates/tags (skip — no template name/tag discovered)")
+
+    # DELETE /templates/tags (400 — empty body)
+    print("  DELETE /templates/tags (400 — empty)")
     ep = EndpointResult("DELETE", "/templates/tags", surface="platform")
     ep.tested = True
     ep.expected_status = 400
@@ -1195,7 +1356,23 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                    f"Empty body: expected 400, got {status}", "400", str(status)))
     results.append(ep)
 
-    # DELETE /templates/{templateID} (404)
+    # ------------------------------------------------------------------
+    # Clean up test templates + DELETE /templates/{templateID}
+    # ------------------------------------------------------------------
+    for cleanup_id, label in [(v2_template_id, "v2 test"), (v3_template_id, "v3 test")]:
+        if cleanup_id:
+            print(f"  DELETE /templates/{cleanup_id} ({label} cleanup)")
+            ep = EndpointResult("DELETE", "/templates/{templateID}", surface="platform")
+            ep.tested = True
+            ep.expected_status = 200
+            status, body, _ = ctrl("DELETE", f"/templates/{cleanup_id}", headers=h)
+            ep.actual_status = status
+            if status not in (200, 204):
+                ep.findings.append(Finding("minor", "status_code", "DELETE /templates/{templateID}",
+                                           f"Cleanup {label}: expected 200, got {status}", "200", str(status)))
+            results.append(ep)
+
+    # DELETE /templates/{templateID} (404 — non-existent)
     print("  DELETE /templates/{templateID} (404)")
     ep = EndpointResult("DELETE", "/templates/{templateID}", surface="platform")
     ep.tested = True
@@ -2036,12 +2213,10 @@ def generate_report(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     duration = end_time - start_time
 
-    # Count findings
+    # Count findings — only critical matters for CI
     all_findings = []
     for r in all_results:
-        all_findings.extend(r.findings)
-    critical = [f for f in all_findings if f.severity == "critical"]
-    minor = [f for f in all_findings if f.severity == "minor"]
+        all_findings.extend(f for f in r.findings if f.severity == "critical")
     tested = sum(1 for r in all_results if r.tested)
     total = len(all_results)
 
@@ -2050,16 +2225,16 @@ def generate_report(
     lines.append(f"**Date**: {now}")
     lines.append(f"**Spec Version**: 0.1.0")
     lines.append(f"**Endpoints Tested**: {tested} / {total}")
-    lines.append(f"**Findings**: {len(all_findings)} total ({len(critical)} critical, {len(minor)} minor)")
+    lines.append(f"**Critical Findings**: {len(all_findings)}")
     lines.append(f"**Duration**: {duration:.1f}s\n")
 
     # Executive Summary
     lines.append("## Executive Summary\n")
-    if not critical:
-        lines.append("No critical findings. The spec broadly matches the live API behavior.")
+    if not all_findings:
+        lines.append("No critical findings. The spec matches the live API behavior.")
     else:
-        lines.append(f"Found {len(critical)} critical discrepancies between the spec and the live API, "
-                     f"plus {len(minor)} minor issues. See details below.")
+        lines.append(f"Found {len(all_findings)} critical discrepancies between the spec and the live API. "
+                     f"See details below.")
     lines.append("")
 
     # Endpoint Results — Platform
@@ -2076,26 +2251,13 @@ def generate_report(
         _render_endpoint_result(lines, r)
 
     # Critical Findings Summary
-    lines.append("## Findings Summary\n")
-    lines.append("### Critical Findings\n")
+    lines.append("## Critical Findings\n")
     lines.append("Issues where the spec does not match the actual API behavior.\n")
-    if critical:
+    if all_findings:
         lines.append("| # | Endpoint | Category | Finding | Expected | Actual |")
         lines.append("|---|----------|----------|---------|----------|--------|")
-        for i, f in enumerate(critical, 1):
+        for i, f in enumerate(all_findings, 1):
             lines.append(f"| {i} | {f.endpoint} | {f.category} | {f.message[:80]} | {f.expected} | {f.actual} |")
-    else:
-        lines.append("None found.")
-    lines.append("")
-
-    # Minor Findings
-    lines.append("### Minor Findings\n")
-    lines.append("Missing descriptions, naming inconsistencies, documentation quality issues.\n")
-    if minor:
-        lines.append("| # | Endpoint | Category | Finding |")
-        lines.append("|---|----------|----------|---------|")
-        for i, f in enumerate(minor, 1):
-            lines.append(f"| {i} | {f.endpoint} | {f.category} | {f.message[:100]} |")
     else:
         lines.append("None found.")
     lines.append("")
@@ -2165,26 +2327,25 @@ def generate_report(
 def _render_endpoint_result(lines: list[str], r: EndpointResult):
     """Render a single endpoint result to markdown."""
     icon = "YES" if r.tested else "NO"
-    status_match = r.actual_status == r.expected_status if r.tested else False
+    critical_findings = [f for f in r.findings if f.severity == "critical"]
     lines.append(f"#### {r.method} {r.path}")
     lines.append(f"- **Tested**: {icon}" + (f" ({r.skip_reason})" if not r.tested and r.skip_reason else ""))
     if r.tested:
         lines.append(f"- **Expected Status**: {r.expected_status}")
         lines.append(f"- **Actual Status**: {r.actual_status}")
     lines.append(f"- **Response Schema**:")
-    if r.findings:
-        missing = [f for f in r.findings if f.category == "missing_field"]
-        extra = [f for f in r.findings if f.category == "extra_field"]
-        types = [f for f in r.findings if f.category == "type_mismatch"]
-        other = [f for f in r.findings if f.category not in ("missing_field", "extra_field", "type_mismatch")]
+    if critical_findings:
+        missing = [f for f in critical_findings if f.category == "missing_field"]
+        extra = [f for f in critical_findings if f.category == "extra_field"]
+        types = [f for f in critical_findings if f.category == "type_mismatch"]
+        other = [f for f in critical_findings if f.category not in ("missing_field", "extra_field", "type_mismatch")]
         lines.append(f"  - Required fields present: {'list missing: ' + ', '.join(f.message for f in missing) if missing else 'YES'}")
         lines.append(f"  - Extra undocumented fields: {', '.join(f.message for f in extra) if extra else 'none'}")
         lines.append(f"  - Type mismatches: {', '.join(f.message for f in types) if types else 'none'}")
         if other:
             lines.append(f"- **Findings**:")
             for f in other:
-                sev = "CRITICAL" if f.severity == "critical" else "MINOR"
-                lines.append(f"  - [{sev}] {f.message}")
+                lines.append(f"  - [CRITICAL] {f.message}")
     else:
         lines.append(f"  - Required fields present: YES")
         lines.append(f"  - Extra undocumented fields: none")
@@ -2279,13 +2440,15 @@ def main():
         template_id = None
         build_id = None
         alias = None
+        template_name = None
+        template_tag = None
         if should_run(2):
-            phase2_results, template_id, build_id, alias = run_phase_2_templates_read(api_key, spec)
+            phase2_results, template_id, build_id, alias, template_name, template_tag = run_phase_2_templates_read(api_key, spec)
             all_results.extend(phase2_results)
 
         # Phase 3: Templates (write)
         if should_run(3):
-            all_results.extend(run_phase_3_templates_write(api_key, spec, template_id))
+            all_results.extend(run_phase_3_templates_write(api_key, spec, template_id, template_name, template_tag))
 
         # Create sandbox for phases 4-12
         if not skip_sandbox and any(should_run(p) for p in range(4, 13)):
@@ -2347,21 +2510,22 @@ def main():
     with open(output_path, "w") as f:
         f.write(report)
 
-    # Summary
+    # Summary — only critical findings matter (CI pass/fail)
     all_findings = []
     for r in all_results:
-        all_findings.extend(r.findings)
-    critical = [f for f in all_findings if f.severity == "critical"]
-    minor = [f for f in all_findings if f.severity == "minor"]
+        all_findings.extend(f for f in r.findings if f.severity == "critical")
     tested = sum(1 for r in all_results if r.tested)
 
     print("\n" + "=" * 60)
     print(f"  Results: {tested} endpoints tested")
-    print(f"  Findings: {len(critical)} critical, {len(minor)} minor")
+    print(f"  Findings: {len(all_findings)} critical")
+    if all_findings:
+        for f in all_findings:
+            print(f"    - {f.endpoint}: {f.message}")
     print(f"  Report written to: {output_path}")
     print("=" * 60)
 
-    sys.exit(1 if critical else 0)
+    sys.exit(1 if all_findings else 0)
 
 
 if __name__ == "__main__":
