@@ -1241,13 +1241,16 @@ def rename_and_reorder_tags(spec: dict[str, Any]) -> None:
     }
     TAG_ORDER = ["Sandboxes", "Templates", "Filesystem", "Process", "Tags", "Teams", "Others"]
 
-    # Rename tags on all operations
+    # Rename tags on all operations; tag untagged ones as "Others"
     for path_item in spec.get("paths", {}).values():
         for method in ("get", "post", "put", "patch", "delete", "head", "options"):
             op = path_item.get(method)
-            if not op or "tags" not in op:
+            if not op:
                 continue
-            op["tags"] = [TAG_RENAME.get(t, t) for t in op["tags"]]
+            if "tags" not in op:
+                op["tags"] = ["Others"]
+            else:
+                op["tags"] = [TAG_RENAME.get(t, t) for t in op["tags"]]
 
     # Rebuild the top-level tags list in the desired order
     spec["tags"] = [{"name": t} for t in TAG_ORDER]

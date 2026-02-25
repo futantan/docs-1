@@ -1737,6 +1737,42 @@ paths:
       - Others
     servers:
     - *id005
+  /metrics:
+    get:
+      summary: Get the stats of the service
+      security:
+      - *id004
+      responses:
+        '200':
+          description: The resource usage metrics of the service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '502': *id003
+      operationId: getMetrics
+      tags:
+      - Others
+    servers:
+    - *id005
+  /envs:
+    get:
+      summary: Get the environment variables
+      security:
+      - *id004
+      responses:
+        '200':
+          description: Environment variables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvVars'
+        '502': *id003
+      operationId: getEnvVars
+      tags:
+      - Others
+    servers:
+    - *id005
   /files:
     get:
       summary: Download a file
@@ -1789,38 +1825,6 @@ paths:
           $ref: '#/components/responses/NotEnoughDiskSpace'
         '502': *id003
       operationId: uploadFile
-    servers:
-    - *id005
-  /metrics:
-    get:
-      summary: Get the stats of the service
-      security:
-      - *id004
-      responses:
-        '200':
-          description: The resource usage metrics of the service
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Metrics'
-        '502': *id003
-      operationId: getMetrics
-    servers:
-    - *id005
-  /envs:
-    get:
-      summary: Get the environment variables
-      security:
-      - *id004
-      responses:
-        '200':
-          description: Environment variables
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvVars'
-        '502': *id003
-      operationId: getEnvVars
     servers:
     - *id005
 components:
