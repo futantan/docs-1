@@ -1062,6 +1062,56 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             json_media["example"] = example
     fixes.append("Error responses: added per-status example values")
 
+    # 26. Add short summary fields to platform endpoints for Mintlify sidebar names
+    SUMMARIES: dict[tuple[str, str], str] = {
+        # Sandboxes
+        ("/sandboxes", "get"): "List sandboxes",
+        ("/sandboxes", "post"): "Create sandbox",
+        ("/v2/sandboxes", "get"): "List sandboxes (v2)",
+        ("/sandboxes/metrics", "get"): "List sandbox metrics",
+        ("/sandboxes/{sandboxID}/logs", "get"): "Get sandbox logs",
+        ("/sandboxes/{sandboxID}", "get"): "Get sandbox",
+        ("/sandboxes/{sandboxID}", "delete"): "Delete sandbox",
+        ("/sandboxes/{sandboxID}/metrics", "get"): "Get sandbox metrics",
+        ("/sandboxes/{sandboxID}/pause", "post"): "Pause sandbox",
+        ("/sandboxes/{sandboxID}/resume", "post"): "Resume sandbox",
+        ("/sandboxes/{sandboxID}/connect", "post"): "Connect to sandbox",
+        ("/sandboxes/{sandboxID}/timeout", "post"): "Set sandbox timeout",
+        ("/sandboxes/{sandboxID}/refreshes", "post"): "Refresh sandbox",
+        # Templates
+        ("/v3/templates", "post"): "Create template (v3)",
+        ("/v2/templates", "post"): "Create template (v2)",
+        ("/templates/{templateID}/files/{hash}", "get"): "Get build upload link",
+        ("/templates", "get"): "List templates",
+        ("/templates", "post"): "Create template",
+        ("/templates/{templateID}", "get"): "Get template",
+        ("/templates/{templateID}", "post"): "Rebuild template",
+        ("/templates/{templateID}", "delete"): "Delete template",
+        ("/templates/{templateID}", "patch"): "Update template",
+        ("/templates/{templateID}/builds/{buildID}", "post"): "Start build",
+        ("/v2/templates/{templateID}/builds/{buildID}", "post"): "Start build (v2)",
+        ("/v2/templates/{templateID}", "patch"): "Update template (v2)",
+        ("/templates/{templateID}/builds/{buildID}/status", "get"): "Get build status",
+        ("/templates/{templateID}/builds/{buildID}/logs", "get"): "Get build logs",
+        ("/templates/aliases/{alias}", "get"): "Get template by alias",
+        # Tags
+        ("/templates/tags", "post"): "Assign tags",
+        ("/templates/tags", "delete"): "Delete tags",
+        ("/templates/{templateID}/tags", "get"): "List template tags",
+        # Teams
+        ("/teams", "get"): "List teams",
+        ("/teams/{teamID}/metrics", "get"): "Get team metrics",
+        ("/teams/{teamID}/metrics/max", "get"): "Get team metrics max",
+    }
+    summary_count = 0
+    for (path_str, method), summary in SUMMARIES.items():
+        op = paths.get(path_str, {}).get(method)
+        if op:
+            op["summary"] = summary
+            summary_count += 1
+    if summary_count:
+        fixes.append(f"Added summary to {summary_count} platform endpoints")
+
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
         for f in fixes:

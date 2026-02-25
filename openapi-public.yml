@@ -41,6 +41,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: listSandboxes
+      summary: List sandboxes
     post:
       description: Create a sandbox from the template
       tags:
@@ -67,6 +68,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxes
+      summary: Create sandbox
     servers:
     - *id001
   /v2/sandboxes:
@@ -113,6 +115,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: listSandboxesV2
+      summary: List sandboxes (v2)
     servers:
     - *id001
   /sandboxes/metrics:
@@ -148,6 +151,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: listSandboxesMetrics
+      summary: List sandbox metrics
     servers:
     - *id001
   /sandboxes/{sandboxID}/logs:
@@ -189,6 +193,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getSandboxLogs
+      summary: Get sandbox logs
     servers:
     - *id001
   /sandboxes/{sandboxID}:
@@ -214,6 +219,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getSandbox
+      summary: Get sandbox
     delete:
       description: Kill a sandbox
       tags:
@@ -232,6 +238,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: deleteSandbox
+      summary: Delete sandbox
     servers:
     - *id001
   /sandboxes/{sandboxID}/metrics:
@@ -277,6 +284,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getSandboxMetrics
+      summary: Get sandbox metrics
     servers:
     - *id001
   /sandboxes/{sandboxID}/pause:
@@ -300,6 +308,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxPause
+      summary: Pause sandbox
     servers:
     - *id001
   /sandboxes/{sandboxID}/resume:
@@ -334,6 +343,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxResume
+      summary: Resume sandbox
     servers:
     - *id001
   /sandboxes/{sandboxID}/connect:
@@ -374,6 +384,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxConnect
+      summary: Connect to sandbox
     servers:
     - *id001
   /sandboxes/{sandboxID}/timeout:
@@ -412,6 +423,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxTimeout
+      summary: Set sandbox timeout
     servers:
     - *id001
   /sandboxes/{sandboxID}/refreshes:
@@ -445,6 +457,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postSandboxRefreshes
+      summary: Refresh sandbox
     servers:
     - *id001
   /v3/templates:
@@ -474,6 +487,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplatesV3
+      summary: Create template (v3)
     servers:
     - *id001
   /v2/templates:
@@ -504,6 +518,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplatesV2
+      summary: Create template (v2)
     servers:
     - *id001
   /templates/{templateID}/files/{hash}:
@@ -538,6 +553,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TemplateBuildFileUpload'
       operationId: getTemplateFile
+      summary: Get build upload link
     servers:
     - *id001
   /templates:
@@ -570,6 +586,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: listTemplates
+      summary: List templates
     post:
       description: Create a new template
       deprecated: true
@@ -597,6 +614,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplates
+      summary: Create template
     servers:
     - *id001
   /templates/{templateID}:
@@ -622,6 +640,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTemplate
+      summary: Get template
     post:
       description: Rebuild an template
       deprecated: true
@@ -649,6 +668,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplate
+      summary: Rebuild template
     delete:
       description: Delete a template
       tags:
@@ -666,6 +686,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: deleteTemplate
+      summary: Delete template
     patch:
       description: Update template
       deprecated: true
@@ -696,6 +717,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: patchTemplate
+      summary: Update template
     servers:
     - *id001
   /templates/{templateID}/builds/{buildID}:
@@ -722,6 +744,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplateBuild
+      summary: Start build
     servers:
     - *id001
   /v2/templates/{templateID}/builds/{buildID}:
@@ -749,6 +772,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplateBuildV2
+      summary: Start build (v2)
     servers:
     - *id001
   /v2/templates/{templateID}:
@@ -781,6 +805,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: patchTemplateV2
+      summary: Update template (v2)
     servers:
     - *id001
   /templates/{templateID}/builds/{buildID}/status:
@@ -830,6 +855,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTemplateBuildStatus
+      summary: Get build status
     servers:
     - *id001
   /templates/{templateID}/builds/{buildID}/logs:
@@ -886,6 +912,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTemplateBuildLogs
+      summary: Get build logs
     servers:
     - *id001
   /templates/aliases/{alias}:
@@ -918,6 +945,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTemplatesAlias
+      summary: Get template by alias
     servers:
     - *id001
   /filesystem.Filesystem/CreateWatcher:
@@ -1548,6 +1576,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplatesTags
+      summary: Assign tags
     delete:
       description: Delete multiple tags from templates
       tags:
@@ -1572,6 +1601,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: deleteTemplatesTags
+      summary: Delete tags
     servers:
     - *id001
   /templates/{templateID}/tags:
@@ -1601,6 +1631,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTemplateTags
+      summary: List template tags
     servers:
     - *id001
   /teams:
@@ -1625,6 +1656,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: listTeams
+      summary: List teams
     servers:
     - *id001
   /teams/{teamID}/metrics:
@@ -1670,6 +1702,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTeamMetrics
+      summary: Get team metrics
     servers:
     - *id001
   /teams/{teamID}/metrics/max:
@@ -1722,6 +1755,7 @@ paths:
         '500':
           $ref: '#/components/responses/500'
       operationId: getTeamMetricsMax
+      summary: Get team metrics max
     servers:
     - *id001
   /health:
