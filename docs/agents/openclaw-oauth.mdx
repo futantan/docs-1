@@ -6,11 +6,11 @@ icon: "key"
 
 OpenClaw can authenticate with OpenAI Codex via OAuth instead of an API key.
 
-This page uses a PTY-first flow, which works on raw OpenClaw sandboxes even when setup API endpoints are unavailable.
+This page uses a PTY-first flow, which works on raw OpenClaw sandboxes.
 
 ## Prerequisites
 
-- Local app/notebook with E2B SDK installed (Python or JavaScript).
+- App started from setup.
 - `E2B_API_KEY` in your local environment.
 - OpenAI account with Codex access.
 
@@ -251,19 +251,6 @@ sandbox.kill()
 await sandbox.kill()
 ```
 </CodeGroup>
-
-## Troubleshooting
-
-- PTY output looks noisy or has many `\x1b[...]` codes
-  - Expected for terminal apps; clean ANSI before regex matching.
-- Callback appears typed character-by-character
-  - Normal for this prompt renderer.
-- Callback submitted but no OAuth profile appears
-  - Ensure callback `state` matches the latest auth URL from this run.
-- `No API key found for provider "openai-codex"` on smoke test
-  - OAuth did not link; verify `openai_codex_oauth_linked=true` before agent calls.
-- PTY onboarding hangs or behaves oddly
-  - Do not pass `cwd=` to `sandbox.pty.create(...)` in this flow.
 
 ## Optional: reset and relink OAuth
 

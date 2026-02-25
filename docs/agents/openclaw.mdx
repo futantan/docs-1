@@ -382,52 +382,6 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Launch the gateway
-
-OpenClaw has a built-in [web UI and chat interface](https://openclaw.ai) served by its gateway. Start it inside a sandbox and connect from your browser.
-
-<Warning>
-This sandbox is created with a 10-minute timeout and auto-pause enabled — after 10 minutes of inactivity it pauses and can be resumed later. See [Sandbox Persistence](/docs/sandbox/persistence) and [Sandbox Lifecycle](/docs/sandbox) for more details.
-</Warning>
-
-<CodeGroup>
-```typescript JavaScript & TypeScript
-import { Sandbox } from 'e2b'
-
-const sandbox = await Sandbox.betaCreate('openclaw', {
-  envs: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
-  autoPause: true,
-  timeoutMs: 10 * 60 * 1000,
-})
-
-// Start the gateway
-sandbox.commands.run('openclaw gateway --port 18789 --verbose')
-
-const host = sandbox.getHost(18789)
-const url = `https://${host}`
-console.log(`OpenClaw Gateway: ${url}`)
-console.log(`Sandbox ID: ${sandbox.sandboxId}`)
-```
-```python Python
-import os
-from e2b import Sandbox
-
-sandbox = Sandbox.beta_create("openclaw", envs={
-    "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
-}, auto_pause=True, timeout=10 * 60)
-
-# Start the gateway
-sandbox.commands.run("openclaw gateway --port 18789 --verbose")
-
-host = sandbox.get_host(18789)
-url = f"https://{host}"
-print(f"OpenClaw Gateway: {url}")
-print(f"Sandbox ID: {sandbox.sandbox_id}")
-```
-</CodeGroup>
-
-For a complete example with token auth, device pairing, and browser auto-approval, see [OpenClaw Gateway](/docs/agents/openclaw-gateway).
-
 ## Build a custom template
 
 If you need to customize the environment (e.g. pre-install dependencies, add config files), build your own template on top of the pre-built `openclaw` template.
