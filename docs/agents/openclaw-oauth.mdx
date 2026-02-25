@@ -1,0 +1,210 @@
+---
+title: "OpenClaw Codex OAuth"
+description: "Set up OpenAI Codex OAuth for OpenClaw in an E2B sandbox using the setup UI or programmatically."
+icon: "/images/icons/openclaw.svg"
+---
+
+OpenClaw can authenticate with OpenAI Codex via OAuth instead of a plain API key. This gives access to `openai-codex/gpt-5.2-codex` and other Codex models through OpenAI's OAuth flow.
+
+The OAuth flow is localhost-based — OpenClaw starts an onboarding process that produces an authorization URL, you complete sign-in in your browser, then the callback is forwarded back to the sandbox.
+
+This guide covers two approaches:
+
+1. **Setup UI** — use the web UI hosted in the sandbox.
+2. **Programmatic** — drive the flow entirely from SDK calls.
+
+## Prerequisites
+
+- An OpenAI account with Codex access.
+- E2B API key configured locally.
+- A running OpenClaw sandbox (see [OpenClaw](/docs/agents/openclaw)).
+
+## Setup UI flow
+
+If you've bootstrapped a sandbox with the setup UI (via `setup_openclaw_sandbox.py` or similar), OAuth is built in.
+
+1. Open the setup URL: `https://<ui-host>/setup?token=<token>`.
+2. Click **Connect OpenAI Codex**.
+3. Wait for **OAuth URL ready** in the log panel.
+4. Open that URL in your browser and complete sign-in.
+5. Your browser will redirect to `http://localhost:1455/auth/callback?code=...&state=...`. Copy the full URL from the address bar.
+6. Paste into the callback field and click **Submit Callback**.
+7. Confirm status shows `oauth linked for openai-codex`.
+
+<Info>
+The localhost redirect is expected — OpenClaw's Codex OAuth is localhost-based. The setup UI captures that URL and forwards it into the sandbox.
+</Info>
+
+## Programmatic flow
+
+You can drive the OAuth flow without the setup UI by calling `openclaw onboard` directly and handling the callback.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const TOKEN = process.env.OPENCLAW_APP_TOKEN || 'my-openclaw-token'
+const PORT = 18789
+
+const sandbox = await Sandbox.create('openclaw', {
+  timeoutMs: 3600_000,
+})
+
+// Start the onboard flow for Codex OAuth
+const onboard = await sandbox.commands.run(
+  'openclaw onboard --accept-risk --flow quickstart --mode local --auth-choice openai-codex --skip-ui --skip-channels --skip-skills --skip-health',
+  { background: true, onStdout: (data) => process.stdout.write(data) }
+)
+
+// The process will print an authorization URL containing "oauth/authorize".
+// Open that URL in your browser, sign in, and copy the localhost callback URL.
+// Then submit it:
+
+const CALLBACK_URL = 'http://localhost:1455/auth/callback?code=...&state=...' // from browser
+
+await sandbox.files.write('/tmp/openclaw_oauth_input.txt', CALLBACK_URL)
+
+// Wait for the onboard process to finish
+await onboard.wait()
+
+// Verify OAuth is configured
+const check = await sandbox.commands.run(
+  'cat /home/user/.openclaw/agents/main/agent/auth-profiles.json'
+)
+console.log(check.stdout)
+
+// Set the default model to Codex
+await sandbox.commands.run(
+  'openclaw config set agents.defaults.model.primary openai-codex/gpt-5.2-codex'
+)
+```
+```python Python
+import os
+from e2b import Sandbox
+
+TOKEN = os.environ.get("OPENCLAW_APP_TOKEN", "my-openclaw-token")
+PORT = 18789
+
+sandbox = Sandbox.create("openclaw", timeout=3600)
+
+# Start the onboard flow for Codex OAuth
+onboard = sandbox.commands.run(
+    "openclaw onboard --accept-risk --flow quickstart --mode local "
+    "--auth-choice openai-codex --skip-ui --skip-channels --skip-skills --skip-health",
+    background=True,
+    on_stdout=lambda data: print(data, end=""),
+)
+
+# The process will print an authorization URL containing "oauth/authorize".
+# Open that URL in your browser, sign in, and copy the localhost callback URL.
+# Then submit it:
+
+CALLBACK_URL = "http://localhost:1455/auth/callback?code=...&state=..."  # from browser
+
+sandbox.files.write("/tmp/openclaw_oauth_input.txt", CALLBACK_URL)
+
+# Wait for the onboard process to finish
+onboard.wait()
+
+# Verify OAuth is configured
+check = sandbox.commands.run(
+    "cat /home/user/.openclaw/agents/main/agent/auth-profiles.json"
+)
+print(check.stdout)
+
+# Set the default model to Codex
+sandbox.commands.run(
+    "openclaw config set agents.defaults.model.primary openai-codex/gpt-5.2-codex"
+)
+```
+</CodeGroup>
+
+## Check OAuth status
+
+If using the setup UI, you can check status via the API:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const status = await sandbox.commands.run(
+  `curl -fsSL "http://127.0.0.1:8080/api/oauth/status?token=${TOKEN}"`
+)
+const data = JSON.parse(status.stdout)
+console.log(data)
+// { running: false, has_openai_codex_oauth: true, provider: 'openai-codex', ... }
+```
+```python Python
+import json
+
+status = sandbox.commands.run(
+    f'curl -fsSL "http://127.0.0.1:8080/api/oauth/status?token={TOKEN}"'
+)
+data = json.loads(status.stdout)
+print(data)
+# {"running": false, "has_openai_codex_oauth": true, "provider": "openai-codex", ...}
+```
+</CodeGroup>
+
+Or check the auth profiles file directly:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const profiles = await sandbox.commands.run(
+  'cat /home/user/.openclaw/agents/main/agent/auth-profiles.json'
+)
+console.log(profiles.stdout)
+```
+```python Python
+profiles = sandbox.commands.run(
+    "cat /home/user/.openclaw/agents/main/agent/auth-profiles.json"
+)
+print(profiles.stdout)
+```
+</CodeGroup>
+
+## Reset OAuth
+
+To clear existing OAuth credentials and re-link:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+// Via setup UI API
+await sandbox.commands.run(
+  `curl -X POST "http://127.0.0.1:8080/api/oauth/reset?token=${TOKEN}"`
+)
+
+// Then start the connect flow again from the setup UI
+```
+```python Python
+# Via setup UI API
+sandbox.commands.run(
+    f'curl -X POST "http://127.0.0.1:8080/api/oauth/reset?token={TOKEN}"'
+)
+
+# Then start the connect flow again from the setup UI
+```
+</CodeGroup>
+
+## Troubleshooting
+
+- `oauth_login_not_running`
+  - The callback was submitted after the onboard process ended. Start a fresh connect flow.
+- `oauth_state_mismatch`
+  - The callback URL has a `state` parameter from an older auth URL. Use the latest auth URL from the current session.
+- `Failed to bind ... 1455 (EADDRINUSE)`
+  - OpenClaw falls back to manual paste mode — this is expected and still works. Copy the callback URL from your browser and submit it.
+- Popup blocked in browser
+  - Copy the auth URL from the log panel and paste it into a new tab manually.
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="OpenClaw gateway" icon="globe" href="/docs/agents/openclaw-gateway">
+    Run OpenClaw's web gateway with token auth
+  </Card>
+  <Card title="OpenClaw Telegram" icon="message-circle" href="/docs/agents/openclaw-telegram">
+    Connect OpenClaw to Telegram and approve pairing
+  </Card>
+  <Card title="OpenClaw agent" icon="terminal" href="/docs/agents/openclaw">
+    Run OpenClaw headless in a sandbox
+  </Card>
+</CardGroup>
