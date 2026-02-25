@@ -5,829 +5,10 @@ info:
   description: Complete E2B developer API. Platform endpoints are served on api.e2b.app.
     Sandbox endpoints (envd) are served on {port}-{sandboxID}.e2b.app.
 servers:
-- &id006
+- &id001
   url: https://api.e2b.app
   description: E2B Platform API
 paths:
-  /health:
-    get:
-      summary: Check the health of the service
-      responses:
-        '204':
-          description: The service is healthy
-        '502': &id001
-          description: Sandbox not found
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - sandboxID
-                - message
-                - code
-                properties:
-                  message:
-                    type: string
-                    description: Error message
-                    example: The sandbox was not found
-                  code:
-                    type: integer
-                    description: Error code
-                    example: 502
-                  sandboxID:
-                    type: string
-                    description: Identifier of the sandbox
-                    example: i1234abcd5678efgh90jk
-      operationId: getHealth
-      security: []
-      tags:
-      - Others
-    servers:
-    - &id002
-      url: https://{port}-{sandboxID}.e2b.app
-      description: Sandbox API (envd) — runs inside each sandbox
-      variables:
-        port:
-          default: '49983'
-          description: Port number
-        sandboxID:
-          default: $SANDBOX_ID
-          description: Sandbox identifier
-  /metrics:
-    get:
-      summary: Get the stats of the service
-      security:
-      - &id003
-        SandboxAccessTokenAuth: []
-      responses:
-        '200':
-          description: The resource usage metrics of the service
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Metrics'
-        '502': *id001
-      operationId: getMetrics
-    servers:
-    - *id002
-  /envs:
-    get:
-      summary: Get the environment variables
-      security:
-      - *id003
-      responses:
-        '200':
-          description: Environment variables
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvVars'
-        '502': *id001
-      operationId: getEnvVars
-    servers:
-    - *id002
-  /files:
-    get:
-      summary: Download a file
-      tags:
-      - Others
-      security:
-      - *id003
-      parameters:
-      - $ref: '#/components/parameters/FilePath'
-      - $ref: '#/components/parameters/User'
-      - $ref: '#/components/parameters/Signature'
-      - $ref: '#/components/parameters/SignatureExpiration'
-      responses:
-        '200':
-          $ref: '#/components/responses/DownloadSuccess'
-        '401':
-          $ref: '#/components/responses/InvalidUser'
-        '400':
-          $ref: '#/components/responses/InvalidPath'
-        '404':
-          $ref: '#/components/responses/FileNotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '502': *id001
-      operationId: downloadFile
-    post:
-      summary: Upload a file and ensure the parent directories exist. If the file
-        exists, it will be overwritten.
-      tags:
-      - Others
-      security:
-      - *id003
-      parameters:
-      - $ref: '#/components/parameters/FilePath'
-      - $ref: '#/components/parameters/User'
-      - $ref: '#/components/parameters/Signature'
-      - $ref: '#/components/parameters/SignatureExpiration'
-      requestBody:
-        $ref: '#/components/requestBodies/File'
-      responses:
-        '200':
-          $ref: '#/components/responses/UploadSuccess'
-        '400':
-          $ref: '#/components/responses/InvalidPath'
-        '401':
-          $ref: '#/components/responses/InvalidUser'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '507':
-          $ref: '#/components/responses/NotEnoughDiskSpace'
-        '502': *id001
-      operationId: uploadFile
-    servers:
-    - *id002
-  /filesystem.Filesystem/CreateWatcher:
-    post:
-      tags:
-      - Filesystem
-      summary: CreateWatcher
-      description: Non-streaming versions of WatchDir
-      operationId: filesystem.Filesystem.CreateWatcher
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.CreateWatcherRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/GetWatcherEvents:
-    post:
-      tags:
-      - Filesystem
-      summary: GetWatcherEvents
-      operationId: filesystem.Filesystem.GetWatcherEvents
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.GetWatcherEventsRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/ListDir:
-    post:
-      tags:
-      - Filesystem
-      summary: ListDir
-      operationId: filesystem.Filesystem.ListDir
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.ListDirRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.ListDirResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/MakeDir:
-    post:
-      tags:
-      - Filesystem
-      summary: MakeDir
-      operationId: filesystem.Filesystem.MakeDir
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.MakeDirRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.MakeDirResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/Move:
-    post:
-      tags:
-      - Filesystem
-      summary: Move
-      operationId: filesystem.Filesystem.Move
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.MoveRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.MoveResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/Remove:
-    post:
-      tags:
-      - Filesystem
-      summary: Remove
-      operationId: filesystem.Filesystem.Remove
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.RemoveRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.RemoveResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/RemoveWatcher:
-    post:
-      tags:
-      - Filesystem
-      summary: RemoveWatcher
-      operationId: filesystem.Filesystem.RemoveWatcher
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.RemoveWatcherRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/Stat:
-    post:
-      tags:
-      - Filesystem
-      summary: Stat
-      operationId: filesystem.Filesystem.Stat
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/filesystem.StatRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/filesystem.StatResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /filesystem.Filesystem/WatchDir:
-    post:
-      tags:
-      - Filesystem
-      summary: WatchDir
-      description: Server-streaming RPC. Use the Connect protocol with streaming support.
-      operationId: filesystem.Filesystem.WatchDir
-      requestBody:
-        content:
-          application/connect+json:
-            schema:
-              $ref: '#/components/schemas/filesystem.WatchDirRequest'
-        required: true
-      responses:
-        '200':
-          description: Stream of WatchDirResponse events
-          content:
-            application/connect+json:
-              schema:
-                $ref: '#/components/schemas/filesystem.WatchDirResponse'
-        '502': *id001
-      security:
-      - *id003
-      parameters:
-      - &id004
-        name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - &id005
-        name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-    servers:
-    - *id002
-  /process.Process/CloseStdin:
-    post:
-      tags:
-      - Process
-      summary: CloseStdin
-      description: "Close stdin to signal EOF to the process.\n Only works for non-PTY\
-        \ processes. For PTY, send Ctrl+D (0x04) instead."
-      operationId: process.Process.CloseStdin
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/process.CloseStdinRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/process.CloseStdinResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /process.Process/Connect:
-    post:
-      tags:
-      - Process
-      summary: Connect
-      description: Server-streaming RPC. Use the Connect protocol with streaming support.
-      operationId: process.Process.Connect
-      requestBody:
-        content:
-          application/connect+json:
-            schema:
-              $ref: '#/components/schemas/process.ConnectRequest'
-        required: true
-      responses:
-        '200':
-          description: Stream of ConnectResponse events
-          content:
-            application/connect+json:
-              schema:
-                $ref: '#/components/schemas/process.ConnectResponse'
-        '502': *id001
-      security:
-      - *id003
-      parameters:
-      - *id004
-      - *id005
-    servers:
-    - *id002
-  /process.Process/List:
-    post:
-      tags:
-      - Process
-      summary: List
-      operationId: process.Process.List
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/process.ListRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/process.ListResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /process.Process/SendInput:
-    post:
-      tags:
-      - Process
-      summary: SendInput
-      operationId: process.Process.SendInput
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/process.SendInputRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/process.SendInputResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /process.Process/SendSignal:
-    post:
-      tags:
-      - Process
-      summary: SendSignal
-      operationId: process.Process.SendSignal
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/process.SendSignalRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/process.SendSignalResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /process.Process/Start:
-    post:
-      tags:
-      - Process
-      summary: Start
-      description: Server-streaming RPC. Use the Connect protocol with streaming support.
-      operationId: process.Process.Start
-      requestBody:
-        content:
-          application/connect+json:
-            schema:
-              $ref: '#/components/schemas/process.StartRequest'
-        required: true
-      responses:
-        '200':
-          description: Stream of StartResponse events
-          content:
-            application/connect+json:
-              schema:
-                $ref: '#/components/schemas/process.StartResponse'
-        '502': *id001
-      security:
-      - *id003
-      parameters:
-      - *id004
-      - *id005
-    servers:
-    - *id002
-  /process.Process/StreamInput:
-    post:
-      tags:
-      - Process
-      summary: StreamInput
-      description: Client-streaming RPC. Client input stream ensures ordering of messages.
-        Use the Connect protocol with streaming support.
-      operationId: process.Process.StreamInput
-      requestBody:
-        content:
-          application/connect+json:
-            schema:
-              $ref: '#/components/schemas/process.StreamInputRequest'
-        required: true
-      responses:
-        '200':
-          description: Stream of StreamInputResponse events
-          content:
-            application/connect+json:
-              schema:
-                $ref: '#/components/schemas/process.StreamInputResponse'
-        '502': *id001
-      security:
-      - *id003
-      parameters:
-      - *id004
-      - *id005
-    servers:
-    - *id002
-  /process.Process/Update:
-    post:
-      tags:
-      - Process
-      summary: Update
-      operationId: process.Process.Update
-      parameters:
-      - name: Connect-Protocol-Version
-        in: header
-        required: true
-        schema:
-          $ref: '#/components/schemas/connect-protocol-version'
-      - name: Connect-Timeout-Ms
-        in: header
-        schema:
-          $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/process.UpdateRequest'
-        required: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/process.UpdateResponse'
-        '502': *id001
-      security:
-      - *id003
-    servers:
-    - *id002
-  /teams:
-    get:
-      description: List all teams
-      tags:
-      - Teams
-      security:
-      - AccessTokenAuth: []
-      responses:
-        '200':
-          description: Successfully returned all teams
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  allOf:
-                  - $ref: '#/components/schemas/Team'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-      operationId: listTeams
-    servers:
-    - *id006
-  /teams/{teamID}/metrics:
-    get:
-      description: Get metrics for the team
-      tags:
-      - Teams
-      security:
-      - ApiKeyAuth: []
-      parameters:
-      - $ref: '#/components/parameters/teamID'
-      - in: query
-        name: start
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-        description: Unix timestamp for the start of the interval, in seconds, for
-          which the metrics are returned.
-      - in: query
-        name: end
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-        description: Unix timestamp for the end of the interval, in seconds, for which
-          the metrics are returned.
-      responses:
-        '200':
-          description: Successfully returned the team metrics
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TeamMetric'
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
-        '500':
-          $ref: '#/components/responses/500'
-      operationId: getTeamMetrics
-    servers:
-    - *id006
-  /teams/{teamID}/metrics/max:
-    get:
-      description: Get the maximum metrics for the team in the given interval
-      tags:
-      - Teams
-      security:
-      - ApiKeyAuth: []
-      parameters:
-      - $ref: '#/components/parameters/teamID'
-      - in: query
-        name: start
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-        description: Unix timestamp for the start of the interval, in seconds, for
-          which the metrics are returned.
-      - in: query
-        name: end
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-        description: Unix timestamp for the end of the interval, in seconds, for which
-          the metrics are returned.
-      - in: query
-        name: metric
-        required: true
-        schema:
-          type: string
-          enum:
-          - concurrent_sandboxes
-          - sandbox_start_rate
-        description: Metric to retrieve the maximum value for
-      responses:
-        '200':
-          description: Successfully returned the team metrics
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MaxTeamMetric'
-        '400':
-          $ref: '#/components/responses/400'
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
-        '500':
-          $ref: '#/components/responses/500'
-      operationId: getTeamMetricsMax
-    servers:
-    - *id006
   /sandboxes:
     get:
       description: List all running sandboxes
@@ -887,7 +68,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxes
     servers:
-    - *id006
+    - *id001
   /v2/sandboxes:
     get:
       description: List all sandboxes
@@ -933,7 +114,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: listSandboxesV2
     servers:
-    - *id006
+    - *id001
   /sandboxes/metrics:
     get:
       description: List metrics for given sandboxes
@@ -968,7 +149,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: listSandboxesMetrics
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/logs:
     get:
       description: Get sandbox logs.
@@ -1009,7 +190,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: getSandboxLogs
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}:
     get:
       description: Get a sandbox by id
@@ -1052,7 +233,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: deleteSandbox
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/metrics:
     get:
       description: Get sandbox metrics
@@ -1097,7 +278,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: getSandboxMetrics
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/pause:
     post:
       description: Pause the sandbox
@@ -1120,7 +301,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxPause
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/resume:
     post:
       deprecated: true
@@ -1154,7 +335,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxResume
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/connect:
     post:
       description: Returns sandbox details. If the sandbox is paused, it will be resumed.
@@ -1194,7 +375,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxConnect
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/timeout:
     post:
       description: Set the timeout for the sandbox. The sandbox will expire x seconds
@@ -1232,7 +413,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxTimeout
     servers:
-    - *id006
+    - *id001
   /sandboxes/{sandboxID}/refreshes:
     post:
       description: Refresh the sandbox extending its time to live
@@ -1265,7 +446,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postSandboxRefreshes
     servers:
-    - *id006
+    - *id001
   /v3/templates:
     post:
       description: Create a new template
@@ -1294,7 +475,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postTemplatesV3
     servers:
-    - *id006
+    - *id001
   /v2/templates:
     post:
       description: Create a new template
@@ -1324,7 +505,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postTemplatesV2
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}/files/{hash}:
     get:
       description: Get an upload link for a tar file containing build layer files
@@ -1358,7 +539,7 @@ paths:
                 $ref: '#/components/schemas/TemplateBuildFileUpload'
       operationId: getTemplateFile
     servers:
-    - *id006
+    - *id001
   /templates:
     get:
       description: List all templates
@@ -1417,7 +598,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postTemplates
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}:
     get:
       description: List all builds for a template
@@ -1516,7 +697,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: patchTemplate
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1531,7 +712,7 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: &id007
+          content: &id002
             application/json:
               schema:
                 type: object
@@ -1542,7 +723,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: postTemplateBuild
     servers:
-    - *id006
+    - *id001
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1562,14 +743,14 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id007
+          content: *id002
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
       operationId: postTemplateBuildV2
     servers:
-    - *id006
+    - *id001
   /v2/templates/{templateID}:
     patch:
       description: Update template
@@ -1601,7 +782,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: patchTemplateV2
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}/builds/{buildID}/status:
     get:
       description: Get template build info
@@ -1650,7 +831,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: getTemplateBuildStatus
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       description: Get template build logs
@@ -1706,7 +887,638 @@ paths:
           $ref: '#/components/responses/500'
       operationId: getTemplateBuildLogs
     servers:
-    - *id006
+    - *id001
+  /templates/aliases/{alias}:
+    get:
+      description: Check if template with given alias exists
+      tags:
+      - Templates
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: alias
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Template alias
+      responses:
+        '200':
+          description: Successfully queried template by alias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateAliasResponse'
+        '400':
+          $ref: '#/components/responses/400'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: getTemplatesAlias
+    servers:
+    - *id001
+  /filesystem.Filesystem/CreateWatcher:
+    post:
+      tags:
+      - Filesystem
+      summary: CreateWatcher
+      description: Non-streaming versions of WatchDir
+      operationId: filesystem.Filesystem.CreateWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.CreateWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.CreateWatcherResponse'
+        '502': &id003
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - sandboxID
+                - message
+                - code
+                properties:
+                  message:
+                    type: string
+                    description: Error message
+                    example: The sandbox was not found
+                  code:
+                    type: integer
+                    description: Error code
+                    example: 502
+                  sandboxID:
+                    type: string
+                    description: Identifier of the sandbox
+                    example: i1234abcd5678efgh90jk
+      security:
+      - &id004
+        SandboxAccessTokenAuth: []
+    servers:
+    - &id005
+      url: https://{port}-{sandboxID}.e2b.app
+      description: Sandbox API (envd) — runs inside each sandbox
+      variables:
+        port:
+          default: '49983'
+          description: Port number
+        sandboxID:
+          default: $SANDBOX_ID
+          description: Sandbox identifier
+  /filesystem.Filesystem/GetWatcherEvents:
+    post:
+      tags:
+      - Filesystem
+      summary: GetWatcherEvents
+      operationId: filesystem.Filesystem.GetWatcherEvents
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.GetWatcherEventsRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.GetWatcherEventsResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/ListDir:
+    post:
+      tags:
+      - Filesystem
+      summary: ListDir
+      operationId: filesystem.Filesystem.ListDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.ListDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.ListDirResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/MakeDir:
+    post:
+      tags:
+      - Filesystem
+      summary: MakeDir
+      operationId: filesystem.Filesystem.MakeDir
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MakeDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MakeDirResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/Move:
+    post:
+      tags:
+      - Filesystem
+      summary: Move
+      operationId: filesystem.Filesystem.Move
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.MoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.MoveResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/Remove:
+    post:
+      tags:
+      - Filesystem
+      summary: Remove
+      operationId: filesystem.Filesystem.Remove
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/RemoveWatcher:
+    post:
+      tags:
+      - Filesystem
+      summary: RemoveWatcher
+      operationId: filesystem.Filesystem.RemoveWatcher
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.RemoveWatcherRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.RemoveWatcherResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/Stat:
+    post:
+      tags:
+      - Filesystem
+      summary: Stat
+      operationId: filesystem.Filesystem.Stat
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/filesystem.StatRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/filesystem.StatResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /filesystem.Filesystem/WatchDir:
+    post:
+      tags:
+      - Filesystem
+      summary: WatchDir
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: filesystem.Filesystem.WatchDir
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/filesystem.WatchDirRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of WatchDirResponse events
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/filesystem.WatchDirResponse'
+        '502': *id003
+      security:
+      - *id004
+      parameters:
+      - &id006
+        name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - &id007
+        name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+    servers:
+    - *id005
+  /process.Process/CloseStdin:
+    post:
+      tags:
+      - Process
+      summary: CloseStdin
+      description: "Close stdin to signal EOF to the process.\n Only works for non-PTY\
+        \ processes. For PTY, send Ctrl+D (0x04) instead."
+      operationId: process.Process.CloseStdin
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.CloseStdinRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.CloseStdinResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /process.Process/Connect:
+    post:
+      tags:
+      - Process
+      summary: Connect
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: process.Process.Connect
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/process.ConnectRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of ConnectResponse events
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/process.ConnectResponse'
+        '502': *id003
+      security:
+      - *id004
+      parameters:
+      - *id006
+      - *id007
+    servers:
+    - *id005
+  /process.Process/List:
+    post:
+      tags:
+      - Process
+      summary: List
+      operationId: process.Process.List
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.ListRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.ListResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /process.Process/SendInput:
+    post:
+      tags:
+      - Process
+      summary: SendInput
+      operationId: process.Process.SendInput
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendInputResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /process.Process/SendSignal:
+    post:
+      tags:
+      - Process
+      summary: SendSignal
+      operationId: process.Process.SendSignal
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.SendSignalRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.SendSignalResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
+  /process.Process/Start:
+    post:
+      tags:
+      - Process
+      summary: Start
+      description: Server-streaming RPC. Use the Connect protocol with streaming support.
+      operationId: process.Process.Start
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/process.StartRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of StartResponse events
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/process.StartResponse'
+        '502': *id003
+      security:
+      - *id004
+      parameters:
+      - *id006
+      - *id007
+    servers:
+    - *id005
+  /process.Process/StreamInput:
+    post:
+      tags:
+      - Process
+      summary: StreamInput
+      description: Client-streaming RPC. Client input stream ensures ordering of messages.
+        Use the Connect protocol with streaming support.
+      operationId: process.Process.StreamInput
+      requestBody:
+        content:
+          application/connect+json:
+            schema:
+              $ref: '#/components/schemas/process.StreamInputRequest'
+        required: true
+      responses:
+        '200':
+          description: Stream of StreamInputResponse events
+          content:
+            application/connect+json:
+              schema:
+                $ref: '#/components/schemas/process.StreamInputResponse'
+        '502': *id003
+      security:
+      - *id004
+      parameters:
+      - *id006
+      - *id007
+    servers:
+    - *id005
+  /process.Process/Update:
+    post:
+      tags:
+      - Process
+      summary: Update
+      operationId: process.Process.Update
+      parameters:
+      - name: Connect-Protocol-Version
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - name: Connect-Timeout-Ms
+        in: header
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/process.UpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/process.UpdateResponse'
+        '502': *id003
+      security:
+      - *id004
+    servers:
+    - *id005
   /templates/tags:
     post:
       description: Assign tag(s) to a template build
@@ -1761,7 +1573,7 @@ paths:
           $ref: '#/components/responses/500'
       operationId: deleteTemplatesTags
     servers:
-    - *id006
+    - *id001
   /templates/{templateID}/tags:
     get:
       description: List all tags for a template
@@ -1790,39 +1602,227 @@ paths:
           $ref: '#/components/responses/500'
       operationId: getTemplateTags
     servers:
-    - *id006
-  /templates/aliases/{alias}:
+    - *id001
+  /teams:
     get:
-      description: Check if template with given alias exists
+      description: List all teams
       tags:
-      - Templates
+      - Teams
       security:
-      - ApiKeyAuth: []
-      parameters:
-      - name: alias
-        in: path
-        required: true
-        schema:
-          type: string
-          description: Template alias
+      - AccessTokenAuth: []
       responses:
         '200':
-          description: Successfully queried template by alias
+          description: Successfully returned all teams
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TemplateAliasResponse'
-        '400':
-          $ref: '#/components/responses/400'
-        '403':
-          $ref: '#/components/responses/403'
-        '404':
-          $ref: '#/components/responses/404'
+                type: array
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/Team'
+        '401':
+          $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTemplatesAlias
+      operationId: listTeams
     servers:
-    - *id006
+    - *id001
+  /teams/{teamID}/metrics:
+    get:
+      description: Get metrics for the team
+      tags:
+      - Teams
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/teamID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the start of the interval, in seconds, for
+          which the metrics are returned.
+      - in: query
+        name: end
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the end of the interval, in seconds, for which
+          the metrics are returned.
+      responses:
+        '200':
+          description: Successfully returned the team metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamMetric'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: getTeamMetrics
+    servers:
+    - *id001
+  /teams/{teamID}/metrics/max:
+    get:
+      description: Get the maximum metrics for the team in the given interval
+      tags:
+      - Teams
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/teamID'
+      - in: query
+        name: start
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the start of the interval, in seconds, for
+          which the metrics are returned.
+      - in: query
+        name: end
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+        description: Unix timestamp for the end of the interval, in seconds, for which
+          the metrics are returned.
+      - in: query
+        name: metric
+        required: true
+        schema:
+          type: string
+          enum:
+          - concurrent_sandboxes
+          - sandbox_start_rate
+        description: Metric to retrieve the maximum value for
+      responses:
+        '200':
+          description: Successfully returned the team metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaxTeamMetric'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: getTeamMetricsMax
+    servers:
+    - *id001
+  /health:
+    get:
+      summary: Check the health of the service
+      responses:
+        '204':
+          description: The service is healthy
+        '502': *id003
+      operationId: getHealth
+      security: []
+      tags:
+      - Others
+    servers:
+    - *id005
+  /files:
+    get:
+      summary: Download a file
+      tags:
+      - Others
+      security:
+      - *id004
+      parameters:
+      - $ref: '#/components/parameters/FilePath'
+      - $ref: '#/components/parameters/User'
+      - $ref: '#/components/parameters/Signature'
+      - $ref: '#/components/parameters/SignatureExpiration'
+      responses:
+        '200':
+          $ref: '#/components/responses/DownloadSuccess'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '404':
+          $ref: '#/components/responses/FileNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502': *id003
+      operationId: downloadFile
+    post:
+      summary: Upload a file and ensure the parent directories exist. If the file
+        exists, it will be overwritten.
+      tags:
+      - Others
+      security:
+      - *id004
+      parameters:
+      - $ref: '#/components/parameters/FilePath'
+      - $ref: '#/components/parameters/User'
+      - $ref: '#/components/parameters/Signature'
+      - $ref: '#/components/parameters/SignatureExpiration'
+      requestBody:
+        $ref: '#/components/requestBodies/File'
+      responses:
+        '200':
+          $ref: '#/components/responses/UploadSuccess'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '507':
+          $ref: '#/components/responses/NotEnoughDiskSpace'
+        '502': *id003
+      operationId: uploadFile
+    servers:
+    - *id005
+  /metrics:
+    get:
+      summary: Get the stats of the service
+      security:
+      - *id004
+      responses:
+        '200':
+          description: The resource usage metrics of the service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '502': *id003
+      operationId: getMetrics
+    servers:
+    - *id005
+  /envs:
+    get:
+      summary: Get the environment variables
+      security:
+      - *id004
+      responses:
+        '200':
+          description: Environment variables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvVars'
+        '502': *id003
+      operationId: getEnvVars
+    servers:
+    - *id005
 components:
   securitySchemes:
     AccessTokenAuth:

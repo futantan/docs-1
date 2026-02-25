@@ -1251,6 +1251,20 @@ def rename_and_reorder_tags(spec: dict[str, Any]) -> None:
 
     # Rebuild the top-level tags list in the desired order
     spec["tags"] = [{"name": t} for t in TAG_ORDER]
+
+    # Reorder paths so Mintlify renders sections in the desired order.
+    # Mintlify uses path order (not the tags array) to determine sidebar order.
+    tag_priority = {t: i for i, t in enumerate(TAG_ORDER)}
+
+    def path_sort_key(item: tuple[str, dict]) -> int:
+        path_str, path_item = item
+        for method in ("get", "post", "put", "patch", "delete", "head", "options"):
+            op = path_item.get(method)
+            if op and "tags" in op:
+                return tag_priority.get(op["tags"][0], len(TAG_ORDER))
+        return len(TAG_ORDER)
+
+    spec["paths"] = dict(sorted(spec["paths"].items(), key=path_sort_key))
     print(f"==> Renamed and reordered {len(TAG_ORDER)} tags")
 
 
