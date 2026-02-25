@@ -1,0 +1,300 @@
+---
+title: "OpenClaw Environment"
+description: "Change models, rotate tokens, update channels, and reset OpenClaw state in a running E2B sandbox."
+icon: "/images/icons/openclaw.svg"
+---
+
+Use this guide for **post-deploy changes** to a running OpenClaw sandbox.
+
+You do not need to tear down the sandbox for most updates.
+
+## What you can change without rebuilding
+
+| Setting | Rebuild required? | Notes |
+|---|---|---|
+| Default model (`agents.defaults.model.primary`) | No | Apply immediately for new runs |
+| Gateway token (`--token`) | No | Restart gateway process with new token |
+| Telegram bot token | No | Re-run `channels add`, then restart gateway |
+| OpenAI / Anthropic API keys | No | Update runtime env used by OpenClaw processes |
+| OpenAI Codex OAuth profile | No | Clear auth profile, then relink |
+
+## Connect to an existing sandbox
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const sandbox = await Sandbox.connect(process.env.SANDBOX_ID!)
+```
+```python Python
+import os
+from e2b import Sandbox
+
+sandbox = Sandbox.connect(os.environ["SANDBOX_ID"])
+```
+</CodeGroup>
+
+## 1) Change default model
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+await sandbox.commands.run(
+  'openclaw config set agents.defaults.model.primary openai/gpt-5.2'
+)
+
+const models = await sandbox.commands.run('openclaw models status --json')
+console.log(JSON.parse(models.stdout))
+```
+```python Python
+import json
+
+sandbox.commands.run(
+    "openclaw config set agents.defaults.model.primary openai/gpt-5.2"
+)
+
+models = sandbox.commands.run("openclaw models status --json")
+print(json.loads(models.stdout))
+```
+</CodeGroup>
+
+## 2) Rotate gateway token (no sandbox restart)
+
+Use a new token and restart only the gateway process.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const NEW_TOKEN = 'replace-me'
+const PORT = 18789
+
+await sandbox.commands.run(`bash -lc '
+  set -euo pipefail
+  pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+  nohup openclaw gateway --allow-unconfigured --bind lan --auth token --token "${NEW_TOKEN}" --port "${PORT}" \
+    > /home/user/openclaw_gateway.log 2>&1 &
+  sleep 1
+  ss -ltn | grep -q ":${PORT} " && echo ready || echo waiting
+'`)
+```
+```python Python
+NEW_TOKEN = "replace-me"
+PORT = 18789
+
+sandbox.commands.run(
+    f"""bash -lc '
+set -euo pipefail
+pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+nohup openclaw gateway --allow-unconfigured --bind lan --auth token --token "{NEW_TOKEN}" --port "{PORT}" \\
+  > /home/user/openclaw_gateway.log 2>&1 &
+sleep 1
+ss -ltn | grep -q ":{PORT} " && echo ready || echo waiting
+'"""
+)
+```
+</CodeGroup>
+
+After rotation, old URLs with the previous `?token=` stop working.
+
+## 3) Update provider keys after deploy
+
+For one-off runs:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const OPENAI_API_KEY = 'sk-...'
+
+await sandbox.commands.run(
+  `OPENAI_API_KEY="${OPENAI_API_KEY}" openclaw agent --local --message "hello"`
+)
+```
+```python Python
+OPENAI_API_KEY = "sk-..."
+
+sandbox.commands.run(
+    f'OPENAI_API_KEY="{OPENAI_API_KEY}" openclaw agent --local --message "hello"'
+)
+```
+</CodeGroup>
+
+For persistent runtime, write an env file and source it before launching gateway/agent processes:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const envFile = `export OPENAI_API_KEY="sk-..."\nexport ANTHROPIC_API_KEY="sk-ant-..."\n`
+await sandbox.files.write('/home/user/.openclaw-runtime.env', envFile)
+await sandbox.commands.run('chmod 600 /home/user/.openclaw-runtime.env')
+
+await sandbox.commands.run(`bash -lc '
+  pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+  nohup bash -lc "source /home/user/.openclaw-runtime.env; openclaw gateway --allow-unconfigured --bind lan --auth token --token my-token --port 18789" \
+    > /home/user/openclaw_gateway.log 2>&1 &
+'`)
+```
+```python Python
+env_file = """export OPENAI_API_KEY=\"sk-...\"
+export ANTHROPIC_API_KEY=\"sk-ant-...\"
+"""
+sandbox.files.write('/home/user/.openclaw-runtime.env', env_file)
+sandbox.commands.run('chmod 600 /home/user/.openclaw-runtime.env')
+
+sandbox.commands.run(
+    """bash -lc '
+pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+nohup bash -lc "source /home/user/.openclaw-runtime.env; openclaw gateway --allow-unconfigured --bind lan --auth token --token my-token --port 18789" \\
+  > /home/user/openclaw_gateway.log 2>&1 &
+'"""
+)
+```
+</CodeGroup>
+
+## 4) Update Telegram bot token
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const NEW_TELEGRAM_BOT_TOKEN = '123456:abc'
+
+await sandbox.commands.run(
+  `openclaw channels add --channel telegram --token "${NEW_TELEGRAM_BOT_TOKEN}"`
+)
+
+await sandbox.commands.run(`bash -lc '
+  pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+  nohup openclaw gateway --allow-unconfigured --bind lan --auth token --token my-token --port 18789 \
+    > /home/user/openclaw_gateway.log 2>&1 &
+'`)
+```
+```python Python
+NEW_TELEGRAM_BOT_TOKEN = "123456:abc"
+
+sandbox.commands.run(
+    f'openclaw channels add --channel telegram --token "{NEW_TELEGRAM_BOT_TOKEN}"'
+)
+
+sandbox.commands.run(
+    """bash -lc '
+pkill -f "openclaw gateway" >/dev/null 2>&1 || true
+nohup openclaw gateway --allow-unconfigured --bind lan --auth token --token my-token --port 18789 \\
+  > /home/user/openclaw_gateway.log 2>&1 &
+'"""
+)
+```
+</CodeGroup>
+
+## 5) Reset Telegram channel + pairing state
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+await sandbox.commands.run('openclaw channels remove --channel telegram --delete')
+await sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
+
+const pending = await sandbox.commands.run('openclaw pairing list --json --channel telegram')
+console.log(pending.stdout)
+
+await sandbox.commands.run('openclaw pairing approve --channel telegram <PAIRING_CODE>')
+```
+```python Python
+sandbox.commands.run("openclaw channels remove --channel telegram --delete")
+sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
+
+pending = sandbox.commands.run("openclaw pairing list --json --channel telegram")
+print(pending.stdout)
+
+sandbox.commands.run("openclaw pairing approve --channel telegram <PAIRING_CODE>")
+```
+</CodeGroup>
+
+## 6) Reset OpenAI Codex OAuth profile
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+await sandbox.commands.run(`python3 - <<'PY'
+import json
+from pathlib import Path
+
+p = Path('/home/user/.openclaw/agents/main/agent/auth-profiles.json')
+raw = json.loads(p.read_text()) if p.exists() else {}
+profiles = raw.get('profiles', {}) if isinstance(raw, dict) else {}
+raw['profiles'] = {
+    k: v for k, v in profiles.items()
+    if not (isinstance(v, dict) and v.get('provider') == 'openai-codex')
+}
+p.parent.mkdir(parents=True, exist_ok=True)
+p.write_text(json.dumps(raw, indent=2) + '\n')
+print('cleared openai-codex oauth profiles')
+PY`)
+```
+```python Python
+sandbox.commands.run("""python3 - <<'PY'
+import json
+from pathlib import Path
+
+p = Path('/home/user/.openclaw/agents/main/agent/auth-profiles.json')
+raw = json.loads(p.read_text()) if p.exists() else {}
+profiles = raw.get('profiles', {}) if isinstance(raw, dict) else {}
+raw['profiles'] = {
+    k: v for k, v in profiles.items()
+    if not (isinstance(v, dict) and v.get('provider') == 'openai-codex')
+}
+p.parent.mkdir(parents=True, exist_ok=True)
+p.write_text(json.dumps(raw, indent=2) + '\n')
+print('cleared openai-codex oauth profiles')
+PY""")
+```
+</CodeGroup>
+
+Then relink OAuth using your setup flow.
+
+## 7) Verify current state
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const checks = [
+  'openclaw channels list --json',
+  'openclaw channels status --json --probe',
+  'openclaw pairing list --json --channel telegram',
+  'openclaw models status --json',
+]
+
+for (const cmd of checks) {
+  const res = await sandbox.commands.run(cmd)
+  console.log(`\n$ ${cmd}\n${res.stdout}`)
+}
+```
+```python Python
+checks = [
+    "openclaw channels list --json",
+    "openclaw channels status --json --probe",
+    "openclaw pairing list --json --channel telegram",
+    "openclaw models status --json",
+]
+
+for cmd in checks:
+    res = sandbox.commands.run(cmd)
+    print(f"\n$ {cmd}\n{res.stdout}")
+```
+</CodeGroup>
+
+## Troubleshooting
+
+- `Unknown channel: telegram`
+  - Telegram channel is not configured in this sandbox runtime yet.
+  - Run `openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"` first.
+  - Then retry `openclaw pairing list --json --channel telegram`.
+- `No API key found for provider ...`
+  - The selected model and available key do not match.
+  - `openai/...` needs `OPENAI_API_KEY`; `anthropic/...` needs `ANTHROPIC_API_KEY`.
+- Pairing list is empty
+  - Send a fresh message to the bot in Telegram first.
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="OpenClaw" icon="terminal" href="/docs/agents/openclaw">
+    Run OpenClaw headless in a sandbox
+  </Card>
+  <Card title="OpenClaw Gateway" icon="globe" href="/docs/agents/openclaw-gateway">
+    Run OpenClaw's web/channel runtime
+  </Card>
+  <Card title="OpenClaw Telegram" icon="message-circle" href="/docs/agents/openclaw-telegram">
+    Connect and pair Telegram users
+  </Card>
+</CardGroup>
