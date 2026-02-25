@@ -844,12 +844,15 @@ def _collect_refs(node, refs: set):
 
 def run_phase_1_teams(api_key: str, team_id: str | None, spec: dict,
                       access_token: str | None = None) -> list[EndpointResult]:
-    """Phase 1: Platform — Teams."""
+    """Phase 1: Platform — Teams (auth checks + teams read)."""
     results = []
     h = api_key_hdr(api_key)
 
+    # Auth tests: 401 for all endpoints without API key
+    results.extend(run_auth_tests(api_key))
+
     # GET /teams (requires AccessTokenAuth — Bearer token, not ApiKeyAuth)
-    print("\n  Phase 1: Platform — Teams")
+    print("\n  Teams")
     print("  GET /teams")
     ep = EndpointResult("GET", "/teams", surface="platform")
     if access_token:
@@ -2139,7 +2142,7 @@ def run_auth_tests(api_key: str) -> list[EndpointResult]:
     """Test 401 for all control plane endpoints without auth."""
     results = []
 
-    print("\n  Auth Tests: 401 for control plane without API key")
+    print("\n  401 checks (no API key)")
 
     endpoints = [
         ("GET", "/sandboxes", None),
@@ -2428,11 +2431,7 @@ def main():
         return phase_filter is None or phase_filter == phase
 
     try:
-        # Auth tests (always run)
-        if should_run(0):
-            all_results.extend(run_auth_tests(api_key))
-
-        # Phase 1: Teams
+        # Phase 1: Teams (includes 401 auth checks)
         if should_run(1):
             all_results.extend(run_phase_1_teams(api_key, team_id, spec, access_token=access_token))
 

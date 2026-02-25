@@ -1056,8 +1056,9 @@ def filter_paths(spec: dict[str, Any]) -> None:
     - Removes Supabase and AdminToken securityScheme definitions
     """
     # Remove excluded paths
-    excluded_prefixes = ("/access-tokens", "/api-keys")
-    excluded_exact = {"/v2/sandboxes/{sandboxID}/logs", "/init"}
+    excluded_prefixes = ("/access-tokens", "/api-keys", "/volumes", "/snapshots")
+    excluded_exact = {"/v2/sandboxes/{sandboxID}/logs", "/init",
+                      "/sandboxes/{sandboxID}/snapshots"}
     to_remove = [
         p for p in spec["paths"]
         if p.startswith(excluded_prefixes) or p in excluded_exact
@@ -1071,7 +1072,7 @@ def filter_paths(spec: dict[str, Any]) -> None:
     for path in to_remove:
         del spec["paths"][path]
     if to_remove:
-        print(f"==> Removed {len(to_remove)} paths (volumes + admin)")
+        print(f"==> Removed {len(to_remove)} paths (volumes, snapshots, admin, internal)")
 
     # Strip supabase security entries from all operations
     for path_item in spec["paths"].values():
