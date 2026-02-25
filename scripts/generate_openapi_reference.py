@@ -757,7 +757,23 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             fixes.append("/templates/{templateID}/files/{hash}: changed 201 → 200 response")
 
     # 10. Generate operationId for platform endpoints that lack one
+    def _singularize(word: str) -> str:
+        """Simple singularization for common API resource names."""
+        irregulars = {"aliases": "alias", "statuses": "status", "indices": "index"}
+        if word in irregulars:
+            return irregulars[word]
+        if word.endswith("sses"):
+            return word  # "addresses" etc — skip
+        if word.endswith("ies"):
+            return word[:-3] + "y"
+        if word.endswith("ses") or word.endswith("xes") or word.endswith("zes"):
+            return word[:-2]
+        if word.endswith("s") and not word.endswith("ss"):
+            return word[:-1]
+        return word
+
     op_id_count = 0
+    seen_ids: dict[str, str] = {}  # operationId → path (for dedup)
     for ep_path, path_item in paths.items():
         # Skip envd endpoints (already have operationIds)
         if "/" in ep_path.lstrip("/") and "." in ep_path.split("/")[1]:
@@ -767,28 +783,53 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             if not op or op.get("operationId"):
                 continue
             # Build operationId from method + path segments
-            # e.g. GET /templates/{templateID}/builds/{buildID}/status → getTemplateBuildStatus
-            segments = []
-            for seg in ep_path.strip("/").split("/"):
-                if seg.startswith("{") and seg.endswith("}"):
-                    continue  # skip path params
-                # Strip version prefixes
-                if seg in ("v2", "v3"):
-                    continue
-                segments.append(seg)
-            # Singularize resource names for sub-resources
-            # e.g. /sandboxes/{id}/logs → getSandboxLogs
+            # Include path params to distinguish e.g. /sandboxes vs /sandboxes/{sandboxID}
+            # e.g. GET /sandboxes/{sandboxID}/logs → getSandboxLogs
+            # e.g. GET /v2/sandboxes → listSandboxesV2
+            raw_segments = ep_path.strip("/").split("/")
+            version_suffix = ""
             parts = []
-            for i, seg in enumerate(segments):
-                if i < len(segments) - 1:
-                    # Sub-resource parent: singularize
-                    s = seg.rstrip("s") if seg.endswith("es") and len(seg) > 3 else (
-                        seg[:-1] if seg.endswith("s") and not seg.endswith("ss") else seg)
-                    parts.append(s)
-                else:
-                    parts.append(seg)
+            i = 0
+            while i < len(raw_segments):
+                seg = raw_segments[i]
+                if seg in ("v2", "v3"):
+                    version_suffix = seg.upper()
+                    i += 1
+                    continue
+                if seg.startswith("{") and seg.endswith("}"):
+                    # Path param — singularize the previous part if it was a collection
+                    if parts:
+                        parts[-1] = _singularize(parts[-1])
+                    i += 1
+                    continue
+                parts.append(seg)
+                i += 1
+
+            # For top-level list endpoints (GET /sandboxes, GET /templates),
+            # use "list" prefix instead of "get" to distinguish from single-resource GETs
+            prefix = method
+            if method == "get" and parts and not any(
+                s.startswith("{") for s in raw_segments[1:]
+            ):
+                # No path params → it's a list/collection endpoint
+                # But only if the last segment is plural (a collection name)
+                last = parts[-1] if parts else ""
+                if last.endswith("s") and last != "status":
+                    prefix = "list"
+
             name = "".join(p.capitalize() for p in parts)
-            op["operationId"] = f"{method}{name}"
+            op_id = f"{prefix}{name}{version_suffix}"
+
+            # Dedup: if collision, append a disambiguator
+            if op_id in seen_ids:
+                # Try adding "ById" for single-resource variants
+                if any(s.startswith("{") for s in raw_segments):
+                    op_id = f"{method}{name}ById{version_suffix}"
+                if op_id in seen_ids:
+                    op_id = f"{method}{name}{version_suffix}_{len(seen_ids)}"
+
+            seen_ids[op_id] = ep_path
+            op["operationId"] = op_id
             op_id_count += 1
     if op_id_count:
         fixes.append(f"Generated operationId for {op_id_count} platform endpoints")

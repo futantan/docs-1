@@ -728,7 +728,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTeams
+      operationId: listTeams
     servers:
     - *id006
   /teams/{teamID}/metrics:
@@ -825,7 +825,7 @@ paths:
           $ref: '#/components/responses/403'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTeamMetricMax
+      operationId: getTeamMetricsMax
     servers:
     - *id006
   /sandboxes:
@@ -859,7 +859,7 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxes
+      operationId: listSandboxes
     post:
       description: Create a sandbox from the template
       tags:
@@ -931,7 +931,7 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxes
+      operationId: listSandboxesV2
     servers:
     - *id006
   /sandboxes/metrics:
@@ -966,7 +966,7 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxeMetrics
+      operationId: listSandboxesMetrics
     servers:
     - *id006
   /sandboxes/{sandboxID}/logs:
@@ -1007,7 +1007,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxeLogs
+      operationId: getSandboxLogs
     servers:
     - *id006
   /sandboxes/{sandboxID}:
@@ -1032,7 +1032,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxes
+      operationId: getSandbox
     delete:
       description: Kill a sandbox
       tags:
@@ -1050,7 +1050,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: deleteSandboxes
+      operationId: deleteSandbox
     servers:
     - *id006
   /sandboxes/{sandboxID}/metrics:
@@ -1095,7 +1095,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSandboxeMetrics
+      operationId: getSandboxMetrics
     servers:
     - *id006
   /sandboxes/{sandboxID}/pause:
@@ -1118,7 +1118,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxePause
+      operationId: postSandboxPause
     servers:
     - *id006
   /sandboxes/{sandboxID}/resume:
@@ -1152,7 +1152,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxeResume
+      operationId: postSandboxResume
     servers:
     - *id006
   /sandboxes/{sandboxID}/connect:
@@ -1192,7 +1192,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxeConnect
+      operationId: postSandboxConnect
     servers:
     - *id006
   /sandboxes/{sandboxID}/timeout:
@@ -1230,7 +1230,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxeTimeout
+      operationId: postSandboxTimeout
     servers:
     - *id006
   /sandboxes/{sandboxID}/refreshes:
@@ -1263,7 +1263,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxeRefreshes
+      operationId: postSandboxRefreshes
     servers:
     - *id006
   /sandboxes/{sandboxID}/snapshots:
@@ -1304,7 +1304,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postSandboxeSnapshots
+      operationId: postSandboxSnapshots
     servers:
     - *id006
   /snapshots:
@@ -1336,7 +1336,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getSnapshots
+      operationId: listSnapshots
     servers:
     - *id006
   /v3/templates:
@@ -1365,7 +1365,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplates
+      operationId: postTemplatesV3
     servers:
     - *id006
   /v2/templates:
@@ -1395,7 +1395,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplates
+      operationId: postTemplatesV2
     servers:
     - *id006
   /templates/{templateID}/files/{hash}:
@@ -1429,7 +1429,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateBuildFileUpload'
-      operationId: getTemplateFiles
+      operationId: getTemplateFile
     servers:
     - *id006
   /templates:
@@ -1461,7 +1461,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTemplates
+      operationId: listTemplates
     post:
       description: Create a new template
       deprecated: true
@@ -1513,7 +1513,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTemplates
+      operationId: getTemplate
     post:
       description: Rebuild an template
       deprecated: true
@@ -1540,7 +1540,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplates
+      operationId: postTemplate
     delete:
       description: Delete a template
       tags:
@@ -1557,7 +1557,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: deleteTemplates
+      operationId: deleteTemplate
     patch:
       description: Update template
       deprecated: true
@@ -1587,7 +1587,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: patchTemplates
+      operationId: patchTemplate
     servers:
     - *id006
   /templates/{templateID}/builds/{buildID}:
@@ -1613,7 +1613,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplateBuilds
+      operationId: postTemplateBuild
     servers:
     - *id006
   /v2/templates/{templateID}/builds/{buildID}:
@@ -1640,7 +1640,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplateBuilds
+      operationId: postTemplateBuildV2
     servers:
     - *id006
   /v2/templates/{templateID}:
@@ -1672,7 +1672,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: patchTemplates
+      operationId: patchTemplateV2
     servers:
     - *id006
   /templates/{templateID}/builds/{buildID}/status:
@@ -1808,7 +1808,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: postTemplateTags
+      operationId: postTemplatesTags
     delete:
       description: Delete multiple tags from templates
       tags:
@@ -1832,7 +1832,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: deleteTemplateTags
+      operationId: deleteTemplatesTags
     servers:
     - *id006
   /templates/{templateID}/tags:
@@ -1893,7 +1893,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getTemplateAliases
+      operationId: getTemplatesAlias
     servers:
     - *id006
   /volumes:
@@ -1917,7 +1917,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getVolumes
+      operationId: listVolumes
     post:
       description: Create a new team volume
       tags:
@@ -1970,7 +1970,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: getVolumes
+      operationId: getVolume
     delete:
       description: Delete a team volume
       tags:
@@ -1989,7 +1989,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
-      operationId: deleteVolumes
+      operationId: deleteVolume
     servers:
     - *id006
 components:
