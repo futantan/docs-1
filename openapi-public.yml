@@ -41,7 +41,7 @@ paths:
       operationId: getHealth
       security: []
       tags:
-      - health
+      - Others
     servers:
     - &id002
       url: https://{port}-{sandboxID}.e2b.app
@@ -90,7 +90,7 @@ paths:
     get:
       summary: Download a file
       tags:
-      - files
+      - Others
       security:
       - *id003
       parameters:
@@ -115,7 +115,7 @@ paths:
       summary: Upload a file and ensure the parent directories exist. If the file
         exists, it will be overwritten.
       tags:
-      - files
+      - Others
       security:
       - *id003
       parameters:
@@ -143,7 +143,7 @@ paths:
   /filesystem.Filesystem/CreateWatcher:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: CreateWatcher
       description: Non-streaming versions of WatchDir
       operationId: filesystem.Filesystem.CreateWatcher
@@ -178,7 +178,7 @@ paths:
   /filesystem.Filesystem/GetWatcherEvents:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: GetWatcherEvents
       operationId: filesystem.Filesystem.GetWatcherEvents
       parameters:
@@ -212,7 +212,7 @@ paths:
   /filesystem.Filesystem/ListDir:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: ListDir
       operationId: filesystem.Filesystem.ListDir
       parameters:
@@ -246,7 +246,7 @@ paths:
   /filesystem.Filesystem/MakeDir:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: MakeDir
       operationId: filesystem.Filesystem.MakeDir
       parameters:
@@ -280,7 +280,7 @@ paths:
   /filesystem.Filesystem/Move:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: Move
       operationId: filesystem.Filesystem.Move
       parameters:
@@ -314,7 +314,7 @@ paths:
   /filesystem.Filesystem/Remove:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: Remove
       operationId: filesystem.Filesystem.Remove
       parameters:
@@ -348,7 +348,7 @@ paths:
   /filesystem.Filesystem/RemoveWatcher:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: RemoveWatcher
       operationId: filesystem.Filesystem.RemoveWatcher
       parameters:
@@ -382,7 +382,7 @@ paths:
   /filesystem.Filesystem/Stat:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: Stat
       operationId: filesystem.Filesystem.Stat
       parameters:
@@ -416,7 +416,7 @@ paths:
   /filesystem.Filesystem/WatchDir:
     post:
       tags:
-      - filesystem.Filesystem
+      - Filesystem
       summary: WatchDir
       description: Server-streaming RPC. Use the Connect protocol with streaming support.
       operationId: filesystem.Filesystem.WatchDir
@@ -453,7 +453,7 @@ paths:
   /process.Process/CloseStdin:
     post:
       tags:
-      - process.Process
+      - Process
       summary: CloseStdin
       description: "Close stdin to signal EOF to the process.\n Only works for non-PTY\
         \ processes. For PTY, send Ctrl+D (0x04) instead."
@@ -489,7 +489,7 @@ paths:
   /process.Process/Connect:
     post:
       tags:
-      - process.Process
+      - Process
       summary: Connect
       description: Server-streaming RPC. Use the Connect protocol with streaming support.
       operationId: process.Process.Connect
@@ -517,7 +517,7 @@ paths:
   /process.Process/List:
     post:
       tags:
-      - process.Process
+      - Process
       summary: List
       operationId: process.Process.List
       parameters:
@@ -551,7 +551,7 @@ paths:
   /process.Process/SendInput:
     post:
       tags:
-      - process.Process
+      - Process
       summary: SendInput
       operationId: process.Process.SendInput
       parameters:
@@ -585,7 +585,7 @@ paths:
   /process.Process/SendSignal:
     post:
       tags:
-      - process.Process
+      - Process
       summary: SendSignal
       operationId: process.Process.SendSignal
       parameters:
@@ -619,7 +619,7 @@ paths:
   /process.Process/Start:
     post:
       tags:
-      - process.Process
+      - Process
       summary: Start
       description: Server-streaming RPC. Use the Connect protocol with streaming support.
       operationId: process.Process.Start
@@ -647,7 +647,7 @@ paths:
   /process.Process/StreamInput:
     post:
       tags:
-      - process.Process
+      - Process
       summary: StreamInput
       description: Client-streaming RPC. Client input stream ensures ordering of messages.
         Use the Connect protocol with streaming support.
@@ -676,7 +676,7 @@ paths:
   /process.Process/Update:
     post:
       tags:
-      - process.Process
+      - Process
       summary: Update
       operationId: process.Process.Update
       parameters:
@@ -711,7 +711,7 @@ paths:
     get:
       description: List all teams
       tags:
-      - auth
+      - Teams
       security:
       - AccessTokenAuth: []
       responses:
@@ -735,7 +735,7 @@ paths:
     get:
       description: Get metrics for the team
       tags:
-      - auth
+      - Teams
       security:
       - ApiKeyAuth: []
       parameters:
@@ -780,7 +780,7 @@ paths:
     get:
       description: Get the maximum metrics for the team in the given interval
       tags:
-      - auth
+      - Teams
       security:
       - ApiKeyAuth: []
       parameters:
@@ -832,7 +832,7 @@ paths:
     get:
       description: List all running sandboxes
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -863,7 +863,7 @@ paths:
     post:
       description: Create a sandbox from the template
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -892,7 +892,7 @@ paths:
     get:
       description: List all sandboxes
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -938,7 +938,7 @@ paths:
     get:
       description: List metrics for given sandboxes
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -974,7 +974,7 @@ paths:
       description: Get sandbox logs.
       deprecated: true
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1014,7 +1014,7 @@ paths:
     get:
       description: Get a sandbox by id
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1036,7 +1036,7 @@ paths:
     delete:
       description: Kill a sandbox
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1057,7 +1057,7 @@ paths:
     get:
       description: Get sandbox metrics
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1102,7 +1102,7 @@ paths:
     post:
       description: Pause the sandbox
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1126,7 +1126,7 @@ paths:
       deprecated: true
       description: Resume the sandbox
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1160,7 +1160,7 @@ paths:
       description: Returns sandbox details. If the sandbox is paused, it will be resumed.
         TTL is only extended.
       tags:
-      - sandboxes
+      - Sandboxes
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1204,7 +1204,7 @@ paths:
       security:
       - ApiKeyAuth: []
       tags:
-      - sandboxes
+      - Sandboxes
       requestBody:
         content:
           application/json:
@@ -1239,7 +1239,7 @@ paths:
       security:
       - ApiKeyAuth: []
       tags:
-      - sandboxes
+      - Sandboxes
       requestBody:
         content:
           application/json:
@@ -1270,7 +1270,7 @@ paths:
     post:
       description: Create a new template
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -1300,7 +1300,7 @@ paths:
       description: Create a new template
       deprecated: true
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -1329,7 +1329,7 @@ paths:
     get:
       description: Get an upload link for a tar file containing build layer files
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       - ApiKeyAuth: []
@@ -1363,7 +1363,7 @@ paths:
     get:
       description: List all templates
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       - AccessTokenAuth: []
@@ -1393,7 +1393,7 @@ paths:
       description: Create a new template
       deprecated: true
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       requestBody:
@@ -1422,7 +1422,7 @@ paths:
     get:
       description: List all builds for a template
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1445,7 +1445,7 @@ paths:
       description: Rebuild an template
       deprecated: true
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       parameters:
@@ -1471,7 +1471,7 @@ paths:
     delete:
       description: Delete a template
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       - AccessTokenAuth: []
@@ -1489,7 +1489,7 @@ paths:
       description: Update template
       deprecated: true
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       - AccessTokenAuth: []
@@ -1522,7 +1522,7 @@ paths:
       description: Start the build
       deprecated: true
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       parameters:
@@ -1547,7 +1547,7 @@ paths:
     post:
       description: Start the build
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1574,7 +1574,7 @@ paths:
     patch:
       description: Update template
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       - AccessTokenAuth: []
@@ -1606,7 +1606,7 @@ paths:
     get:
       description: Get template build info
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       - ApiKeyAuth: []
@@ -1655,7 +1655,7 @@ paths:
     get:
       description: Get template build logs
       tags:
-      - templates
+      - Templates
       security:
       - AccessTokenAuth: []
       - ApiKeyAuth: []
@@ -1711,7 +1711,7 @@ paths:
     post:
       description: Assign tag(s) to a template build
       tags:
-      - tags
+      - Tags
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -1739,7 +1739,7 @@ paths:
     delete:
       description: Delete multiple tags from templates
       tags:
-      - tags
+      - Tags
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -1766,7 +1766,7 @@ paths:
     get:
       description: List all tags for a template
       tags:
-      - tags
+      - Tags
       security:
       - ApiKeyAuth: []
       parameters:
@@ -1795,7 +1795,7 @@ paths:
     get:
       description: Check if template with given alias exists
       tags:
-      - templates
+      - Templates
       security:
       - ApiKeyAuth: []
       parameters:
@@ -3948,14 +3948,11 @@ components:
             type: string
       type: object
 tags:
-- name: files
-- name: filesystem.Filesystem
-- name: process.Process
-- name: templates
-- name: sandboxes
-- name: auth
-- name: access-tokens
-- name: api-keys
-- name: tags
-- name: volumes
+- name: Sandboxes
+- name: Templates
+- name: Filesystem
+- name: Process
+- name: Tags
+- name: Teams
+- name: Others
 security: []

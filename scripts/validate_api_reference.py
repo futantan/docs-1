@@ -807,7 +807,7 @@ def analyze_spec(spec: dict) -> list[SpecIssue]:
     for path_str, methods in paths.items():
         servers = methods.get("servers", [])
         # Check if any operation on this path is a sandbox endpoint
-        sandbox_tags = {"files", "filesystem.Filesystem", "process.Process"}
+        sandbox_tags = {"Others", "Filesystem", "Process"}
         is_sandbox_path = False
         for method, op in methods.items():
             if not isinstance(op, dict):

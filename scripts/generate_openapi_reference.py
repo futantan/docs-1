@@ -1227,6 +1227,33 @@ def fill_empty_responses(spec: dict[str, Any]) -> None:
         print(f"==> Removed {stripped} default error responses")
 
 
+def rename_and_reorder_tags(spec: dict[str, Any]) -> None:
+    """Rename tags and reorder them for the documentation sidebar."""
+    TAG_RENAME = {
+        "sandboxes": "Sandboxes",
+        "templates": "Templates",
+        "filesystem.Filesystem": "Filesystem",
+        "process.Process": "Process",
+        "tags": "Tags",
+        "auth": "Teams",
+        "health": "Others",
+        "files": "Others",
+    }
+    TAG_ORDER = ["Sandboxes", "Templates", "Filesystem", "Process", "Tags", "Teams", "Others"]
+
+    # Rename tags on all operations
+    for path_item in spec.get("paths", {}).values():
+        for method in ("get", "post", "put", "patch", "delete", "head", "options"):
+            op = path_item.get(method)
+            if not op or "tags" not in op:
+                continue
+            op["tags"] = [TAG_RENAME.get(t, t) for t in op["tags"]]
+
+    # Rebuild the top-level tags list in the desired order
+    spec["tags"] = [{"name": t} for t in TAG_ORDER]
+    print(f"==> Renamed and reordered {len(TAG_ORDER)} tags")
+
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
@@ -1328,6 +1355,9 @@ def main() -> None:
 
         # Clean up unreferenced schemas left over from filtered paths
         remove_orphaned_schemas(merged)
+
+        # Rename and reorder tags for documentation sidebar
+        rename_and_reorder_tags(merged)
 
         # Write output
         with open(output_path, "w") as f:
