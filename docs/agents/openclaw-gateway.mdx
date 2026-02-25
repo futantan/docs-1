@@ -71,6 +71,7 @@ for _ in range(45):
 
 url = f"https://{sandbox.get_host(PORT)}/?token={TOKEN}"
 print(f"Gateway: {url}")
+# Open the URL in your browser before running the next step.
 ```
 </CodeGroup>
 
@@ -84,6 +85,8 @@ The gateway requires each browser to be approved as a paired device. Run this af
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
+// Make sure you've opened the gateway URL in your browser before running this.
+
 // 4. Poll for the browser's pending device request and approve it
 for (let i = 0; i < 30; i++) {
   const res = await sandbox.commands.run(
@@ -103,6 +106,8 @@ for (let i = 0; i < 30; i++) {
 ```
 ```python Python
 import json
+
+# Make sure you've opened the gateway URL in your browser before running this.
 
 # 4. Poll for the browser's pending device request and approve it
 for _ in range(30):
