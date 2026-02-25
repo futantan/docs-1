@@ -56,6 +56,17 @@
               "docs/agents/amp",
               "docs/agents/claude-code",
               "docs/agents/codex",
+              {
+                "group": "OpenClaw",
+                "icon": "/images/icons/openclaw.svg",
+                "pages": [
+                  "docs/agents/openclaw-gateway",
+                  "docs/agents/openclaw-telegram",
+                  "docs/agents/openclaw-oauth",
+                  "docs/agents/openclaw-environment",
+                  "docs/agents/openclaw"
+                ]
+              },
               "docs/agents/opencode"
             ]
           },
