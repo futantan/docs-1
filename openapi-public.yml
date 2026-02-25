@@ -1800,24 +1800,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: &id009
+                code: 401
+                message: 'Authentication error: missing or invalid API key'
         '400':
           description: Invalid path
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: &id008
+                code: 400
+                message: 'Bad request: invalid or missing request parameters'
         '404':
           description: File not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: &id011
+                code: 404
+                message: 'Not found: the requested resource does not exist'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: &id010
+                code: 500
+                message: 'Server error: an unexpected error occurred'
         '502': *id003
       operationId: downloadFile
     post:
@@ -1849,24 +1861,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id008
         '401':
           description: Invalid user
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id009
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id010
         '507':
           description: Not enough disk space
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                code: 507
+                message: 'Insufficient storage: not enough disk space'
         '502': *id003
       operationId: uploadFile
     servers:
@@ -2064,36 +2082,46 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example: *id008
     '401':
       description: Authentication error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example: *id009
     '403':
       description: Forbidden
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            code: 403
+            message: 'Forbidden: insufficient permissions'
     '404':
       description: Not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example: *id011
     '409':
       description: Conflict
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            code: 409
+            message: 'Conflict: the resource is in a conflicting state'
     '500':
       description: Server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example: *id010
   schemas:
     Error:
       required:
@@ -2108,9 +2136,6 @@ components:
           type: string
           description: Error
       type: object
-      example:
-        code: 400
-        message: 'Bad request: invalid or missing request parameters'
     EntryInfo:
       required:
       - path

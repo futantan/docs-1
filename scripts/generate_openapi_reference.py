@@ -1022,14 +1022,45 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             responses["500"] = {"$ref": "#/components/responses/500"}
             fixes.append("/sandboxes/{sandboxID}/refreshes: added 500 response")
 
-    # 25. Add meaningful example to the Error schema (applies everywhere it's referenced)
-    error_schema = schemas.get("Error")
-    if error_schema and "example" not in error_schema:
-        error_schema["example"] = {
-            "code": 400,
-            "message": "Bad request: invalid or missing request parameters",
-        }
-        fixes.append("Error schema: added example values")
+    # 25. Add per-status error examples to every error response in every operation
+    status_examples = {
+        "400": {"code": 400, "message": "Bad request: invalid or missing request parameters"},
+        "401": {"code": 401, "message": "Authentication error: missing or invalid API key"},
+        "403": {"code": 403, "message": "Forbidden: insufficient permissions"},
+        "404": {"code": 404, "message": "Not found: the requested resource does not exist"},
+        "409": {"code": 409, "message": "Conflict: the resource is in a conflicting state"},
+        "500": {"code": 500, "message": "Server error: an unexpected error occurred"},
+        "507": {"code": 507, "message": "Insufficient storage: not enough disk space"},
+    }
+    for path_item in spec.get("paths", {}).values():
+        for method in ("get", "post", "put", "patch", "delete", "head", "options"):
+            op = path_item.get(method)
+            if not op:
+                continue
+            for status_code, resp in op.get("responses", {}).items():
+                if not isinstance(resp, dict) or "$ref" in resp:
+                    continue
+                example = status_examples.get(str(status_code))
+                if not example:
+                    continue
+                json_media = resp.get("content", {}).get("application/json")
+                if not json_media:
+                    continue
+                schema = json_media.get("schema", {})
+                # Only add example if schema references Error
+                ref = schema.get("$ref", "")
+                if ref.endswith("/Error") and "example" not in json_media:
+                    json_media["example"] = example
+    # Also set examples on component-level responses
+    comp_responses = spec.get("components", {}).get("responses", {})
+    for status_code, example in status_examples.items():
+        resp = comp_responses.get(status_code)
+        if not resp or "content" not in resp:
+            continue
+        json_media = resp["content"].get("application/json")
+        if json_media and "example" not in json_media:
+            json_media["example"] = example
+    fixes.append("Error responses: added per-status example values")
 
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
