@@ -1013,6 +1013,27 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             responses["500"] = {"$ref": "#/components/responses/500"}
             fixes.append("/sandboxes/{sandboxID}/refreshes: added 500 response")
 
+    # 25. Add meaningful examples to error responses
+    error_examples = {
+        "400": {"code": 400, "message": "Bad request: invalid or missing request parameters"},
+        "401": {"code": 401, "message": "Authentication error: missing or invalid API key"},
+        "403": {"code": 403, "message": "Forbidden: insufficient permissions"},
+        "404": {"code": 404, "message": "Not found: the requested resource does not exist"},
+        "409": {"code": 409, "message": "Conflict: the resource is in a conflicting state"},
+        "500": {"code": 500, "message": "Server error: an unexpected error occurred"},
+    }
+    responses = spec.get("components", {}).get("responses", {})
+    for status, example in error_examples.items():
+        resp = responses.get(status)
+        if resp and "content" in resp:
+            schema = resp["content"].get("application/json", {}).get("schema")
+            if schema:
+                resp["content"]["application/json"]["schema"] = {
+                    **schema,
+                    "example": example,
+                }
+    fixes.append("Error responses: added example values for 400/401/403/404/409/500")
+
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
         for f in fixes:
