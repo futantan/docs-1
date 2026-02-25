@@ -5,7 +5,7 @@ info:
   description: Complete E2B developer API. Platform endpoints are served on api.e2b.app.
     Sandbox endpoints (envd) are served on {port}-{sandboxID}.e2b.app.
 servers:
-- &id007
+- &id006
   url: https://api.e2b.app
   description: E2B Platform API
 paths:
@@ -22,14 +22,10 @@ paths:
               schema:
                 type: object
                 required:
-                - sandboxId
+                - sandboxID
                 - message
                 - code
                 properties:
-                  sandboxId:
-                    type: string
-                    description: Identifier of the sandbox
-                    example: i1234abcd5678efgh90jk
                   message:
                     type: string
                     description: Error message
@@ -38,7 +34,14 @@ paths:
                     type: integer
                     description: Error code
                     example: 502
+                  sandboxID:
+                    type: string
+                    description: Identifier of the sandbox
+                    example: i1234abcd5678efgh90jk
       operationId: getHealth
+      security: []
+      tags:
+      - health
     servers:
     - &id002
       url: https://{port}-{sandboxID}.e2b.app
@@ -98,11 +101,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DownloadSuccess'
-          content: &id004
-            application/json:
-              schema:
-                type: object
-                description: Empty response
         '401':
           $ref: '#/components/responses/InvalidUser'
         '400':
@@ -130,7 +128,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/UploadSuccess'
-          content: *id004
         '400':
           $ref: '#/components/responses/InvalidPath'
         '401':
@@ -440,13 +437,13 @@ paths:
       security:
       - *id003
       parameters:
-      - &id005
+      - &id004
         name: Connect-Protocol-Version
         in: header
         required: true
         schema:
           $ref: '#/components/schemas/connect-protocol-version'
-      - &id006
+      - &id005
         name: Connect-Timeout-Ms
         in: header
         schema:
@@ -513,8 +510,8 @@ paths:
       security:
       - *id003
       parameters:
+      - *id004
       - *id005
-      - *id006
     servers:
     - *id002
   /process.Process/List:
@@ -643,8 +640,8 @@ paths:
       security:
       - *id003
       parameters:
+      - *id004
       - *id005
-      - *id006
     servers:
     - *id002
   /process.Process/StreamInput:
@@ -672,8 +669,8 @@ paths:
       security:
       - *id003
       parameters:
+      - *id004
       - *id005
-      - *id006
     servers:
     - *id002
   /process.Process/Update:
@@ -731,8 +728,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTeams
     servers:
-    - *id007
+    - *id006
   /teams/{teamID}/metrics:
     get:
       description: Get metrics for the team
@@ -749,15 +747,15 @@ paths:
           format: int64
           minimum: 0
         description: Unix timestamp for the start of the interval, in seconds, for
-          which the metrics
+          which the metrics are returned.
       - in: query
         name: end
         schema:
           type: integer
           format: int64
           minimum: 0
-          description: Unix timestamp for the end of the interval, in seconds, for
-            which the metrics
+        description: Unix timestamp for the end of the interval, in seconds, for which
+          the metrics are returned.
       responses:
         '200':
           description: Successfully returned the team metrics
@@ -775,8 +773,9 @@ paths:
           $ref: '#/components/responses/403'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTeamMetrics
     servers:
-    - *id007
+    - *id006
   /teams/{teamID}/metrics/max:
     get:
       description: Get the maximum metrics for the team in the given interval
@@ -793,15 +792,15 @@ paths:
           format: int64
           minimum: 0
         description: Unix timestamp for the start of the interval, in seconds, for
-          which the metrics
+          which the metrics are returned.
       - in: query
         name: end
         schema:
           type: integer
           format: int64
           minimum: 0
-          description: Unix timestamp for the end of the interval, in seconds, for
-            which the metrics
+        description: Unix timestamp for the end of the interval, in seconds, for which
+          the metrics are returned.
       - in: query
         name: metric
         required: true
@@ -826,8 +825,9 @@ paths:
           $ref: '#/components/responses/403'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTeamMetricMax
     servers:
-    - *id007
+    - *id006
   /sandboxes:
     get:
       description: List all running sandboxes
@@ -859,6 +859,7 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxes
     post:
       description: Create a sandbox from the template
       tags:
@@ -884,8 +885,9 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxes
     servers:
-    - *id007
+    - *id006
   /v2/sandboxes:
     get:
       description: List all sandboxes
@@ -929,8 +931,9 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxes
     servers:
-    - *id007
+    - *id006
   /sandboxes/metrics:
     get:
       description: List metrics for given sandboxes
@@ -963,11 +966,12 @@ paths:
           $ref: '#/components/responses/400'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxeMetrics
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/logs:
     get:
-      description: Get sandbox logs. Use /v2/sandboxes/{sandboxID}/logs instead.
+      description: Get sandbox logs.
       deprecated: true
       tags:
       - sandboxes
@@ -1003,8 +1007,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxeLogs
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}:
     get:
       description: Get a sandbox by id
@@ -1027,6 +1032,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxes
     delete:
       description: Kill a sandbox
       tags:
@@ -1044,8 +1050,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: deleteSandboxes
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/metrics:
     get:
       description: Get sandbox metrics
@@ -1062,15 +1069,15 @@ paths:
           format: int64
           minimum: 0
         description: Unix timestamp for the start of the interval, in seconds, for
-          which the metrics
+          which the metrics are returned.
       - in: query
         name: end
         schema:
           type: integer
           format: int64
           minimum: 0
-          description: Unix timestamp for the end of the interval, in seconds, for
-            which the metrics
+        description: Unix timestamp for the end of the interval, in seconds, for which
+          the metrics are returned.
       responses:
         '200':
           description: Successfully returned the sandbox metrics
@@ -1088,8 +1095,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSandboxeMetrics
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/pause:
     post:
       description: Pause the sandbox
@@ -1110,8 +1118,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxePause
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/resume:
     post:
       deprecated: true
@@ -1143,8 +1152,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxeResume
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/connect:
     post:
       description: Returns sandbox details. If the sandbox is paused, it will be resumed.
@@ -1182,8 +1192,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxeConnect
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/timeout:
     post:
       description: Set the timeout for the sandbox. The sandbox will expire x seconds
@@ -1219,8 +1230,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxeTimeout
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/refreshes:
     post:
       description: Refresh the sandbox extending its time to live
@@ -1249,8 +1261,9 @@ paths:
           $ref: '#/components/responses/401'
         '404':
           $ref: '#/components/responses/404'
+      operationId: postSandboxeRefreshes
     servers:
-    - *id007
+    - *id006
   /sandboxes/{sandboxID}/snapshots:
     post:
       description: Create a persistent snapshot from the sandbox's current state.
@@ -1289,8 +1302,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postSandboxeSnapshots
     servers:
-    - *id007
+    - *id006
   /snapshots:
     get:
       description: List all snapshots for the team
@@ -1320,8 +1334,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getSnapshots
     servers:
-    - *id007
+    - *id006
   /v3/templates:
     post:
       description: Create a new template
@@ -1348,8 +1363,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplates
     servers:
-    - *id007
+    - *id006
   /v2/templates:
     post:
       description: Create a new template
@@ -1377,8 +1393,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplates
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}/files/{hash}:
     get:
       description: Get an upload link for a tar file containing build layer files
@@ -1410,8 +1427,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateBuildFileUpload'
+      operationId: getTemplateFiles
     servers:
-    - *id007
+    - *id006
   /templates:
     get:
       description: List all templates
@@ -1441,6 +1459,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplates
     post:
       description: Create a new template
       deprecated: true
@@ -1467,8 +1486,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplates
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}:
     get:
       description: List all builds for a template
@@ -1491,6 +1511,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplates
     post:
       description: Rebuild an template
       deprecated: true
@@ -1517,6 +1538,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplates
     delete:
       description: Delete a template
       tags:
@@ -1533,6 +1555,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: deleteTemplates
     patch:
       description: Update template
       deprecated: true
@@ -1552,15 +1575,20 @@ paths:
       responses:
         '200':
           description: The template was updated successfully
-          content: *id004
+          content: &id007
+            application/json:
+              schema:
+                type: object
+                description: Empty response
         '400':
           $ref: '#/components/responses/400'
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: patchTemplates
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1575,13 +1603,14 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id004
+          content: *id007
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplateBuilds
     servers:
-    - *id007
+    - *id006
   /v2/templates/{templateID}/builds/{buildID}:
     post:
       description: Start the build
@@ -1601,13 +1630,14 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id004
+          content: *id007
         '401':
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplateBuilds
     servers:
-    - *id007
+    - *id006
   /v2/templates/{templateID}:
     patch:
       description: Update template
@@ -1637,8 +1667,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: patchTemplates
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}/builds/{buildID}/status:
     get:
       description: Get template build info
@@ -1685,8 +1716,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplateBuildStatus
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}/builds/{buildID}/logs:
     get:
       description: Get template build logs
@@ -1740,8 +1772,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplateBuildLogs
     servers:
-    - *id007
+    - *id006
   /templates/tags:
     post:
       description: Assign tag(s) to a template build
@@ -1770,6 +1803,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postTemplateTags
     delete:
       description: Delete multiple tags from templates
       tags:
@@ -1793,8 +1827,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: deleteTemplateTags
     servers:
-    - *id007
+    - *id006
   /templates/{templateID}/tags:
     get:
       description: List all tags for a template
@@ -1821,8 +1856,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplateTags
     servers:
-    - *id007
+    - *id006
   /templates/aliases/{alias}:
     get:
       description: Check if template with given alias exists
@@ -1852,8 +1888,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getTemplateAliases
     servers:
-    - *id007
+    - *id006
   /volumes:
     get:
       description: List all team volumes
@@ -1875,6 +1912,7 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getVolumes
     post:
       description: Create a new team volume
       tags:
@@ -1901,8 +1939,9 @@ paths:
           $ref: '#/components/responses/401'
         '500':
           $ref: '#/components/responses/500'
+      operationId: postVolumes
     servers:
-    - *id007
+    - *id006
   /volumes/{volumeID}:
     get:
       description: Get team volume info
@@ -1926,6 +1965,7 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: getVolumes
     delete:
       description: Delete a team volume
       tags:
@@ -1944,8 +1984,9 @@ paths:
           $ref: '#/components/responses/404'
         '500':
           $ref: '#/components/responses/500'
+      operationId: deleteVolumes
     servers:
-    - *id007
+    - *id006
 components:
   securitySchemes:
     AccessTokenAuth:
@@ -2182,6 +2223,7 @@ components:
         message:
           type: string
           description: Error
+      type: object
     EntryInfo:
       required:
       - path
@@ -2199,6 +2241,7 @@ components:
           description: Type of the file
           enum:
           - file
+      type: object
     EnvVars:
       additionalProperties:
         type: string
@@ -2944,6 +2987,7 @@ components:
         isDefault:
           type: boolean
           description: Whether the team is the default team
+      type: object
     TeamUser:
       required:
       - id
@@ -2956,11 +3000,13 @@ components:
         email:
           type: string
           description: Email of the user
+      type: object
     TemplateUpdateRequest:
       properties:
         public:
           type: boolean
           description: Whether the template is public or only accessible by the team
+      type: object
     TemplateUpdateResponse:
       required:
       - names
@@ -2970,6 +3016,7 @@ components:
           description: Names of the template (namespace/alias format when namespaced)
           items:
             type: string
+      type: object
     CPUCount:
       type: integer
       format: int32
@@ -3070,6 +3117,7 @@ components:
         line:
           type: string
           description: Log line content
+      type: object
     SandboxLogEntry:
       required:
       - timestamp
@@ -3090,6 +3138,7 @@ components:
           type: object
           additionalProperties:
             type: string
+      type: object
     SandboxLogs:
       required:
       - logs
@@ -3105,6 +3154,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SandboxLogEntry'
+      type: object
     SandboxMetric:
       description: Metric entry with timestamp and line
       required:
@@ -3150,6 +3200,7 @@ components:
           type: integer
           format: int64
           description: Total disk space in bytes
+      type: object
     SandboxVolumeMount:
       type: object
       properties:
@@ -3199,6 +3250,7 @@ components:
           nullable: true
           description: 'Deprecated: always null. Construct sandbox URLs as `https://{port}-{sandboxID}.e2b.app`.'
           deprecated: true
+      type: object
     SandboxDetail:
       required:
       - templateID
@@ -3260,6 +3312,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SandboxVolumeMount'
+      type: object
     ListedSandbox:
       required:
       - templateID
@@ -3310,6 +3363,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SandboxVolumeMount'
+      type: object
     SandboxesWithMetrics:
       required:
       - sandboxes
@@ -3317,6 +3371,7 @@ components:
         sandboxes:
           additionalProperties:
             $ref: '#/components/schemas/SandboxMetric'
+      type: object
     NewSandbox:
       required:
       - templateID
@@ -3355,6 +3410,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SandboxVolumeMount'
+      type: object
     ResumedSandbox:
       properties:
         timeout:
@@ -3367,6 +3423,7 @@ components:
           type: boolean
           deprecated: true
           description: Automatically pauses the sandbox after the timeout
+      type: object
     ConnectSandbox:
       type: object
       required:
@@ -3403,6 +3460,7 @@ components:
           type: number
           format: float
           description: Number of sandboxes started per second
+      type: object
     MaxTeamMetric:
       description: Team metric with timestamp
       required:
@@ -3422,6 +3480,7 @@ components:
         value:
           type: number
           description: The maximum value of the requested metric in the given interval
+      type: object
     Template:
       required:
       - templateID
@@ -3496,6 +3555,7 @@ components:
           $ref: '#/components/schemas/EnvdVersion'
         buildStatus:
           $ref: '#/components/schemas/TemplateBuildStatus'
+      type: object
     TemplateRequestResponseV3:
       required:
       - templateID
@@ -3530,6 +3590,7 @@ components:
           deprecated: true
           items:
             type: string
+      type: object
     TemplateLegacy:
       required:
       - templateID
@@ -3594,6 +3655,7 @@ components:
           description: Number of times the template was built
         envdVersion:
           $ref: '#/components/schemas/EnvdVersion'
+      type: object
     TemplateBuild:
       required:
       - buildID
@@ -3629,6 +3691,7 @@ components:
           $ref: '#/components/schemas/DiskSizeMB'
         envdVersion:
           $ref: '#/components/schemas/EnvdVersion'
+      type: object
     TemplateWithBuilds:
       required:
       - templateID
@@ -3680,6 +3743,7 @@ components:
           description: List of builds for the template
           items:
             $ref: '#/components/schemas/TemplateBuild'
+      type: object
     TemplateAliasResponse:
       required:
       - templateID
@@ -3691,6 +3755,7 @@ components:
         public:
           type: boolean
           description: Whether the template is public or only accessible by the team
+      type: object
     TemplateBuildRequest:
       required:
       - dockerfile
@@ -3714,6 +3779,7 @@ components:
           $ref: '#/components/schemas/CPUCount'
         memoryMB:
           $ref: '#/components/schemas/MemoryMB'
+      type: object
     TemplateStep:
       description: Step in the template build process
       required:
@@ -3736,6 +3802,7 @@ components:
           type: boolean
           description: Whether the step should be forced to run regardless of the
             cache
+      type: object
     TemplateBuildRequestV3:
       properties:
         name:
@@ -3760,6 +3827,7 @@ components:
           $ref: '#/components/schemas/CPUCount'
         memoryMB:
           $ref: '#/components/schemas/MemoryMB'
+      type: object
     TemplateBuildRequestV2:
       required:
       - alias
@@ -3775,6 +3843,7 @@ components:
           $ref: '#/components/schemas/CPUCount'
         memoryMB:
           $ref: '#/components/schemas/MemoryMB'
+      type: object
     FromImageRegistry:
       oneOf:
       - $ref: '#/components/schemas/AWSRegistry'
@@ -3878,6 +3947,7 @@ components:
         url:
           description: Url where the file should be uploaded to
           type: string
+      type: object
     LogLevel:
       type: string
       description: Severity level for log entries (e.g. info, warn, error)
@@ -3899,6 +3969,7 @@ components:
         step:
           type: string
           description: Step in the build process related to the log entry
+      type: object
     BuildStatusReason:
       required:
       - message
@@ -3916,6 +3987,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BuildLogEntry'
+      type: object
     TemplateBuildStatus:
       type: string
       description: Status of the template build
@@ -3955,6 +4027,7 @@ components:
           $ref: '#/components/schemas/TemplateBuildStatus'
         reason:
           $ref: '#/components/schemas/BuildStatusReason'
+      type: object
     TemplateBuildLogsResponse:
       required:
       - logs
@@ -3965,6 +4038,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BuildLogEntry'
+      type: object
     LogsDirection:
       type: string
       description: Direction of the logs that should be returned
@@ -3997,6 +4071,7 @@ components:
           type: string
           format: uuid
           description: Identifier of the build associated with these tags
+      type: object
     TemplateTag:
       required:
       - tag
@@ -4014,6 +4089,7 @@ components:
           type: string
           format: date-time
           description: Time when the tag was assigned
+      type: object
     AssignTemplateTagsRequest:
       required:
       - target
@@ -4027,6 +4103,7 @@ components:
           type: array
           items:
             type: string
+      type: object
     DeleteTemplateTagsRequest:
       required:
       - name
@@ -4040,6 +4117,7 @@ components:
           type: array
           items:
             type: string
+      type: object
     Volume:
       type: object
       properties:

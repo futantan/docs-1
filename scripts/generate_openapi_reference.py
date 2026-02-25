@@ -756,6 +756,142 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             responses["200"]["description"] = "Upload link for the tar file containing build layer files"
             fixes.append("/templates/{templateID}/files/{hash}: changed 201 → 200 response")
 
+    # 10. Generate operationId for platform endpoints that lack one
+    op_id_count = 0
+    for ep_path, path_item in paths.items():
+        # Skip envd endpoints (already have operationIds)
+        if "/" in ep_path.lstrip("/") and "." in ep_path.split("/")[1]:
+            continue
+        for method in ("get", "post", "put", "patch", "delete", "head", "options"):
+            op = path_item.get(method)
+            if not op or op.get("operationId"):
+                continue
+            # Build operationId from method + path segments
+            # e.g. GET /templates/{templateID}/builds/{buildID}/status → getTemplateBuildStatus
+            segments = []
+            for seg in ep_path.strip("/").split("/"):
+                if seg.startswith("{") and seg.endswith("}"):
+                    continue  # skip path params
+                # Strip version prefixes
+                if seg in ("v2", "v3"):
+                    continue
+                segments.append(seg)
+            # Singularize resource names for sub-resources
+            # e.g. /sandboxes/{id}/logs → getSandboxLogs
+            parts = []
+            for i, seg in enumerate(segments):
+                if i < len(segments) - 1:
+                    # Sub-resource parent: singularize
+                    s = seg.rstrip("s") if seg.endswith("es") and len(seg) > 3 else (
+                        seg[:-1] if seg.endswith("s") and not seg.endswith("ss") else seg)
+                    parts.append(s)
+                else:
+                    parts.append(seg)
+            name = "".join(p.capitalize() for p in parts)
+            op["operationId"] = f"{method}{name}"
+            op_id_count += 1
+    if op_id_count:
+        fixes.append(f"Generated operationId for {op_id_count} platform endpoints")
+
+    # 11. Phantom deprecation reference: /v2/sandboxes/{sandboxID}/logs doesn't exist
+    logs_path = paths.get("/sandboxes/{sandboxID}/logs", {})
+    logs_get = logs_path.get("get")
+    if logs_get and "/v2/" in logs_get.get("description", ""):
+        logs_get["description"] = "Get sandbox logs."
+        fixes.append("/sandboxes/{sandboxID}/logs: removed phantom /v2 deprecation reference")
+
+    # 12. Truncated parameter descriptions on metrics endpoints
+    metrics_desc_suffix = " are returned."
+    for ep_path in paths:
+        for method in ("get", "post"):
+            op = (paths[ep_path] or {}).get(method)
+            if not op:
+                continue
+            for param in op.get("parameters", []):
+                if not isinstance(param, dict) or param.get("name") not in ("start", "end"):
+                    continue
+                # Description could be on param or nested in schema
+                for target in (param, param.get("schema", {})):
+                    desc = target.get("description", "")
+                    if desc and desc.rstrip().endswith("the metrics"):
+                        target["description"] = desc.rstrip() + metrics_desc_suffix
+                        fixes.append(f"{ep_path}: completed truncated '{param['name']}' description")
+
+    # 13. sandboxId → sandboxID casing in 502 error schema
+    #     The 502 response defined on /health uses "sandboxId" (lowercase d)
+    health_path = paths.get("/health", {})
+    health_get = health_path.get("get")
+    if health_get:
+        for status_code, resp in health_get.get("responses", {}).items():
+            if not isinstance(resp, dict):
+                continue
+            for ct, media in resp.get("content", {}).items():
+                schema = media.get("schema", {})
+                props = schema.get("properties", {})
+                if "sandboxId" in props and "sandboxID" not in props:
+                    props["sandboxID"] = props.pop("sandboxId")
+                    req = schema.get("required", [])
+                    for i, r in enumerate(req):
+                        if r == "sandboxId":
+                            req[i] = "sandboxID"
+                    fixes.append("502 error schema: sandboxId → sandboxID")
+
+    # 14. /health missing security: [] and tags
+    if health_get:
+        if "security" not in health_get:
+            health_get["security"] = []
+            fixes.append("/health: added security: [] (explicitly no auth)")
+        if "tags" not in health_get:
+            health_get["tags"] = ["health"]
+            fixes.append("/health: added 'health' tag")
+
+    # 15. /files responses: YAML anchor overlay hides actual response schemas
+    #     Remove the overlaid empty content block so $ref responses are used
+    for files_ep in ("/files",):
+        fpath = paths.get(files_ep, {})
+        for method in ("get", "post"):
+            op = fpath.get(method)
+            if not op:
+                continue
+            responses = op.get("responses", {})
+            for status_code, resp in responses.items():
+                if not isinstance(resp, dict):
+                    continue
+                # If the response has both $ref and content with an empty schema,
+                # the empty content overlay was from the YAML anchor bug — remove it
+                if "$ref" in resp and "content" in resp:
+                    content = resp["content"]
+                    for ct, media in list(content.items()):
+                        s = media.get("schema", {})
+                        if s.get("description") == "Empty response":
+                            del content[ct]
+                    if not content:
+                        del resp["content"]
+                        fixes.append(f"{files_ep} {method.upper()}: removed anchor-overlaid empty content")
+
+    # 16. Missing type: object on schemas that have properties
+    obj_fixed = 0
+    for schema_name, schema in schemas.items():
+        if "properties" in schema and "type" not in schema and "allOf" not in schema and "oneOf" not in schema:
+            schema["type"] = "object"
+            obj_fixed += 1
+    if obj_fixed:
+        fixes.append(f"Added type: object to {obj_fixed} schemas")
+
+    # 17. end parameter nesting: description inside schema instead of sibling
+    for ep_path in paths:
+        for method in ("get", "post"):
+            op = (paths[ep_path] or {}).get(method)
+            if not op:
+                continue
+            for param in op.get("parameters", []):
+                if not isinstance(param, dict) or param.get("name") != "end":
+                    continue
+                schema = param.get("schema", {})
+                if "description" in schema and "description" not in param:
+                    param["description"] = schema.pop("description")
+                    fixes.append(f"{ep_path}: moved 'end' description out of schema")
+
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
         for f in fixes:
@@ -956,6 +1092,9 @@ def fill_empty_responses(spec: dict[str, Any]) -> None:
                 # 204 = No Content: remove any content block
                 if str(status) == "204":
                     resp.pop("content", None)
+                    continue
+                # Skip responses that use $ref (content comes from the referenced response)
+                if "$ref" in resp:
                     continue
                 if str(status).startswith("2") and "content" not in resp:
                     resp["content"] = EMPTY_RESPONSE_CONTENT
