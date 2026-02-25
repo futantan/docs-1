@@ -1,0 +1,159 @@
+---
+title: "OpenClaw Gateway"
+description: "Start the OpenClaw gateway in an E2B sandbox, connect your browser, and auto-approve device pairing."
+icon: "/images/icons/openclaw.svg"
+---
+
+The OpenClaw [gateway](https://docs.openclaw.ai/gateway) serves a web UI for chatting with agents. When exposed over a network it requires **token auth** and **device pairing** — your browser must be approved as a trusted device before it can connect.
+
+This guide starts the gateway inside an E2B sandbox, prints the URL, and programmatically approves your browser.
+
+## Quick start
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const TOKEN = process.env.OPENCLAW_APP_TOKEN || 'my-gateway-token'
+const PORT = 18789
+
+// 1. Create sandbox
+const sandbox = await Sandbox.create('openclaw', {
+  envs: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+  timeoutMs: 3600_000,
+})
+
+// 2. Start the gateway with token auth
+sandbox.commands.run(
+  `openclaw gateway --allow-unconfigured --bind lan --auth token --token ${TOKEN} --port ${PORT}`,
+  { background: true }
+)
+
+// 3. Wait for the gateway to start listening
+for (let i = 0; i < 45; i++) {
+  const probe = await sandbox.commands.run(
+    `bash -lc 'ss -ltn | grep -q ":${PORT} " && echo ready || echo waiting'`
+  )
+  if (probe.stdout.trim() === 'ready') break
+  await new Promise((r) => setTimeout(r, 1000))
+}
+
+const url = `https://${sandbox.getHost(PORT)}/?token=${TOKEN}`
+console.log(`Gateway: ${url}`)
+```
+```python Python
+import os, time
+from e2b import Sandbox
+
+TOKEN = os.environ.get("OPENCLAW_APP_TOKEN", "my-gateway-token")
+PORT = 18789
+
+# 1. Create sandbox
+sandbox = Sandbox.create("openclaw", envs={
+    "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
+}, timeout=3600)
+
+# 2. Start the gateway with token auth
+sandbox.commands.run(
+    f"openclaw gateway --allow-unconfigured --bind lan --auth token --token {TOKEN} --port {PORT}",
+    background=True,
+)
+
+# 3. Wait for the gateway to start listening
+for _ in range(45):
+    probe = sandbox.commands.run(
+        f'bash -lc \'ss -ltn | grep -q ":{PORT} " && echo ready || echo waiting\''
+    )
+    if probe.stdout.strip() == "ready":
+        break
+    time.sleep(1)
+
+url = f"https://{sandbox.get_host(PORT)}/?token={TOKEN}"
+print(f"Gateway: {url}")
+```
+</CodeGroup>
+
+Open the URL in your browser. It will show **"Pairing required"** — that's expected.
+
+## Approve device pairing
+
+The gateway requires each browser to be approved as a paired device. Run this after opening the URL — it polls for pending requests and approves the first one.
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+// 4. Poll for the browser's pending device request and approve it
+for (let i = 0; i < 30; i++) {
+  const res = await sandbox.commands.run(
+    `openclaw devices list --json --url ws://127.0.0.1:${PORT} --token ${TOKEN}`
+  )
+  const data = JSON.parse(res.stdout)
+  if (data.pending?.length) {
+    const rid = data.pending[0].requestId
+    await sandbox.commands.run(
+      `openclaw devices approve ${rid} --token ${TOKEN} --url ws://127.0.0.1:${PORT}`
+    )
+    console.log(`Device approved: ${rid}`)
+    break
+  }
+  await new Promise((r) => setTimeout(r, 2000))
+}
+```
+```python Python
+import json
+
+# 4. Poll for the browser's pending device request and approve it
+for _ in range(30):
+    try:
+        res = sandbox.commands.run(
+            f"openclaw devices list --json --url ws://127.0.0.1:{PORT} --token {TOKEN}"
+        )
+        data = json.loads(res.stdout)
+        if data.get("pending"):
+            rid = data["pending"][0]["requestId"]
+            sandbox.commands.run(
+                f"openclaw devices approve {rid} --token {TOKEN} --url ws://127.0.0.1:{PORT}"
+            )
+            print(f"Device approved: {rid}")
+            break
+    except Exception:
+        pass
+    time.sleep(2)
+```
+</CodeGroup>
+
+Once approved, the browser connects and the gateway UI loads.
+
+## How it works
+
+| Step | What happens |
+|------|-------------|
+| `--bind lan` | Gateway listens on `0.0.0.0` so E2B can proxy it |
+| `--auth token` | Requires `?token=` on the URL for HTTP and WebSocket auth |
+| Browser opens URL | Gateway serves the UI, browser opens a WebSocket |
+| `code=1008 pairing required` | Gateway closes the WebSocket until the device is approved |
+| `devices approve` | Approves the browser's device fingerprint |
+| Browser reconnects | WebSocket connects successfully, UI is live |
+
+## Gateway flags reference
+
+| Flag | Purpose |
+|------|---------|
+| `--allow-unconfigured` | Start without a full config file |
+| `--bind lan` | Bind to `0.0.0.0` (required for E2B port proxying) |
+| `--auth token` | Enable token-based authentication |
+| `--token <value>` | The auth token (passed as `?token=` in the URL) |
+| `--port <number>` | Gateway listen port (default: `18789`) |
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="OpenClaw agent" icon="terminal" href="/docs/agents/openclaw">
+    Run OpenClaw headless in a sandbox
+  </Card>
+  <Card title="Sandbox persistence" icon="clock" href="/docs/sandbox/persistence">
+    Auto-pause, resume, and manage sandbox lifecycle
+  </Card>
+  <Card title="SSH access" icon="terminal" href="/docs/sandbox/ssh-access">
+    Connect to the sandbox via SSH
+  </Card>
+</CardGroup>
