@@ -16,7 +16,7 @@ This page uses a PTY-first flow, which works on raw OpenClaw sandboxes.
 
 ## End-to-end PTY flow
 
-### 1) Connect to your sandbox
+### Connect to your sandbox
 
 <CodeGroup>
 ```python Python
@@ -66,7 +66,7 @@ async function sendLine(line) {
 ```
 </CodeGroup>
 
-### 2) Start onboarding in PTY
+### Start onboarding in PTY
 
 <CodeGroup>
 ```python Python
@@ -107,7 +107,7 @@ await sendLine(
 ```
 </CodeGroup>
 
-### 3) Extract auth URL and open it in your local browser
+### Extract auth URL and open it in your local browser
 
 <CodeGroup>
 ```python Python
@@ -155,7 +155,7 @@ After browser sign-in, copy the localhost callback URL:
 
 `http://localhost:1455/auth/callback?code=...&state=...`
 
-### 4) Submit callback back into PTY
+### Submit callback back into PTY
 
 <CodeGroup>
 ```python Python
@@ -189,7 +189,7 @@ rl.close()
 ```
 </CodeGroup>
 
-### 5) Verify OAuth link and run a smoke command
+### Verify OAuth link and run a smoke command
 
 <CodeGroup>
 ```python Python
@@ -295,7 +295,7 @@ console.log(reset.stdout)
 ```
 </CodeGroup>
 
-After reset, rerun steps 2-5.
+After reset, rerun onboarding and verification.
 
 ## Related
 
