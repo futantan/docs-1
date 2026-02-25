@@ -9,9 +9,10 @@ OpenClaw supports Telegram as a chat channel. In E2B you can run OpenClaw in a s
 This guide covers the working flow we used:
 
 1. Start OpenClaw in a sandbox.
-2. Add Telegram channel credentials.
-3. Start the channel runtime in background.
-4. Approve Telegram pairing.
+2. Enable the Telegram plugin.
+3. Add Telegram channel credentials.
+4. Start the channel runtime in background.
+5. Approve Telegram pairing.
 
 ## Prerequisites
 
@@ -37,6 +38,9 @@ const sandbox = await Sandbox.create('openclaw', {
 })
 
 await sandbox.commands.run('openclaw config set agents.defaults.model.primary openai/gpt-5.2')
+
+// Enable the Telegram plugin (required before adding the channel)
+await sandbox.commands.run('openclaw config set plugins.entries.telegram.enabled true')
 await sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
 
 await sandbox.commands.run(
@@ -66,6 +70,9 @@ sandbox = Sandbox.create("openclaw", envs={
 }, timeout=3600)
 
 sandbox.commands.run("openclaw config set agents.defaults.model.primary openai/gpt-5.2")
+
+# Enable the Telegram plugin (required before adding the channel)
+sandbox.commands.run("openclaw config set plugins.entries.telegram.enabled true")
 sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
 
 sandbox.commands.run(
@@ -167,6 +174,8 @@ print(logs.stdout)
 
 ## Troubleshooting
 
+- `Unknown channel: telegram`
+  - The Telegram plugin is not enabled. Run `openclaw config set plugins.entries.telegram.enabled true` before adding the channel.
 - `OpenClaw: access not configured`
   - Pairing has not been approved yet. Run `openclaw pairing approve ...`.
 - `No API key found for provider ...`
