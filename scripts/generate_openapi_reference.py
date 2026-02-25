@@ -892,6 +892,86 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
                     param["description"] = schema.pop("description")
                     fixes.append(f"{ep_path}: moved 'end' description out of schema")
 
+    # 18. EntryInfo.type enum incomplete — missing "directory"
+    entry_info = schemas.get("EntryInfo")
+    if entry_info:
+        type_prop = entry_info.get("properties", {}).get("type")
+        if type_prop and type_prop.get("enum") == ["file"]:
+            type_prop["enum"] = ["file", "directory"]
+            fixes.append("EntryInfo.type: added 'directory' to enum")
+
+    # 19. SandboxMetadata and EnvVars lack type: object
+    for name in ("SandboxMetadata", "EnvVars"):
+        schema = schemas.get(name, {})
+        if "additionalProperties" in schema and "type" not in schema:
+            schema["type"] = "object"
+            fixes.append(f"{name}: added type: object")
+
+    # 20. TemplateLegacy missing 'names' and 'buildStatus' fields
+    tpl_legacy = schemas.get("TemplateLegacy")
+    if tpl_legacy and "properties" in tpl_legacy:
+        props = tpl_legacy["properties"]
+        if "names" not in props:
+            props["names"] = {
+                "type": "array",
+                "description": "Names of the template (namespace/alias format when namespaced)",
+                "items": {"type": "string"},
+            }
+            fixes.append("TemplateLegacy: added 'names' property")
+        if "buildStatus" not in props:
+            props["buildStatus"] = {"$ref": "#/components/schemas/TemplateBuildStatus"}
+            fixes.append("TemplateLegacy: added 'buildStatus' property")
+
+    # 21. connect-protocol-version: redundant enum + const
+    cpv = schemas.get("connect-protocol-version")
+    if cpv and "enum" in cpv and "const" in cpv:
+        del cpv["enum"]
+        fixes.append("connect-protocol-version: removed redundant enum (const is sufficient)")
+
+    # 22. filesystem.EntryInfo.size union type undocumented
+    fs_entry = schemas.get("filesystem.EntryInfo")
+    if fs_entry and "properties" in fs_entry:
+        size_prop = fs_entry["properties"].get("size")
+        if size_prop and isinstance(size_prop.get("type"), list):
+            size_prop["description"] = (
+                "File size in bytes. Encoded as string for values exceeding "
+                "JSON number precision (int64)."
+            )
+            fixes.append("filesystem.EntryInfo.size: documented integer/string union type")
+
+    # 23. GET /health 502 uses application/connect+json — change to application/json
+    if health_get:
+        for status_code, resp in health_get.get("responses", {}).items():
+            if not isinstance(resp, dict):
+                continue
+            content = resp.get("content", {})
+            if "application/connect+json" in content and "application/json" not in content:
+                content["application/json"] = content.pop("application/connect+json")
+                fixes.append(f"/health {status_code}: content-type → application/json")
+
+    # 24. PATCH /templates/{templateID} (deprecated) returns empty object —
+    #     use TemplateUpdateResponse like v2
+    patch_v1_path = paths.get("/templates/{templateID}", {})
+    patch_v1 = patch_v1_path.get("patch")
+    if patch_v1:
+        resp_200 = patch_v1.get("responses", {}).get("200", {})
+        # Replace the entire content dict (don't modify shared YAML anchor object)
+        resp_200["content"] = {
+            "application/json": {
+                "schema": {"$ref": "#/components/schemas/TemplateUpdateResponse"}
+            }
+        }
+        fixes.append("PATCH /templates/{templateID}: response → TemplateUpdateResponse")
+
+    # 25. POST /sandboxes/{sandboxID}/refreshes missing 500 response
+    refreshes_path = paths.get("/sandboxes/{sandboxID}/refreshes", {})
+    refreshes_post = refreshes_path.get("post")
+    if refreshes_post:
+        responses = refreshes_post.get("responses", {})
+        if "500" not in responses:
+            responses["500"] = {"$ref": "#/components/responses/500"}
+            fixes.append("/sandboxes/{sandboxID}/refreshes: added 500 response")
+
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
         for f in fixes:

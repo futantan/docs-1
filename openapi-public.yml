@@ -18,7 +18,7 @@ paths:
         '502': &id001
           description: Sandbox not found
           content:
-            application/connect+json:
+            application/json:
               schema:
                 type: object
                 required:
@@ -1261,6 +1261,8 @@ paths:
           $ref: '#/components/responses/401'
         '404':
           $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
       operationId: postSandboxeRefreshes
     servers:
     - *id006
@@ -1575,11 +1577,10 @@ paths:
       responses:
         '200':
           description: The template was updated successfully
-          content: &id007
+          content:
             application/json:
               schema:
-                type: object
-                description: Empty response
+                $ref: '#/components/schemas/TemplateUpdateResponse'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1603,7 +1604,11 @@ paths:
       responses:
         '202':
           description: The build has started
-          content: *id007
+          content: &id007
+            application/json:
+              schema:
+                type: object
+                description: Empty response
         '401':
           $ref: '#/components/responses/401'
         '500':
@@ -2241,11 +2246,13 @@ components:
           description: Type of the file
           enum:
           - file
+          - directory
       type: object
     EnvVars:
       additionalProperties:
         type: string
         description: Environment variables for the sandbox
+      type: object
     Metrics:
       type: object
       description: Resource usage metrics
@@ -2282,8 +2289,6 @@ components:
     connect-protocol-version:
       type: number
       title: Connect-Protocol-Version
-      enum:
-      - 1
       description: Define the version of the Connect protocol
       const: 1
     connect-timeout-header:
@@ -2327,6 +2332,8 @@ components:
           - string
           title: size
           format: int64
+          description: File size in bytes. Encoded as string for values exceeding
+            JSON number precision (int64).
         mode:
           type: integer
           title: mode
@@ -3039,6 +3046,7 @@ components:
       additionalProperties:
         type: string
         description: Metadata of the sandbox
+      type: object
     SandboxState:
       type: string
       description: State of the sandbox
@@ -3655,6 +3663,13 @@ components:
           description: Number of times the template was built
         envdVersion:
           $ref: '#/components/schemas/EnvdVersion'
+        names:
+          type: array
+          description: Names of the template (namespace/alias format when namespaced)
+          items:
+            type: string
+        buildStatus:
+          $ref: '#/components/schemas/TemplateBuildStatus'
       type: object
     TemplateBuild:
       required:
