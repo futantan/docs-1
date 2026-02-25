@@ -10,7 +10,7 @@ This page uses a PTY-first flow, which works on raw OpenClaw sandboxes even when
 
 ## Prerequisites
 
-- Local Python app or notebook with `e2b` SDK installed.
+- Local app/notebook with E2B SDK installed (Python or JavaScript).
 - `E2B_API_KEY` in your local environment.
 - OpenAI account with Codex access.
 
@@ -18,7 +18,9 @@ This page uses a PTY-first flow, which works on raw OpenClaw sandboxes even when
 
 ### 1) Connect to your sandbox
 
-```python
+<CodeGroup>
+```python Python
+import json
 import re
 import threading
 import time
@@ -26,18 +28,48 @@ from e2b import Sandbox
 from e2b.sandbox.commands.command_handle import CommandExitException, PtySize
 
 sandbox = Sandbox.connect("<sandbox_id>", timeout=60 * 30)
-```
 
-### 2) Start onboarding in PTY
-
-```python
 pty_chunks = []
+terminal = None
+thread = None
 
 def on_pty(data: bytes):
     text = data.decode("utf-8", errors="replace")
     print(text, end="")
     pty_chunks.append(text)
 
+def pty_send_line(text: str):
+    # For OpenClaw TUI prompts, carriage return is more reliable than newline.
+    sandbox.pty.send_stdin(terminal.pid, (text + "\r").encode())
+```
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+import * as readline from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
+
+const sandbox = await Sandbox.connect('<sandbox_id>', {
+  timeoutMs: 60 * 30 * 1000,
+})
+
+let ptyOutput = ''
+const decoder = new TextDecoder()
+const encoder = new TextEncoder()
+let terminal
+let waitPromise
+
+const rl = readline.createInterface({ input, output })
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function sendLine(line) {
+  await sandbox.pty.sendInput(terminal.pid, encoder.encode(`${line}\r`))
+}
+```
+</CodeGroup>
+
+### 2) Start onboarding in PTY
+
+<CodeGroup>
+```python Python
 terminal = sandbox.pty.create(
     PtySize(cols=140, rows=40),
     timeout=0,  # keep PTY open while you complete browser login
@@ -49,20 +81,36 @@ thread = threading.Thread(
 )
 thread.start()
 
-def pty_send_line(text: str):
-    # For OpenClaw TUI prompts, carriage return is more reliable than newline.
-    sandbox.pty.send_stdin(terminal.pid, (text + "\r").encode())
-
 onboard_cmd = (
     "openclaw onboard --accept-risk --flow quickstart --mode local "
     "--auth-choice openai-codex --skip-ui --skip-channels --skip-skills --skip-health"
 )
 pty_send_line(onboard_cmd)
 ```
+```typescript JavaScript & TypeScript
+terminal = await sandbox.pty.create({
+  cols: 140,
+  rows: 40,
+  timeoutMs: 10 * 60_000,
+  onData: (data) => {
+    const text = decoder.decode(data)
+    process.stdout.write(text)
+    ptyOutput += text
+  },
+})
+
+waitPromise = terminal.wait()
+
+await sendLine(
+  'openclaw onboard --accept-risk --flow quickstart --mode local --auth-choice openai-codex --skip-ui --skip-channels --skip-skills --skip-health'
+)
+```
+</CodeGroup>
 
 ### 3) Extract auth URL and open it in your local browser
 
-```python
+<CodeGroup>
+```python Python
 ansi_re = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 oauth_re = re.compile(r"https://auth\.openai\.com/oauth/authorize[^\s\"']+")
 
@@ -81,6 +129,27 @@ if not auth_url:
 print("Open this URL in your LOCAL browser:\n")
 print(auth_url)
 ```
+```typescript JavaScript & TypeScript
+const ansiRe = /\x1b\[[0-9;?]*[ -/]*[@-~]/g
+const oauthRe = /https:\/\/auth\.openai\.com\/oauth\/authorize[^\s"']+/
+
+let authUrl = null
+for (let i = 0; i < 60; i++) {
+  const cleaned = ptyOutput.replace(/\r/g, '\n').replace(ansiRe, '')
+  const match = cleaned.match(oauthRe)
+  if (match) {
+    authUrl = match[0]
+    break
+  }
+  await sleep(1000)
+}
+
+if (!authUrl) throw new Error('OAuth URL not found in PTY output')
+
+console.log('\nOpen this URL in your LOCAL browser:\n')
+console.log(authUrl)
+```
+</CodeGroup>
 
 After browser sign-in, copy the localhost callback URL:
 
@@ -88,7 +157,8 @@ After browser sign-in, copy the localhost callback URL:
 
 ### 4) Submit callback back into PTY
 
-```python
+<CodeGroup>
+```python Python
 callback_url = input("\nPaste localhost callback URL: ").strip()
 pty_send_line(callback_url)
 
@@ -101,10 +171,28 @@ try:
 except CommandExitException:
     pass
 ```
+```typescript JavaScript & TypeScript
+const callbackUrl = (await rl.question('\nPaste localhost callback URL: ')).trim()
+await sendLine(callbackUrl)
+
+await sleep(2000)
+await sendLine('exit')
+
+await Promise.race([
+  waitPromise,
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('PTY wait timeout after 30s')), 30_000)
+  ),
+]).catch((e) => console.warn(String(e)))
+
+rl.close()
+```
+</CodeGroup>
 
 ### 5) Verify OAuth link and run a smoke command
 
-```python
+<CodeGroup>
+```python Python
 auth_check = sandbox.commands.run(
     """python3 - <<'PY'
 import json
@@ -121,15 +209,66 @@ PY"""
 )
 print(auth_check.stdout)
 
+sandbox.commands.run(
+    "openclaw config set agents.defaults.model.primary openai-codex/gpt-5.2-codex"
+)
+
 smoke = sandbox.commands.run(
     'openclaw agent --session-id main --thinking low --message "Say exactly: oauth-ok"'
 )
 print(smoke.stdout)
 ```
+```typescript JavaScript & TypeScript
+const authRaw = await sandbox.commands.run(
+  "cat /home/user/.openclaw/agents/main/agent/auth-profiles.json 2>/dev/null || echo '{}'"
+)
+const authStore = JSON.parse(authRaw.stdout || '{}')
+const profiles = authStore?.profiles ?? {}
+const linked = Object.values(profiles).some(
+  (p) => p?.provider === 'openai-codex' && p?.refresh
+)
+console.log({ openai_codex_oauth_linked: linked })
+if (!linked) throw new Error('openai-codex OAuth profile not linked')
 
-## Reset and relink OAuth
+await sandbox.commands.run(
+  'openclaw config set agents.defaults.model.primary openai-codex/gpt-5.2-codex'
+)
 
-```python
+const smoke = await sandbox.commands.run(
+  'openclaw agent --session-id main --thinking low --message "Say exactly: oauth-ok"'
+)
+console.log(smoke.stdout)
+```
+</CodeGroup>
+
+## Cleanup
+
+<CodeGroup>
+```python Python
+sandbox.kill()
+```
+```typescript JavaScript & TypeScript
+await sandbox.kill()
+```
+</CodeGroup>
+
+## Troubleshooting
+
+- PTY output looks noisy or has many `\x1b[...]` codes
+  - Expected for terminal apps; clean ANSI before regex matching.
+- Callback appears typed character-by-character
+  - Normal for this prompt renderer.
+- Callback submitted but no OAuth profile appears
+  - Ensure callback `state` matches the latest auth URL from this run.
+- `No API key found for provider "openai-codex"` on smoke test
+  - OAuth did not link; verify `openai_codex_oauth_linked=true` before agent calls.
+- PTY onboarding hangs or behaves oddly
+  - Do not pass `cwd=` to `sandbox.pty.create(...)` in this flow.
+
+## Optional: reset and relink OAuth
+
+<CodeGroup>
+```python Python
 reset = sandbox.commands.run(
     """python3 - <<'PY'
 import json
@@ -149,27 +288,27 @@ PY"""
 )
 print(reset.stdout)
 ```
+```typescript JavaScript & TypeScript
+const reset = await sandbox.commands.run(`python3 - <<'PY'
+import json
+from pathlib import Path
 
-Then rerun steps 2-5.
-
-## Cleanup
-
-```python
-sandbox.kill()
+p = Path('/home/user/.openclaw/agents/main/agent/auth-profiles.json')
+raw = json.loads(p.read_text()) if p.exists() else {}
+profiles = raw.get('profiles', {}) if isinstance(raw, dict) else {}
+raw['profiles'] = {
+    k: v for k, v in profiles.items()
+    if not (isinstance(v, dict) and v.get('provider') == 'openai-codex')
+}
+p.parent.mkdir(parents=True, exist_ok=True)
+p.write_text(json.dumps(raw, indent=2) + '\\n')
+print('cleared openai-codex oauth profiles')
+PY`)
+console.log(reset.stdout)
 ```
+</CodeGroup>
 
-## Troubleshooting
-
-- PTY output looks noisy or has many `\x1b[...]` codes
-  - Expected for terminal apps; clean ANSI before regex matching.
-- Callback appears typed character-by-character
-  - Normal for this prompt renderer.
-- Callback submitted but no OAuth profile appears
-  - Ensure callback `state` matches the latest auth URL from this run.
-- `No API key found for provider "openai-codex"` on smoke test
-  - OAuth did not link; verify `openai_codex_oauth_linked=true` before agent calls.
-- PTY onboarding hangs or behaves oddly
-  - Do not pass `cwd=` to `sandbox.pty.create(...)` in this flow.
+After reset, rerun steps 2-5.
 
 ## Related
 
