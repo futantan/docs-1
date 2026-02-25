@@ -1787,15 +1787,37 @@ paths:
       - $ref: '#/components/parameters/SignatureExpiration'
       responses:
         '200':
-          $ref: '#/components/responses/DownloadSuccess'
+          description: Entire file downloaded successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: The file content
         '401':
-          $ref: '#/components/responses/InvalidUser'
+          description: Invalid user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '400':
-          $ref: '#/components/responses/InvalidPath'
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/FileNotFound'
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
-          $ref: '#/components/responses/InternalServerError'
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '502': *id003
       operationId: downloadFile
     post:
@@ -1814,15 +1836,37 @@ paths:
         $ref: '#/components/requestBodies/File'
       responses:
         '200':
-          $ref: '#/components/responses/UploadSuccess'
+          description: The file was uploaded successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EntryInfo'
         '400':
-          $ref: '#/components/responses/InvalidPath'
+          description: Invalid path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
-          $ref: '#/components/responses/InvalidUser'
+          description: Invalid user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
-          $ref: '#/components/responses/InternalServerError'
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '507':
-          $ref: '#/components/responses/NotEnoughDiskSpace'
+          description: Not enough disk space
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '502': *id003
       operationId: uploadFile
     servers:

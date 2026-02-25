@@ -25,6 +25,7 @@ Requires: Docker, PyYAML (pip install pyyaml).
 
 from __future__ import annotations
 
+import copy
 import os
 import re
 import subprocess
@@ -886,29 +887,37 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
             health_get["tags"] = ["health"]
             fixes.append("/health: added 'health' tag")
 
-    # 15. /files responses: YAML anchor overlay hides actual response schemas
-    #     Remove the overlaid empty content block so $ref responses are used
-    for files_ep in ("/files",):
-        fpath = paths.get(files_ep, {})
-        for method in ("get", "post"):
-            op = fpath.get(method)
-            if not op:
+    # 15. /files responses: inline $ref responses so Mintlify renders them correctly
+    #     The upstream spec uses YAML anchors that cause issues, and some renderers
+    #     don't resolve response-level $refs properly.
+    comp_responses = spec.get("components", {}).get("responses", {})
+    files_path = paths.get("/files", {})
+    for method in ("get", "post"):
+        op = files_path.get(method)
+        if not op:
+            continue
+        responses = op.get("responses", {})
+        for status_code, resp in list(responses.items()):
+            if not isinstance(resp, dict):
                 continue
-            responses = op.get("responses", {})
-            for status_code, resp in responses.items():
-                if not isinstance(resp, dict):
-                    continue
-                # If the response has both $ref and content with an empty schema,
-                # the empty content overlay was from the YAML anchor bug — remove it
-                if "$ref" in resp and "content" in resp:
-                    content = resp["content"]
-                    for ct, media in list(content.items()):
-                        s = media.get("schema", {})
-                        if s.get("description") == "Empty response":
-                            del content[ct]
-                    if not content:
-                        del resp["content"]
-                        fixes.append(f"{files_ep} {method.upper()}: removed anchor-overlaid empty content")
+            # Inline any $ref to components/responses
+            ref = resp.get("$ref", "")
+            if ref.startswith("#/components/responses/"):
+                ref_name = ref.split("/")[-1]
+                resolved = comp_responses.get(ref_name)
+                if resolved:
+                    # Replace with a copy so we don't mutate the shared component
+                    responses[status_code] = copy.deepcopy(resolved)
+            # Also clean up any anchor-overlaid empty content
+            elif "$ref" not in resp and "content" in resp:
+                content = resp["content"]
+                for ct, media in list(content.items()):
+                    s = media.get("schema", {})
+                    if s.get("description") == "Empty response":
+                        del content[ct]
+                if not content:
+                    del resp["content"]
+    fixes.append("/files: inlined response definitions for GET and POST")
 
     # 16. Missing type: object on schemas that have properties
     obj_fixed = 0
