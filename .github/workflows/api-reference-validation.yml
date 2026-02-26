@@ -1,0 +1,88 @@
+name: API Reference Validation
+
+on:
+  # schedule:
+  #   # Every Thursday at 8 PM UTC
+  #   - cron: '0 20 * * 4'
+  workflow_dispatch:
+
+concurrency:
+  group: api-reference-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run validation
+        env:
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+          E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
+        run: |
+          python3 scripts/validate_api_reference.py \
+            --output openapi-validation-report.md \
+            --verbose
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet openapi-validation-report.md 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="api-validation-$(date +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add openapi-validation-report.md
+          git commit -m "docs: update API validation report $(date +%Y-%m-%d)"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "API validation report $(date +%Y-%m-%d)" \
+            --body "$(cat <<'EOF'
+          ## Automated API Reference Validation
+
+          Weekly validation of `openapi-public.yml` against the live E2B API.
+
+          Review the updated `openapi-validation-report.md` for any new findings.
+          EOF
+          )" \
+            --base main
+
+      - name: Summary
+        run: |
+          echo "## API Reference Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f openapi-validation-report.md ]; then
+            # Extract critical findings count
+            CRITICAL=$(grep -c "critical" openapi-validation-report.md 2>/dev/null || echo "0")
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical findings | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| Report | openapi-validation-report.md |" >> $GITHUB_STEP_SUMMARY
+          fi
