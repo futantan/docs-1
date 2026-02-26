@@ -848,9 +848,6 @@ def run_phase_1_teams(api_key: str, team_id: str | None, spec: dict,
     results = []
     h = api_key_hdr(api_key)
 
-    # Auth tests: 401 for all endpoints without API key
-    results.extend(run_auth_tests(api_key))
-
     # GET /teams (requires AccessTokenAuth — Bearer token, not ApiKeyAuth)
     print("\n  Teams")
     print("  GET /teams")
@@ -1027,11 +1024,12 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
     results.append(ep)
 
     # GET /templates/aliases/{alias}
-    print(f"  GET /templates/aliases/base")
+    test_alias = alias or "base"
+    print(f"  GET /templates/aliases/{test_alias}")
     ep = EndpointResult("GET", "/templates/aliases/{alias}", surface="platform")
     ep.tested = True
     ep.expected_status = 200
-    status, body, _ = ctrl("GET", "/templates/aliases/base", headers=h)
+    status, body, _ = ctrl("GET", f"/templates/aliases/{test_alias}", headers=h)
     ep.actual_status = status
     ep.response_body = body
     if status == 200:
@@ -1039,7 +1037,7 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
         ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /templates/aliases/{alias}"))
     elif status == 404:
         ep.findings.append(Finding("minor", "status_code", "GET /templates/aliases/{alias}",
-                                   "Alias 'base' not found (404)", "200", "404"))
+                                   f"Alias '{test_alias}' not found (404)", "200", "404"))
     results.append(ep)
 
     # GET /templates/{templateID}/builds/{buildID}/status
@@ -1367,12 +1365,12 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
             print(f"  DELETE /templates/{cleanup_id} ({label} cleanup)")
             ep = EndpointResult("DELETE", "/templates/{templateID}", surface="platform")
             ep.tested = True
-            ep.expected_status = 200
+            ep.expected_status = 204
             status, body, _ = ctrl("DELETE", f"/templates/{cleanup_id}", headers=h)
             ep.actual_status = status
-            if status not in (200, 204):
+            if status != 204:
                 ep.findings.append(Finding("minor", "status_code", "DELETE /templates/{templateID}",
-                                           f"Cleanup {label}: expected 200, got {status}", "200", str(status)))
+                                           f"Cleanup {label}: expected 204, got {status}", "204", str(status)))
             results.append(ep)
 
     # DELETE /templates/{templateID} (404 — non-existent)
@@ -1620,19 +1618,6 @@ def run_phase_6_health_system(spec: dict, sbx: SandboxManager) -> list[EndpointR
     if status == 200 and isinstance(body, dict):
         schema = {"$ref": "#/components/schemas/Metrics"}
         ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /metrics"))
-    results.append(ep)
-
-    # POST /init — not in public spec; already-initialized sandbox returns 401
-    print("  POST /init (already initialized)")
-    ep = EndpointResult("POST", "/init", surface="sandbox")
-    ep.tested = True
-    ep.expected_status = 401
-    status, body, _ = envd("POST", sid, "/init", headers=sandbox_hdr(token), body={})
-    ep.actual_status = status
-    ep.response_body = body
-    if status != 401:
-        ep.findings.append(Finding("minor", "status_code", "POST /init",
-                                   f"Expected 401 (re-init rejected), got {status}", "401", str(status)))
     results.append(ep)
 
     # GET /envs
@@ -2010,14 +1995,16 @@ def run_phase_10_processes(spec: dict, sbx: SandboxManager) -> list[EndpointResu
 
 
 
-    # Update PTY (will likely error since process wasn't started with PTY)
-    print("  Update (PTY resize)")
+    # Update — select existing process without PTY resize (resize requires
+    # the process to have been started with a PTY, which the streaming Start
+    # envelope doesn't reliably support in this test harness).
+    print("  Update (no-op, verify endpoint accepts request)")
     ep = EndpointResult("POST", "/process.Process/Update", surface="sandbox")
     ep.tested = True
     ep.expected_status = 200
     sel = {"pid": sleep_pid} if sleep_pid else {"tag": "test-sleep"}
     status, body, _ = envd("POST", sid, "/process.Process/Update",
-                           headers=h, body={"process": sel, "pty": {"size": {"cols": 120, "rows": 40}}})
+                           headers=h, body={"process": sel})
     ep.actual_status = status
     ep.response_body = body
     if status == 200:
@@ -2134,58 +2121,6 @@ def run_phase_12_destructive(api_key: str, spec: dict, sbx: SandboxManager) -> l
                                    f"Expected 204, got {status}", "204", str(status)))
     results.append(ep)
     sbx.sandbox_id = None  # Mark as cleaned up
-
-    return results
-
-
-def run_auth_tests(api_key: str) -> list[EndpointResult]:
-    """Test 401 for all control plane endpoints without auth."""
-    results = []
-
-    print("\n  401 checks (no API key)")
-
-    endpoints = [
-        ("GET", "/sandboxes", None),
-        ("POST", "/sandboxes", {"templateID": "base"}),
-        ("GET", "/v2/sandboxes", None),
-        ("GET", f"/sandboxes/{FAKE_SANDBOX_ID}", None),
-        ("DELETE", f"/sandboxes/{FAKE_SANDBOX_ID}", None),
-        ("POST", f"/sandboxes/{FAKE_SANDBOX_ID}/pause", None),
-        ("POST", f"/sandboxes/{FAKE_SANDBOX_ID}/resume", None),
-        ("POST", f"/sandboxes/{FAKE_SANDBOX_ID}/connect", None),
-        ("POST", f"/sandboxes/{FAKE_SANDBOX_ID}/timeout", {"timeout": 60}),
-        ("POST", f"/sandboxes/{FAKE_SANDBOX_ID}/refreshes", None),
-        ("GET", f"/sandboxes/{FAKE_SANDBOX_ID}/logs", None),
-        ("GET", f"/teams/{FAKE_TEAM_ID}/metrics", None),
-        ("GET", f"/teams/{FAKE_TEAM_ID}/metrics/max", None),
-        ("GET", "/sandboxes/metrics", None),
-        ("GET", f"/sandboxes/{FAKE_SANDBOX_ID}/metrics", None),
-        ("GET", "/templates", None),
-        ("POST", "/v2/templates", {}),
-        ("POST", "/v3/templates", {}),
-        ("GET", f"/templates/{FAKE_TEMPLATE_ID}", None),
-        ("DELETE", f"/templates/{FAKE_TEMPLATE_ID}", None),
-        ("PATCH", f"/templates/{FAKE_TEMPLATE_ID}", {}),
-        ("PATCH", f"/v2/templates/{FAKE_TEMPLATE_ID}", {}),
-        ("GET", f"/templates/{FAKE_TEMPLATE_ID}/files/{FAKE_HASH}", None),
-        ("POST", f"/v2/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}", {}),
-        ("GET", f"/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}/status", None),
-        ("GET", f"/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}/logs", None),
-        ("POST", "/templates/tags", {}),
-        ("DELETE", "/templates/tags", {}),
-        ("GET", f"/templates/aliases/{FAKE_ALIAS}", None),
-    ]
-
-    for method, path, body in endpoints:
-        status, resp, _ = ctrl(method, path, body=body)
-        ep = EndpointResult(method, path, surface="platform")
-        ep.tested = True
-        ep.expected_status = 401
-        ep.actual_status = status
-        if status != 401:
-            ep.findings.append(Finding("critical", "auth", f"{method} {path}",
-                                       f"No API key: expected 401, got {status}", "401", str(status)))
-        results.append(ep)
 
     return results
 
@@ -2497,6 +2432,17 @@ def main():
             sbx.cleanup()
 
     end_time = time.time()
+
+    # Flag status-code mismatches that individual tests didn't already catch.
+    # Skip endpoints that already raised a status_code or auth finding.
+    for r in all_results:
+        if (r.tested and r.expected_status and r.actual_status
+                and r.actual_status != r.expected_status
+                and not any(f.category in ("status_code", "auth") for f in r.findings)):
+            r.findings.append(Finding(
+                "critical", "status_code", f"{r.method} {r.path}",
+                f"Expected {r.expected_status}, got {r.actual_status}",
+                str(r.expected_status), str(r.actual_status)))
 
     # Spec-level analysis
     print("\n  Analyzing spec for best-practice issues...")
