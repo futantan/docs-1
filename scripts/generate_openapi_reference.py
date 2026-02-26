@@ -1119,6 +1119,39 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
     if summary_count:
         fixes.append(f"Added summary to {summary_count} platform endpoints")
 
+    # 27. Replace nullable: true with OpenAPI 3.1.0 type arrays
+    #     In 3.1.0, nullable was removed. Use type: ["string", "null"] instead,
+    #     or oneOf with type: 'null' for $ref properties.
+    nullable_fixed = 0
+    for schema_name, schema in schemas.items():
+        if "properties" not in schema:
+            continue
+        for prop_name, prop in schema["properties"].items():
+            if not isinstance(prop, dict) or not prop.pop("nullable", False):
+                continue
+            # allOf + nullable → oneOf: [allOf[...], type: 'null']
+            if "allOf" in prop:
+                all_of = prop.pop("allOf")
+                prop["oneOf"] = all_of + [{"type": "null"}]
+            # plain type + nullable → type: [original, "null"]
+            elif "type" in prop:
+                orig_type = prop["type"]
+                if isinstance(orig_type, list):
+                    if "null" not in orig_type:
+                        orig_type.append("null")
+                else:
+                    prop["type"] = [orig_type, "null"]
+            # $ref + nullable → oneOf: [$ref, type: 'null']
+            elif "$ref" in prop:
+                ref = prop.pop("$ref")
+                prop["oneOf"] = [{"$ref": ref}, {"type": "null"}]
+            # additionalProperties + nullable (e.g. McpConfig)
+            elif "additionalProperties" in prop:
+                prop["type"] = ["object", "null"]
+            nullable_fixed += 1
+    if nullable_fixed:
+        fixes.append(f"Replaced nullable: true with 3.1.0 type arrays on {nullable_fixed} properties")
+
     if fixes:
         print(f"==> Fixed {len(fixes)} spec issues:")
         for f in fixes:

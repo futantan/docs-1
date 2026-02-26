@@ -3174,18 +3174,21 @@ components:
         envdVersion:
           $ref: '#/components/schemas/EnvdVersion'
         envdAccessToken:
-          type: string
+          type:
+          - string
+          - 'null'
           description: 'Access token for authenticating envd requests to this sandbox.
             Only returned when the sandbox is created with `secure: true`. Null for
             non-secure sandboxes (envd endpoints work without auth).'
-          nullable: true
         trafficAccessToken:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Token required for accessing sandbox via proxy.
         domain:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: 'Deprecated: always null. Construct sandbox URLs as `https://{port}-{sandboxID}.e2b.app`.'
           deprecated: true
       type: object
@@ -3226,14 +3229,16 @@ components:
         envdVersion:
           $ref: '#/components/schemas/EnvdVersion'
         envdAccessToken:
-          type: string
+          type:
+          - string
+          - 'null'
           description: 'Access token for authenticating envd requests to this sandbox.
             Only returned when the sandbox is created with `secure: true`. Null for
             non-secure sandboxes (envd endpoints work without auth).'
-          nullable: true
         domain:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: 'Deprecated: always null. Construct sandbox URLs as `https://{port}-{sandboxID}.e2b.app`.'
           deprecated: true
         cpuCount:
@@ -3473,12 +3478,13 @@ components:
           format: date-time
           description: Time when the template was last updated
         createdBy:
-          allOf:
+          oneOf:
           - $ref: '#/components/schemas/TeamUser'
-          nullable: true
+          - type: 'null'
         lastSpawnedAt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: date-time
           description: Time when the template was last used
         spawnCount:
@@ -3575,12 +3581,13 @@ components:
           format: date-time
           description: Time when the template was last updated
         createdBy:
-          allOf:
+          oneOf:
           - $ref: '#/components/schemas/TeamUser'
-          nullable: true
+          - type: 'null'
         lastSpawnedAt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: date-time
           description: Time when the template was last used
         spawnCount:
@@ -3675,8 +3682,9 @@ components:
           format: date-time
           description: Time when the template was last updated
         lastSpawnedAt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: date-time
           description: Time when the template was last used
         spawnCount:
