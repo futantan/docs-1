@@ -2212,21 +2212,27 @@ components:
         mem_total:
           type: integer
           description: Total virtual memory in bytes
+          format: int64
         mem_used:
           type: integer
           description: Used virtual memory in bytes
+          format: int64
         disk_used:
           type: integer
           description: Used disk space in bytes
+          format: int64
         disk_total:
           type: integer
           description: Total disk space in bytes
+          format: int64
         mem_used_mib:
           type: integer
           description: Used virtual memory in MiB
+          format: int64
         mem_total_mib:
           type: integer
           description: Total virtual memory in MiB
+          format: int64
     connect-protocol-version:
       type: number
       title: Connect-Protocol-Version

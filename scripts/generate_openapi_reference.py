@@ -649,7 +649,7 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
         log_level["description"] = "Severity level for log entries (e.g. info, warn, error)"
         fixes.append("LogLevel: removed enum constraint, fixed description")
 
-    # 4. Metrics schema missing mem_used_mib and mem_total_mib
+    # 4. Metrics schema: add missing fields and set format: int64 on byte/MiB fields
     metrics = schemas.get("Metrics")
     if metrics and "properties" in metrics:
         props = metrics["properties"]
@@ -665,6 +665,13 @@ def fix_spec_issues(spec: dict[str, Any]) -> None:
                 "description": "Total virtual memory in MiB",
             }
             fixes.append("Metrics: added 'mem_total_mib'")
+        # Byte and MiB values can exceed int32 — set format: int64
+        int64_fields = ("mem_total", "mem_used", "disk_used", "disk_total",
+                        "mem_used_mib", "mem_total_mib")
+        for field in int64_fields:
+            if field in props and props[field].get("format") != "int64":
+                props[field]["format"] = "int64"
+        fixes.append("Metrics: set format int64 on memory/disk fields")
 
     # 5. Streaming RPC endpoints: wrong content-type and missing headers
     #    Server requires application/connect+json with envelope framing,
