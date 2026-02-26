@@ -1,5 +1,5 @@
 ---
-title: "Custom Domain"
+title: "Custom domain"
 ---
 
 How to set up a custom domain for Sandboxes hosted on E2B.
@@ -15,7 +15,7 @@ We will set up a GCP VM running Caddy server with Docker and Cloudflare DNS to p
 - Domain name registered and configured with Cloudflare DNS.
 - Cloudflare API Token that allows you to manage DNS records.
 
-### GCP VM Setup
+### GCP VM setup
 
 1. Create a VM instance by running the following command:
 
@@ -48,7 +48,7 @@ We will set up a GCP VM running Caddy server with Docker and Cloudflare DNS to p
         --zone=us-west1-a
     ```
 
-### Server Setup
+### Server setup
 
 1. Install the latest stable version of Docker:
 
@@ -159,7 +159,7 @@ We will set up a GCP VM running Caddy server with Docker and Cloudflare DNS to p
     docker compose up -d
     ```
 
-### Domain Setup
+### Domain setup
 
 Log into the Cloudflare dashboard and create a new A wildcard DNS record pointing to the IP address of the GCP VM.
 
@@ -179,7 +179,7 @@ Log into the Cloudflare dashboard and create a new A wildcard DNS record pointin
 *.mydomain.com A GCP_VM_IP
 ```
 
-### Testing the Setup
+### Testing the setup
 
 We will create a new Sandbox on E2B and install a simple HTTP server in it.
 

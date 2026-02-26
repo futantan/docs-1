@@ -20,7 +20,7 @@ Once inside the sandbox, start OpenClaw.
 openclaw agent --local --message "Hello"
 ```
 
-## Run Headless
+## Run headless
 
 Use `openclaw agent --message` for non-interactive mode. Pass `--local` to use API keys from environment variables and `--thinking` to control reasoning depth.
 
@@ -111,7 +111,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Structured Output
+## Structured output
 
 Use `--json` to get machine-readable responses with structured payload and metadata.
 
@@ -270,7 +270,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Add Skills
+## Add skills
 
 OpenClaw supports a [skills ecosystem](https://docs.openclaw.ai/tools/skills) via [ClawHub](https://clawhub.com). Skills are markdown files (`SKILL.md`) that extend the agent with additional tools. Install them with the `clawhub` CLI or write them directly into the workspace.
 
@@ -382,7 +382,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Launch the Gateway
+## Launch the gateway
 
 OpenClaw has a built-in [web UI and chat interface](https://openclaw.ai) served by its gateway. Start it inside a sandbox and connect from your browser.
 
@@ -426,7 +426,7 @@ print(f"Sandbox ID: {sandbox.sandbox_id}")
 ```
 </CodeGroup>
 
-## Build a Custom Template
+## Build a custom template
 
 If you need to customize the environment (e.g. pre-install dependencies, add config files), build your own template on top of the pre-built `openclaw` template.
 
@@ -495,16 +495,16 @@ python build.py
 ```
 </CodeGroup>
 
-## Related Guides
+## Related guides
 
 <CardGroup cols={3}>
-  <Card title="Sandbox Persistence" icon="clock" href="/docs/sandbox/persistence">
+  <Card title="Sandbox persistence" icon="clock" href="/docs/sandbox/persistence">
     Auto-pause, resume, and manage sandbox lifecycle
   </Card>
-  <Card title="Git Integration" icon="code-branch" href="/docs/sandbox/git-integration">
+  <Card title="Git integration" icon="code-branch" href="/docs/sandbox/git-integration">
     Clone repos, manage branches, and push changes
   </Card>
-  <Card title="SSH Access" icon="terminal" href="/docs/sandbox/ssh-access">
+  <Card title="SSH access" icon="terminal" href="/docs/sandbox/ssh-access">
     Connect to the sandbox via SSH for interactive sessions
   </Card>
 </CardGroup>

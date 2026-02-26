@@ -38,7 +38,7 @@ template = (
 
 This will force rebuild from the next instruction, invalidating the cache for all subsequent instructions in the template.
 
-### Whole Template
+### Whole template
 To force rebuild the whole template, you can use also `skipCache`/`skip_cache` parameter in the `Template.build` method:
 
 <CodeGroup>
@@ -61,7 +61,7 @@ Template.build(
 
 This will skip the cache usage for the whole template build.
 
-## Files Caching
+## Files caching
 When using the `.copy()` command, we cache the files based on their content. If the files haven't changed since the last build, we reuse them from the files cache.
 
 We differ from Docker here. Because we build the template on our infrastructure, we use improved caching on files level.
@@ -88,9 +88,9 @@ template = (
 
 </CodeGroup>
 
-## Use Case for Caching
+## Use case for caching
 You can leverage caching to create templates with multiple variants (e.g., different RAM or CPU) while reusing the common layers.
 When building the template, just change the template name to a specific RAM/CPU configuration (e.g., `my-template-2cpu-2gb`, `my-template-1cpu-4gb`), keep the rest of the template definition the same, and the build process will reuse the cached layers.
 
-## Optimize Build Times
+## Optimize build times
 To optimize build times, place frequently changing commands (e.g., copying source code) towards the end of your template definition. This way, earlier layers can be cached and reused more often.

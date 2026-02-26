@@ -40,7 +40,6 @@ All you need to do is create a sandbox with the `secure: true` option. An upload
 You can optionally set an expiration time for the URL so that it will be valid only for a limited time.
 <CodeGroup>
 ```js JavaScript & TypeScript
-import fs from 'fs'
 import { Sandbox } from '@e2b/code-interpreter'
 
 // Start a secured sandbox (all operations must be authorized by default)
@@ -60,7 +59,7 @@ form.append('file', 'file content')
 await fetch(publicUploadUrl, { method: 'POST', body: form })
 
 // File is now available in the sandbox and you can read it
-const content = fs.readFileSync('demo.txt')
+const content = sandbox.files.read('/path/in/sandbox')
 ```
 ```python Python
 from e2b import Sandbox
@@ -74,6 +73,9 @@ signed_url = sandbox.upload_url(path="demo.txt", user="user", use_signature_expi
 
 form_data = {"file":"file content"}
 requests.post(signed_url, data=form_data)
+
+# File is now available in the sandbox and you can read it
+content = sandbox.files.read('/path/in/sandbox')
 ```
 </CodeGroup>
 

@@ -20,7 +20,7 @@ Once inside the sandbox, start Codex.
 codex
 ```
 
-## Run Headless
+## Run headless
 
 Use `codex exec` for non-interactive mode and `--full-auto` to auto-approve tool calls (safe inside E2B sandboxes). Pass `--skip-git-repo-check` to bypass git directory ownership checks inside the sandbox. Pass `CODEX_API_KEY` as an environment variable.
 
@@ -113,7 +113,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Schema-Validated Output
+## Schema-validated output
 
 Use `--output-schema` to constrain the agent's final response to a JSON Schema. This ensures the output conforms to a specific structure — useful for building reliable pipelines.
 
@@ -194,7 +194,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Streaming Events
+## Streaming events
 
 Use `--json` to get a JSONL event stream. Each line is a JSON object representing an agent event (tool calls, file changes, messages). Progress goes to stderr; events go to stdout.
 
@@ -244,7 +244,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Image Input
+## Image input
 
 Pass screenshots or design mockups with `--image` to give Codex visual context alongside the prompt.
 
@@ -292,7 +292,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Build a Custom Template
+## Build a custom template
 
 If you need to customize the environment (e.g. pre-install dependencies, add config files), build your own template on top of the pre-built `codex` template.
 
@@ -351,16 +351,16 @@ python build.py
 ```
 </CodeGroup>
 
-## Related Guides
+## Related guides
 
 <CardGroup cols={3}>
-  <Card title="Sandbox Persistence" icon="clock" href="/docs/sandbox/persistence">
+  <Card title="Sandbox persistence" icon="clock" href="/docs/sandbox/persistence">
     Auto-pause, resume, and manage sandbox lifecycle
   </Card>
-  <Card title="Git Integration" icon="code-branch" href="/docs/sandbox/git-integration">
+  <Card title="Git integration" icon="code-branch" href="/docs/sandbox/git-integration">
     Clone repos, manage branches, and push changes
   </Card>
-  <Card title="SSH Access" icon="terminal" href="/docs/sandbox/ssh-access">
+  <Card title="SSH access" icon="terminal" href="/docs/sandbox/ssh-access">
     Connect to the sandbox via SSH for interactive sessions
   </Card>
 </CardGroup>

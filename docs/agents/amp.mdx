@@ -1,10 +1,10 @@
 ---
-title: "AMP"
-description: "Run AMP in a secure E2B sandbox with full filesystem, terminal, and git access."
+title: "Amp"
+description: "Run Amp in a secure E2B sandbox with full filesystem, terminal, and git access."
 icon: "/images/icons/amp.svg"
 ---
 
-[AMP](https://ampcode.com) is Sourcegraph's coding agent with multi-model architecture and built-in code intelligence. E2B provides a pre-built `amp` template with AMP already installed.
+[Amp](https://ampcode.com) is a coding agent with multi-model architecture and built-in code intelligence. E2B provides a pre-built `amp` template with Amp already installed.
 
 ## CLI
 
@@ -14,15 +14,15 @@ Spin up a sandbox with the [E2B CLI](/docs/cli).
 e2b sbx create amp
 ```
 
-Once inside the sandbox, start AMP.
+Once inside the sandbox, start Amp.
 
 ```bash
 amp
 ```
 
-## Run Headless
+## Run headless
 
-Use `-x` for non-interactive mode and `--dangerously-allow-all` to auto-approve all tool calls (safe inside E2B sandboxes). AMP uses its own API key from [ampcode.com/settings](https://ampcode.com/settings).
+Use `-x` for non-interactive mode and `--dangerously-allow-all` to auto-approve all tool calls (safe inside E2B sandboxes). Amp uses its own API key from [ampcode.com/settings](https://ampcode.com/settings).
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
@@ -170,9 +170,9 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Thread Management
+## Thread management
 
-AMP persists conversations as threads that can be resumed or continued with follow-up tasks.
+Amp persists conversations as threads that can be resumed or continued with follow-up tasks.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
@@ -236,7 +236,7 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Build a Custom Template
+## Build a custom template
 
 If you need to customize the environment (e.g. pre-install dependencies, add config files), build your own template on top of the pre-built `amp` template.
 
@@ -295,16 +295,16 @@ python build.py
 ```
 </CodeGroup>
 
-## Related Guides
+## Related guides
 
 <CardGroup cols={3}>
-  <Card title="Sandbox Persistence" icon="clock" href="/docs/sandbox/persistence">
+  <Card title="Sandbox persistence" icon="clock" href="/docs/sandbox/persistence">
     Auto-pause, resume, and manage sandbox lifecycle
   </Card>
-  <Card title="Git Integration" icon="code-branch" href="/docs/sandbox/git-integration">
+  <Card title="Git integration" icon="code-branch" href="/docs/sandbox/git-integration">
     Clone repos, manage branches, and push changes
   </Card>
-  <Card title="SSH Access" icon="terminal" href="/docs/sandbox/ssh-access">
+  <Card title="SSH access" icon="terminal" href="/docs/sandbox/ssh-access">
     Connect to the sandbox via SSH for interactive sessions
   </Card>
 </CardGroup>

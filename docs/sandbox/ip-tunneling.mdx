@@ -1,5 +1,5 @@
 ---
-title: "Proxy Tunneling"
+title: "Proxy tunneling"
 description: "How to tunnel Sandbox network traffic through a proxy server"
 ---
 
@@ -8,7 +8,7 @@ description: "How to tunnel Sandbox network traffic through a proxy server"
 We will set up a proxy server on a GCP VM instance running [Shadowsocks](https://shadowsocks.org) and use it to tunnel the Sandbox network traffic.
 This will allow you to use a dedicated IP address for outgoing requests.
 
-### GCP VM Setup
+### GCP VM setup
 
 1. Create a firewall rule to allow all tcp/udp traffic to port 8388.
 
@@ -60,7 +60,7 @@ This will allow you to use a dedicated IP address for outgoing requests.
         --zone=us-west1-a
     ```
 
-### Shadowsocks Server Setup (VM)
+### Shadowsocks server setup (VM)
 
 SSH into the VM and follow the instructions below to install and configure Shadowsocks.
 
@@ -158,12 +158,12 @@ SSH into the VM and follow the instructions below to install and configure Shado
     sudo systemctl status ssserver
     ```
 
-### Shadowsocks Client Setup (Sandbox)
+### Shadowsocks client setup (sandbox)
 
 Create a custom Sandbox template that uses the shadowsocks client to tunnel TCP traffic through the proxy server we set up above.
 
 <Tabs>
-    <Tab title="Local Proxy">
+    <Tab title="Local proxy">
         Route only designated traffic through the proxy.
 
         1. Create a configuration file for the shadowsocks client:
@@ -268,7 +268,7 @@ Create a custom Sandbox template that uses the shadowsocks client to tunnel TCP 
                 ```
             </CodeGroup>
     </Tab>
-    <Tab title="Transparent Proxy">
+    <Tab title="Transparent proxy">
         Route all traffic through the proxy.
 
         1. Create a configuration file for the shadowsocks client:
@@ -400,7 +400,7 @@ Create a custom Sandbox template that uses the shadowsocks client to tunnel TCP 
 Create a new Sandbox from the built template and run a curl command to verify that the traffic is routed through the proxy:
 
 <Tabs>
-    <Tab title="Local Proxy">
+    <Tab title="Local proxy">
         Only designated traffic should be routed through the proxy.
 
         <CodeGroup>
@@ -440,7 +440,7 @@ Create a new Sandbox from the built template and run a curl command to verify th
         You should see the IP address of the proxy server.
     </Tab>
 
-    <Tab title="Transparent Proxy">
+    <Tab title="Transparent proxy">
         All traffic should be routed through the proxy.
 
         <CodeGroup>

@@ -20,7 +20,7 @@ Once inside the sandbox, start OpenCode.
 opencode
 ```
 
-## Run Headless
+## Run headless
 
 Use `opencode run` for non-interactive mode. Pass your LLM provider's API key as an environment variable — OpenCode supports `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, and [others](https://opencode.ai/docs/config/).
 
@@ -111,59 +111,94 @@ sandbox.kill()
 ```
 </CodeGroup>
 
-## Launch the Web UI
+## Connect with the OpenCode SDK
 
-OpenCode has a [built-in web interface](https://opencode.ai/docs/web/). Start it inside a sandbox and connect from your browser.
-
-<Warning>
-This sandbox is created with a 10-minute timeout and auto-pause enabled — after 10 minutes of inactivity it pauses and can be resumed later. See [Sandbox Persistence](/docs/sandbox/persistence) and [Sandbox Lifecycle](/docs/sandbox) for more details.
-</Warning>
+OpenCode includes a [headless HTTP server](https://opencode.ai/docs/server/) that you can control programmatically using the [`@opencode-ai/sdk`](https://opencode.ai/docs/sdk/) client. Start the server inside a sandbox, get the public URL with `sandbox.getHost()`, and connect from your application.
 
 <CodeGroup>
 ```typescript JavaScript & TypeScript
 import { Sandbox } from 'e2b'
+import { createOpencodeClient } from '@opencode-ai/sdk'
 
 const sandbox = await Sandbox.betaCreate('opencode', {
-  envs: {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-    OPENCODE_SERVER_PASSWORD: 'your-password',
-  },
+  envs: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
   autoPause: true,
   timeoutMs: 10 * 60 * 1000,
 })
 
-// Start the web server
-sandbox.commands.run('opencode web --hostname 0.0.0.0 --port 4096')
+// Start the OpenCode server
+sandbox.commands.run('opencode serve --hostname 0.0.0.0 --port 4096', {
+  background: true,
+})
 
+// Wait for the server to be ready
 const host = sandbox.getHost(4096)
-const url = `https://${host}`
-console.log(`OpenCode Web UI: ${url}`)
-console.log(`Username: opencode`)
-console.log(`Password: your-password`)
-console.log(`Sandbox ID: ${sandbox.sandboxId}`)
+const baseUrl = `https://${host}`
+while (true) {
+  try {
+    await fetch(`${baseUrl}/global/health`)
+    break
+  } catch {
+    await new Promise((r) => setTimeout(r, 500))
+  }
+}
+
+// Connect to the server
+const client = createOpencodeClient({
+  baseUrl,
+})
+
+// Create a session and send a prompt
+const { data: session } = await client.session.create({
+  body: { title: 'E2B Session' },
+})
+const { data: result } = await client.session.prompt({
+  path: { id: session.id },
+  body: {
+    parts: [{ type: 'text', text: 'Create a hello world HTTP server in Go' }],
+  },
+})
+console.log(result)
 ```
 ```python Python
 import os
+import time
+import requests
 from e2b import Sandbox
 
 sandbox = Sandbox.beta_create("opencode", envs={
     "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
-    "OPENCODE_SERVER_PASSWORD": "your-password",
 }, auto_pause=True, timeout=10 * 60)
 
-# Start the web server
-sandbox.commands.run("opencode web --hostname 0.0.0.0 --port 4096")
+# Start the OpenCode server
+sandbox.commands.run(
+    "opencode serve --hostname 0.0.0.0 --port 4096",
+    background=True,
+)
 
+# Wait for the server to be ready
 host = sandbox.get_host(4096)
-url = f"https://{host}"
-print(f"OpenCode Web UI: {url}")
-print(f"Username: opencode")
-print(f"Password: your-password")
-print(f"Sandbox ID: {sandbox.sandbox_id}")
+base_url = f"https://{host}"
+while True:
+    try:
+        requests.get(f"{base_url}/global/health")
+        break
+    except requests.ConnectionError:
+        time.sleep(0.5)
+
+# Create a session and send a prompt via the HTTP API
+session = requests.post(f"{base_url}/session").json()
+result = requests.post(
+    f"{base_url}/session/{session['id']}/message",
+    json={
+        "parts": [{"type": "text", "text": "Create a hello world HTTP server in Go"}],
+    },
+).json()
+print(result)
 ```
 </CodeGroup>
 
-## Build a Custom Template
+## Build a custom template
 
 If you need to customize the environment (e.g. pre-install dependencies, add config files), build your own template on top of the pre-built `opencode` template.
 
@@ -177,9 +212,9 @@ export const template = Template()
   .setEnvs({
     OPENCODE_SERVER_PASSWORD: 'your-password',
   })
-  // Optional - start the OpenCode web server on sandbox start
+  // Optional - start the OpenCode server on sandbox start
   .setStartCmd(
-    'opencode web --hostname 0.0.0.0 --port 4096',
+    'opencode serve --hostname 0.0.0.0 --port 4096',
     waitForPort(4096)
   )
 ```
@@ -193,9 +228,9 @@ template = (
     .set_envs({
         "OPENCODE_SERVER_PASSWORD": "your-password",
     })
-    # Optional - start the OpenCode web server on sandbox start
+    # Optional - start the OpenCode server on sandbox start
     .set_start_cmd(
-        "opencode web --hostname 0.0.0.0 --port 4096",
+        "opencode serve --hostname 0.0.0.0 --port 4096",
         wait_for_port(4096)
     )
 )
@@ -238,16 +273,16 @@ python build.py
 ```
 </CodeGroup>
 
-## Related Guides
+## Related guides
 
 <CardGroup cols={3}>
-  <Card title="Sandbox Persistence" icon="clock" href="/docs/sandbox/persistence">
+  <Card title="Sandbox persistence" icon="clock" href="/docs/sandbox/persistence">
     Auto-pause, resume, and manage sandbox lifecycle
   </Card>
-  <Card title="Git Integration" icon="code-branch" href="/docs/sandbox/git-integration">
+  <Card title="Git integration" icon="code-branch" href="/docs/sandbox/git-integration">
     Clone repos, manage branches, and push changes
   </Card>
-  <Card title="SSH Access" icon="terminal" href="/docs/sandbox/ssh-access">
+  <Card title="SSH access" icon="terminal" href="/docs/sandbox/ssh-access">
     Connect to the sandbox via SSH for interactive sessions
   </Card>
 </CardGroup>

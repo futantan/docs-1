@@ -13,18 +13,32 @@ The sandbox persistence allows you to pause your sandbox and resume it later fro
 
 This includes not only state of the sandbox's filesystem but also the sandbox's memory. This means all running processes, loaded variables, data, etc.
 
-## Sandbox State Transitions
+## Sandbox state transitions
 
 Understanding how sandboxes transition between different states is crucial for managing their lifecycle effectively. Here's a diagram showing the possible state transitions:
 
-<Frame>
-<img src="/images/diagram.png" />
-</Frame>
+```mermaid actions={false}
+flowchart TD
+    start(( )) -->|Sandbox.create| Running
+
+    Running["<b>Running</b><br/>• Active execution<br/>• Consumes resources"]
+    Paused["<b>Paused</b><br/>• Preserves memory and files<br/>• Cannot execute code"]
+    Snapshotting["<b>Snapshotting</b><br/>• Creates persistent snapshot<br/>• Briefly pauses execution"]
+    Killed["<b>Killed</b><br/>• Resources released<br/>• Cannot be resumed"]
+
+    Running -->|pause| Paused
+    Running -->|createSnapshot| Snapshotting
+    Paused -->|connect| Running
+    Snapshotting -->|snapshot complete| Running
+    Running -->|kill| Killed
+    Paused -->|kill| Killed
+```
 
 ### State descriptions
 
 - **Running**: The sandbox is actively running and can execute code. This is the initial state after creation.
 - **Paused**: The sandbox execution is suspended but its state is preserved.
+- **Snapshotting**: The sandbox is briefly paused while a persistent snapshot is being created. It automatically returns to Running. See [Snapshots](/docs/sandbox/snapshots).
 - **Killed**: The sandbox is terminated and all resources are released. This is a terminal state.
 
 ### Changing sandbox's state
@@ -279,6 +293,10 @@ If you resume the sandbox, the service will be accessible again but you need to 
 ### Pause and resume performance
 - Pausing a sandbox takes approximately **4 seconds per 1 GiB of RAM**
 - Resuming a sandbox takes approximately **1 second**
+
+### Paused sandbox retention
+- Paused sandboxes are kept **indefinitely** — there is no automatic deletion or time-to-live limit
+- You can resume a paused sandbox at any time
 
 ### Continuous runtime limits
 - A sandbox can remain running (without being paused) for:

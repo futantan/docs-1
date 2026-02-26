@@ -29,7 +29,7 @@ sandbox traffic, and logs, is transmitted directly from the client to the custom
     <img src="/images/byoc-architecture-diagram.png" />
 </Frame>
 
-### BYOC Cluster Components
+### BYOC cluster components
 - **Orchestrator**: Represents a node that is responsible for managing sandboxes and their lifecycle. Optionally, it can also run the template builder component.
 - **Edge Controller**: Routes traffic to sandboxes, exposes API for cluster management, and gRPC proxy used by E2B control plane to communicate with orchestrators.
 - **Monitoring**: Collector that receives sandbox and build logs and system metrics from orchestrators and edge controllers. Only anonymized metrics are sent to the E2B Cloud for observability purposes.
@@ -48,7 +48,7 @@ When provisioning is done and running, we will create a new team under your E2B 
 ## FAQ
 
 <AccordionGroup>
-    <Accordion title="How Is Cluster Monitored?">
+    <Accordion title="How is cluster monitored?">
     Cluster is forwarding anonymized metrics such as machine cpu/memory usage to E2B Control plane for advanced observability and alerting.
     The whole observability stack is anonymized and does not contain any sensitive information.
     </Accordion>

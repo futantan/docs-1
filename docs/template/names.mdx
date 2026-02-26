@@ -1,12 +1,12 @@
 ---
-title: "Template Names"
+title: "Template names"
 sidebarTitle: "Names"
 description: "Understanding and managing template names"
 ---
 
 Template names are unique identifiers used to reference and create sandboxes from your templates. They serve as human-readable names that make it easy to identify and use your templates across your applications.
 
-## What is a Template Name?
+## What is a template name?
 
 A name is a string identifier that you assign to a template when building it. Once a template is built with a name, you can use that name to create sandboxes from the template.
 
@@ -38,7 +38,7 @@ sandbox = Sandbox.create('my-python-env')
 
 </CodeGroup>
 
-## Team-Local Naming
+## Team-local naming
 
 Template names are scoped to your team. This means:
 
@@ -51,9 +51,9 @@ Template names are scoped to your team. This means:
 **Backwards Compatibility**: Existing public templates remain accessible without the team slug prefix. New public templates should be referenced using the full namespaced format (`team-slug/template-name`).
 </Info>
 
-## Common Use Cases
+## Common use cases
 
-### Development and Production Environments
+### Development and production environments
 
 Use different names for different environments:
 
@@ -93,7 +93,7 @@ Template.build(
 
 </CodeGroup>
 
-### Multiple Template Variants
+### Multiple template variants
 
 Create different variants of the same template with different configurations:
 
@@ -109,7 +109,7 @@ await Template.build(template, 'myapp-small', {
 // Large instance
 await Template.build(template, 'myapp-large', {
   cpuCount: 8,
-  memoryMB: 16384,
+  memoryMB: 8192,
 })
 ```
 
@@ -127,7 +127,7 @@ Template.build(
     template,
     'myapp-large',
     cpu_count=8,
-    memory_mb=16384,
+    memory_mb=8192,
 )
 ```
 
@@ -137,7 +137,7 @@ Template.build(
 When building variants with the same template definition but different CPU/RAM configurations, E2B's caching system will reuse common layers, making subsequent builds much faster.
 </Tip>
 
-## Checking Name Availability
+## Checking name availability
 
 You can check if a name is already in use within your team with the `exists` method.
 
@@ -159,7 +159,7 @@ print(f"Name {'is taken' if exists else 'is available'}")
 
 </CodeGroup>
 
-## Best Practices
+## Best practices
 
 1. **Use descriptive names**: Choose names that clearly indicate the template's purpose or configuration
 2. **Use tags for versioning**: Instead of baking version numbers into names, use [tags](/docs/template/tags) for version management (e.g., `myapp:v1`, `myapp:v2`)

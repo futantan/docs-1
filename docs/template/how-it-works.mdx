@@ -1,5 +1,5 @@
 ---
-title: "How It Works"
+title: "How it works"
 description: "How the template building process works"
 ---
 
@@ -15,16 +15,16 @@ Then, these steps happen:
 
 We call this sandbox snapshot a _sandbox template_.
 
-<Note title="Sandbox Snapshot">
+<Note title="Sandbox snapshot">
   Snapshots are saved running sandboxes. We serialize and save the whole sandbox's filesystem together with all the
   running processes in a way that can be loaded later.
 
-  This allows us to load the sandbox in a few hundred milliseconds any time later with all the processes already running
+  This allows us to load the sandbox in ~80ms any time later with all the processes already running
   and the filesystem exactly as it was.
 </Note>
 
-## Default User And Workdir
-To learn more about default user and workdir, please refer to the [User And Workdir](/docs/template/user-and-workdir) section.
+## Default user and workdir
+To learn more about default user and workdir, please refer to the [User and workdir](/docs/template/user-and-workdir) section.
 
 
 ## Caching

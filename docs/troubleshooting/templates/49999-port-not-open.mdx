@@ -15,7 +15,7 @@ The reason for this is that either the default start command is not specified on
 
 ## Solution
 
-### Current Build System (V2)
+### Current build system (V2)
 
 With the current build system, you need to use the `code-interpreter` as a base template in your template definition.
 
@@ -58,17 +58,3 @@ template = (
 )
 ```
 </CodeGroup>
-
-### Legacy Build System
-
-If you are using the legacy build system, you need to use Code Interpreter image as a base image:
-
-```Dockerfile
-FROM e2bdev/code-interpreter:latest
-```
-
-And build the sandbox template with the start command:
-
-```sh
-e2b template build -c "/root/.jupyter/start-up.sh"
-```

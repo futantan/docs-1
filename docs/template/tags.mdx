@@ -1,12 +1,12 @@
 ---
-title: "Template Tags & Versioning"
-sidebarTitle: "Tags & Versioning"
+title: "Template tags & versioning"
+sidebarTitle: "Tags & versioning"
 description: "Use tags to version your templates and manage environment-based deployments"
 ---
 
 Template versioning allows you to maintain multiple versions of the same template using tags. This enables workflows like semantic versioning, environment-based deployments, and gradual rollouts.
 
-## Tag Format
+## Tag format
 
 Tags follow the `name:tag` format, where `name` is your template's identifier and `tag` is the version label.
 
@@ -16,7 +16,7 @@ my-template:production          // Within your team
 acme/my-template:v1.0.0         // Full namespaced reference
 ```
 
-## The Default Tag
+## The default tag
 
 When you build or reference a template without specifying a tag, E2B uses the `default` tag automatically. This means:
 
@@ -39,11 +39,11 @@ sandbox2 = Sandbox.create('my-template:default')
 
 </CodeGroup>
 
-## Building with Tags
+## Building with tags
 
 You can build templates with one or more tags to create versioned builds.
 
-### Single Tag
+### Single tag
 
 <CodeGroup>
 
@@ -63,7 +63,7 @@ Template.build(template, 'my-template:v1.0.0')
 
 </CodeGroup>
 
-### Multiple Tags
+### Multiple tags
 
 Build with multiple tags to assign several version labels to the same build artifact.
 
@@ -86,11 +86,11 @@ Template.build(template, 'my-template', tags=['v1.2.0', 'latest'])
 </CodeGroup>
 
 
-## Managing Tags
+## Managing tags
 
 You can manage tags on existing template builds without rebuilding.
 
-### Assign Tags
+### Assign tags
 
 Assign new tag(s) to an existing build. This is useful for promoting a tested version to production or marking a version as stable.
 
@@ -118,7 +118,7 @@ Template.assign_tags('my-template:v1.2.0', tags=['production', 'stable'])
 
 </CodeGroup>
 
-### Remove Tags
+### Remove tags
 
 Remove a tag from a template. The underlying build artifact remains accessible via other tags.
 
@@ -144,9 +144,9 @@ Template.remove_tags('my-template', 'staging')
 Removing a tag does not delete the build artifact. Other tags pointing to the same build will continue to work.
 </Warning>
 
-## Use Cases
+## Use cases
 
-### Semantic Versioning
+### Semantic versioning
 
 Use semantic version tags to track releases and enable rollbacks.
 
@@ -174,7 +174,7 @@ sandbox = Sandbox.create('api-server:v1.1.0')
 
 </CodeGroup>
 
-### Environment Tags
+### Environment tags
 
 Use environment tags for deployment pipelines.
 
@@ -214,7 +214,7 @@ sandbox = Sandbox.create(f'my-app:{env}')
 
 </CodeGroup>
 
-### Latest and Stable Tags
+### Latest and stable tags
 
 Maintain rolling tags that always point to specific versions.
 

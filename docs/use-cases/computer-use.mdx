@@ -1,5 +1,5 @@
 ---
-title: "Computer Use"
+title: "Computer use"
 description: "Build AI agents that see, understand, and control virtual Linux desktops using E2B Desktop sandboxes."
 icon: "desktop"
 ---
@@ -8,7 +8,7 @@ Computer use agents interact with graphical desktops the same way a human would 
 
 For a complete working implementation, see [E2B Surf](https://github.com/e2b-dev/surf) — an open-source computer use agent you can try via the [live demo](https://surf.e2b.dev).
 
-## How It Works
+## How it works
 
 The computer use agent loop follows this pattern:
 
@@ -32,7 +32,7 @@ pip install e2b-desktop
 ```
 </CodeGroup>
 
-## Core Implementation
+## Core implementation
 
 The following snippets are adapted from [E2B Surf](https://github.com/e2b-dev/surf).
 
@@ -228,16 +228,16 @@ sandbox.kill()
 
 The `getNextActionFromLLM` / `get_next_action_from_llm` function is where you integrate your chosen LLM. See [Connect LLMs to E2B](/docs/quickstart/connect-llms) for integration patterns with OpenAI, Anthropic, and other providers.
 
-## Related Guides
+## Related guides
 
 <CardGroup cols={3}>
-  <Card title="Desktop Template" icon="desktop" href="/docs/template/examples/desktop">
+  <Card title="Desktop template" icon="desktop" href="/docs/template/examples/desktop">
     Build desktop sandboxes with Ubuntu, XFCE, and VNC streaming
   </Card>
   <Card title="Connect LLMs" icon="brain" href="/docs/quickstart/connect-llms">
     Integrate AI models with sandboxes using tool calling
   </Card>
-  <Card title="Sandbox Lifecycle" icon="rotate" href="/docs/sandbox">
+  <Card title="Sandbox lifecycle" icon="rotate" href="/docs/sandbox">
     Create, manage, and control sandbox lifecycle
   </Card>
 </CardGroup>
