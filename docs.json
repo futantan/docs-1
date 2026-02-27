@@ -61,10 +61,7 @@
                 "icon": "/images/icons/openclaw.svg",
                 "pages": [
                   "docs/agents/openclaw-gateway",
-                  "docs/agents/openclaw-telegram",
-                  "docs/agents/openclaw-oauth",
-                  "docs/agents/openclaw-environment",
-                  "docs/agents/openclaw"
+                  "docs/agents/openclaw-telegram"
                 ]
               },
               "docs/agents/opencode"
