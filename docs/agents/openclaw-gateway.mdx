@@ -95,18 +95,20 @@ The gateway requires each browser to be approved as a paired device. Run this af
 
 // 4. Poll for the browser's pending device request and approve it
 for (let i = 0; i < 30; i++) {
-  const res = await sandbox.commands.run(
-    `openclaw devices list --json --url ws://127.0.0.1:${PORT} --token ${TOKEN}`
-  )
-  const data = JSON.parse(res.stdout)
-  if (data.pending?.length) {
-    const rid = data.pending[0].requestId
-    await sandbox.commands.run(
-      `openclaw devices approve ${rid} --token ${TOKEN} --url ws://127.0.0.1:${PORT}`
+  try {
+    const res = await sandbox.commands.run(
+      `openclaw devices list --json --url ws://127.0.0.1:${PORT} --token ${TOKEN}`
     )
-    console.log(`Device approved: ${rid}`)
-    break
-  }
+    const data = JSON.parse(res.stdout)
+    if (data.pending?.length) {
+      const rid = data.pending[0].requestId
+      await sandbox.commands.run(
+        `openclaw devices approve ${rid} --token ${TOKEN} --url ws://127.0.0.1:${PORT}`
+      )
+      console.log(`Device approved: ${rid}`)
+      break
+    }
+  } catch {}
   await new Promise((r) => setTimeout(r, 2000))
 }
 ```
