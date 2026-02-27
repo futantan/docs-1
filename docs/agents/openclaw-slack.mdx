@@ -1,0 +1,182 @@
+---
+title: "OpenClaw Slack"
+description: "Connect OpenClaw to Slack in an E2B sandbox, approve pairing, and chat through your Slack app."
+icon: "message-circle"
+---
+
+OpenClaw supports Slack as a chat channel. Using E2B you can run OpenClaw in a sandbox, attach Slack tokens, and approve user pairing from the terminal.
+
+Official OpenClaw Slack channel docs: [docs.openclaw.ai/channels/slack](https://docs.openclaw.ai/channels/slack)
+
+## Prerequisites
+
+- Slack app tokens from the same Slack app:
+  - `SLACK_APP_TOKEN` (`xapp-...`, Socket Mode)
+  - `SLACK_BOT_TOKEN` (`xoxb-...`)
+- `OPENAI_API_KEY` (this guide uses `openai/gpt-5.2`)
+- E2B API key configured locally
+
+## Quick start
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const GATEWAY_PORT = 18789
+const GATEWAY_TOKEN = process.env.OPENCLAW_APP_TOKEN || 'my-openclaw-token'
+
+const sandbox = await Sandbox.create('openclaw', {
+  envs: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    SLACK_APP_TOKEN: process.env.SLACK_APP_TOKEN,
+    SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
+  },
+  timeoutMs: 3600_000,
+})
+
+await sandbox.commands.run('openclaw config set agents.defaults.model.primary openai/gpt-5.2')
+await sandbox.commands.run('openclaw config set plugins.entries.slack.enabled true')
+await sandbox.commands.run(
+  'openclaw channels add --channel slack --app-token "$SLACK_APP_TOKEN" --bot-token "$SLACK_BOT_TOKEN"'
+)
+
+await sandbox.commands.run(
+  `openclaw gateway --allow-unconfigured --bind lan --auth token --token ${GATEWAY_TOKEN} --port ${GATEWAY_PORT}`,
+  { background: true }
+)
+
+for (let i = 0; i < 45; i++) {
+  const probe = await sandbox.commands.run(
+    `bash -lc 'ss -ltn | grep -q ":${GATEWAY_PORT} " && echo ready || echo waiting'`
+  )
+  if (probe.stdout.trim() === 'ready') break
+  await new Promise((r) => setTimeout(r, 1000))
+}
+```
+```python Python
+import os
+import time
+from e2b import Sandbox
+
+GATEWAY_PORT = 18789
+GATEWAY_TOKEN = os.environ.get("OPENCLAW_APP_TOKEN", "my-openclaw-token")
+
+sandbox = Sandbox.create("openclaw", envs={
+    "OPENAI_API_KEY": os.environ["OPENAI_API_KEY"],
+    "SLACK_APP_TOKEN": os.environ["SLACK_APP_TOKEN"],
+    "SLACK_BOT_TOKEN": os.environ["SLACK_BOT_TOKEN"],
+}, timeout=3600)
+
+sandbox.commands.run("openclaw config set agents.defaults.model.primary openai/gpt-5.2")
+sandbox.commands.run("openclaw config set plugins.entries.slack.enabled true")
+sandbox.commands.run(
+    'openclaw channels add --channel slack --app-token "$SLACK_APP_TOKEN" --bot-token "$SLACK_BOT_TOKEN"'
+)
+
+sandbox.commands.run(
+    f"openclaw gateway --allow-unconfigured --bind lan --auth token --token {GATEWAY_TOKEN} --port {GATEWAY_PORT}",
+    background=True,
+)
+
+for _ in range(45):
+    probe = sandbox.commands.run(
+        f"bash -lc 'ss -ltn | grep -q \":{GATEWAY_PORT} \" && echo ready || echo waiting'"
+    )
+    if probe.stdout.strip() == "ready":
+        break
+    time.sleep(1)
+```
+</CodeGroup>
+
+<Info>
+For Slack setup, you do **not** need to open the gateway URL in a browser. The gateway process is used as a long-running channel runtime.
+</Info>
+
+## Configure your Slack app
+
+Before testing messages, make sure Slack app settings are complete:
+
+- Socket Mode enabled (`xapp-...` token with `connections:write`)
+- Bot scopes include:
+  - `app_mentions:read`
+  - `chat:write`
+  - `channels:history`
+  - `im:history` (for DMs)
+- Event Subscriptions enabled with bot events:
+  - `app_mention`
+  - `message.im` (for DMs)
+- App reinstalled to workspace after scope/event changes
+- Bot invited to target channel (`/invite @your-bot`)
+
+## Pair your Slack user
+
+On first message, Slack may return:
+
+```text
+OpenClaw: access not configured.
+Your Slack user id: ...
+Pairing code: XXXXXXXX
+Ask the bot owner to approve with:
+openclaw pairing approve slack XXXXXXXX
+```
+
+Approve that code:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const PAIRING_CODE = 'XXXXXXXX' // from Slack
+await sandbox.commands.run(`openclaw pairing approve slack ${PAIRING_CODE}`)
+```
+```python Python
+PAIRING_CODE = "XXXXXXXX"  # from Slack
+sandbox.commands.run(f"openclaw pairing approve slack {PAIRING_CODE}")
+```
+</CodeGroup>
+
+## Verify channel status
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const channels = await sandbox.commands.run('openclaw channels list --json')
+const status = await sandbox.commands.run('openclaw channels status --json --probe')
+const logs = await sandbox.commands.run('openclaw channels logs --channel slack --lines 200')
+
+console.log(channels.stdout)
+console.log(status.stdout) // may print text instead of JSON when gateway is unreachable
+console.log(logs.stdout)
+```
+```python Python
+channels = sandbox.commands.run("openclaw channels list --json")
+status = sandbox.commands.run("openclaw channels status --json --probe")
+logs = sandbox.commands.run("openclaw channels logs --channel slack --lines 200")
+
+print(channels.stdout)
+print(status.stdout)  # may print text instead of JSON when gateway is unreachable
+print(logs.stdout)
+```
+</CodeGroup>
+
+Healthy Slack logs should show a connected provider, then incoming events and replies after you message the bot.
+
+## Troubleshooting
+
+- Slack logs show only `slack socket mode connected` and nothing else
+  - Slack is connected but events are not being delivered.
+  - Recheck Event Subscriptions (`app_mention`, `message.im`), reinstall app, and invite bot to channel.
+- `OpenClaw: access not configured`
+  - Pairing is required for this Slack user. Approve the pairing code.
+- `No API key found for provider ...`
+  - This guide uses `openai/gpt-5.2`. Set `OPENAI_API_KEY` in sandbox envs.
+- `Sending messages to this app has been turned off`
+  - In Slack App Home, enable users sending messages to the app, then reinstall.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="OpenClaw gateway" icon="globe" href="/docs/agents/openclaw-gateway">
+    Run OpenClaw's web gateway with token auth
+  </Card>
+  <Card title="OpenClaw Telegram" icon="paper-plane" href="/docs/agents/openclaw-telegram">
+    Connect OpenClaw to Telegram and approve pairing
+  </Card>
+</CardGroup>
