@@ -19,17 +19,20 @@ const PORT = 18789
 
 // 1. Create sandbox
 const sandbox = await Sandbox.create('openclaw', {
-  envs: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+  envs: { OPENAI_API_KEY: process.env.OPENAI_API_KEY },
   timeoutMs: 3600_000,
 })
 
-// 2. Start the gateway with token auth
+// 2. Set the default model
+await sandbox.commands.run('openclaw config set agents.defaults.model.primary openai/gpt-5.3-codex')
+
+// 3. Start the gateway with token auth
 sandbox.commands.run(
   `openclaw gateway --allow-unconfigured --bind lan --auth token --token ${TOKEN} --port ${PORT}`,
   { background: true }
 )
 
-// 3. Wait for the gateway to start listening
+// 4. Wait for the gateway to start listening
 for (let i = 0; i < 45; i++) {
   const probe = await sandbox.commands.run(
     `bash -lc 'ss -ltn | grep -q ":${PORT} " && echo ready || echo waiting'`
@@ -51,16 +54,19 @@ PORT = 18789
 
 # 1. Create sandbox
 sandbox = Sandbox.create("openclaw", envs={
-    "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
+    "OPENAI_API_KEY": os.environ["OPENAI_API_KEY"],
 }, timeout=3600)
 
-# 2. Start the gateway with token auth
+# 2. Set the default model
+sandbox.commands.run("openclaw config set agents.defaults.model.primary openai/gpt-5.3-codex")
+
+# 3. Start the gateway with token auth
 sandbox.commands.run(
     f"openclaw gateway --allow-unconfigured --bind lan --auth token --token {TOKEN} --port {PORT}",
     background=True,
 )
 
-# 3. Wait for the gateway to start listening
+# 4. Wait for the gateway to start listening
 for _ in range(45):
     probe = sandbox.commands.run(
         f'bash -lc \'ss -ltn | grep -q ":{PORT} " && echo ready || echo waiting\''
