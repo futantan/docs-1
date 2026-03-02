@@ -43,7 +43,7 @@ jobs:
         run: |
           if diff -q openapi-public.yml openapi-generated.yml > /dev/null 2>&1; then
             echo "Spec is up to date — nothing to do"
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "Spec has drifted from source"
             echo "changed=true" >> $GITHUB_OUTPUT
@@ -99,9 +99,6 @@ jobs:
 
           git checkout -b "$BRANCH"
           git add openapi-public.yml
-          if [ -f openapi-validation-report.md ]; then
-            git add openapi-validation-report.md
-          fi
           git commit -m "docs: update openapi-public.yml from source specs $(date +%Y-%m-%d)"
           git push -u origin "$BRANCH"
 
