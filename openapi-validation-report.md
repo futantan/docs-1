@@ -1,10 +1,10 @@
 # E2B OpenAPI Spec Validation Report
 
-**Date**: 2026-02-26 14:07:08 UTC
+**Date**: 2026-02-27 14:24:55 UTC
 **Spec Version**: 0.1.0
-**Endpoints Tested**: 68 / 68
+**Endpoints Tested**: 59 / 59
 **Critical Findings**: 0
-**Duration**: 42.7s
+**Duration**: 33.8s
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ No critical findings. The spec matches the live API behavior.
 #### GET /teams
 - **Tested**: YES
 - **Expected Status**: 200
-- **Actual Status**: 200
+- **Actual Status**: 401
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none
@@ -70,53 +70,8 @@ No critical findings. The spec matches the live API behavior.
 
 #### GET /templates/{templateID}
 - **Tested**: YES
-- **Expected Status**: 200
-- **Actual Status**: 200
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### GET /templates/{templateID}/tags
-- **Tested**: YES
-- **Expected Status**: 200
-- **Actual Status**: 200
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### GET /templates/{templateID}
-- **Tested**: YES
 - **Expected Status**: 404
 - **Actual Status**: 404
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### GET /templates/aliases/{alias}
-- **Tested**: YES
-- **Expected Status**: 200
-- **Actual Status**: 200
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### GET /templates/{templateID}/builds/{buildID}/status
-- **Tested**: YES
-- **Expected Status**: 200
-- **Actual Status**: 200
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### GET /templates/{templateID}/builds/{buildID}/logs
-- **Tested**: YES
-- **Expected Status**: 200
-- **Actual Status**: 200
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none
@@ -125,7 +80,7 @@ No critical findings. The spec matches the live API behavior.
 #### GET /templates/{templateID}/files/{hash}
 - **Tested**: YES
 - **Expected Status**: 404
-- **Actual Status**: 201
+- **Actual Status**: 404
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none
@@ -135,6 +90,15 @@ No critical findings. The spec matches the live API behavior.
 - **Tested**: YES
 - **Expected Status**: 202
 - **Actual Status**: 202
+- **Response Schema**:
+  - Required fields present: YES
+  - Extra undocumented fields: none
+  - Type mismatches: none
+
+#### GET /templates/aliases/{alias}
+- **Tested**: YES
+- **Expected Status**: 200
+- **Actual Status**: 200
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none
@@ -176,15 +140,6 @@ No critical findings. The spec matches the live API behavior.
   - Extra undocumented fields: none
   - Type mismatches: none
 
-#### POST /templates/{templateID}/builds/{buildID}
-- **Tested**: YES
-- **Expected Status**: 401
-- **Actual Status**: 401
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
 #### POST /v2/templates
 - **Tested**: YES
 - **Expected Status**: 202
@@ -203,46 +158,10 @@ No critical findings. The spec matches the live API behavior.
   - Extra undocumented fields: none
   - Type mismatches: none
 
-#### POST /templates
-- **Tested**: YES
-- **Expected Status**: 401
-- **Actual Status**: 401
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### POST /templates/{templateID}
-- **Tested**: YES
-- **Expected Status**: 401
-- **Actual Status**: 401
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
 #### POST /templates/tags
 - **Tested**: YES
 - **Expected Status**: 400
 - **Actual Status**: 400
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### POST /templates/tags
-- **Tested**: YES
-- **Expected Status**: 201
-- **Actual Status**: 201
-- **Response Schema**:
-  - Required fields present: YES
-  - Extra undocumented fields: none
-  - Type mismatches: none
-
-#### DELETE /templates/tags
-- **Tested**: YES
-- **Expected Status**: 204
-- **Actual Status**: 204
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none
@@ -332,7 +251,7 @@ No critical findings. The spec matches the live API behavior.
 #### GET /sandboxes/{sandboxID}
 - **Tested**: YES
 - **Expected Status**: 404
-- **Actual Status**: 404
+- **Actual Status**: 400
 - **Response Schema**:
   - Required fields present: YES
   - Extra undocumented fields: none

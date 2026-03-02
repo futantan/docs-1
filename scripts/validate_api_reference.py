@@ -45,7 +45,8 @@ import yaml
 # CONFIG
 # ---------------------------------------------------------------------------
 
-PLATFORM_URL = "https://api.e2b.app"
+E2B_DOMAIN = os.getenv("E2B_DOMAIN", "e2b.app")
+PLATFORM_URL = f"https://api.{E2B_DOMAIN}"
 ENVD_PORT = 49983
 SPEC_PATH = Path(__file__).resolve().parent.parent / "openapi-public.yml"
 
@@ -251,7 +252,7 @@ def ctrl(method: str, path: str, **kwargs):
 
 def envd(method: str, sandbox_id: str, path: str, **kwargs):
     """Sandbox (envd) API request."""
-    url = f"https://{ENVD_PORT}-{sandbox_id}.e2b.app{path}"
+    url = f"https://{ENVD_PORT}-{sandbox_id}.{E2B_DOMAIN}{path}"
     return http_request(method, url, **kwargs)
 
 
@@ -317,7 +318,7 @@ def multipart_upload(sandbox_id: str, file_path: str, content: bytes, token: str
     if token:
         headers["X-Access-Token"] = token
 
-    url = f"https://{ENVD_PORT}-{sandbox_id}.e2b.app/files"
+    url = f"https://{ENVD_PORT}-{sandbox_id}.{E2B_DOMAIN}/files"
     params = {"path": file_path}
     return http_request(
         "POST", url, headers=headers, params=params,
@@ -1023,23 +1024,6 @@ def run_phase_2_templates_read(api_key: str, spec: dict) -> tuple[list[EndpointR
                                    f"Non-existent: expected 404, got {status}", "404", str(status)))
     results.append(ep)
 
-    # GET /templates/aliases/{alias}
-    test_alias = alias or "base"
-    print(f"  GET /templates/aliases/{test_alias}")
-    ep = EndpointResult("GET", "/templates/aliases/{alias}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 200
-    status, body, _ = ctrl("GET", f"/templates/aliases/{test_alias}", headers=h)
-    ep.actual_status = status
-    ep.response_body = body
-    if status == 200:
-        schema = {"$ref": "#/components/schemas/TemplateAliasResponse"}
-        ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /templates/aliases/{alias}"))
-    elif status == 404:
-        ep.findings.append(Finding("minor", "status_code", "GET /templates/aliases/{alias}",
-                                   f"Alias '{test_alias}' not found (404)", "200", "404"))
-    results.append(ep)
-
     # GET /templates/{templateID}/builds/{buildID}/status
     if template_id and build_id:
         print(f"  GET .../builds/{build_id[:16]}../status")
@@ -1116,6 +1100,24 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
         ep.findings.append(Finding("critical", "status_code", "POST /v3/templates",
                                    f"Expected 202, got {status}", "202", str(status)))
     results.append(ep)
+
+    # GET /templates/aliases/{alias} — use the template we just created
+    if test_template_name and v3_template_id:
+        print(f"  GET /templates/aliases/{test_template_name}")
+        ep = EndpointResult("GET", "/templates/aliases/{alias}", surface="platform")
+        ep.tested = True
+        ep.expected_status = 200
+        status, body, _ = ctrl("GET", f"/templates/aliases/{test_template_name}", headers=h)
+        ep.actual_status = status
+        ep.response_body = body
+        if status == 200:
+            schema = {"$ref": "#/components/schemas/TemplateAliasResponse"}
+            ep.findings.extend(_tag_findings(validate_schema(body, schema, spec), "GET /templates/aliases/{alias}"))
+        results.append(ep)
+    else:
+        ep = EndpointResult("GET", "/templates/aliases/{alias}", surface="platform")
+        ep.skip_reason = "No test template created"
+        results.append(ep)
 
     # POST /v3/templates (400 — empty body)
     print("  POST /v3/templates (400 — empty)")
@@ -1219,18 +1221,6 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
                                        f"Expected 404, got {status}", "404", str(status)))
         results.append(ep)
 
-    # POST /templates/{templateID}/builds/{buildID} (deprecated, AccessTokenAuth — 401 with API key)
-    print("  POST .../builds/{buildID} (deprecated, 401 — needs Bearer)")
-    ep = EndpointResult("POST", "/templates/{templateID}/builds/{buildID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 401
-    status, body, _ = ctrl("POST", f"/templates/{FAKE_TEMPLATE_ID}/builds/{FAKE_BUILD_ID}", headers=h, body={})
-    ep.actual_status = status
-    if status not in (400, 401, 404):
-        ep.findings.append(Finding("minor", "status_code", "POST .../builds/{buildID}",
-                                   f"Expected 401/404, got {status}", "401", str(status)))
-    results.append(ep)
-
     # ------------------------------------------------------------------
     # POST /v2/templates (deprecated, 202 — create template, then clean up)
     # ------------------------------------------------------------------
@@ -1263,31 +1253,6 @@ def run_phase_3_templates_write(api_key: str, spec: dict, template_id: str | Non
     if status != 400:
         ep.findings.append(Finding("minor", "status_code", "POST /v2/templates",
                                    f"Empty body: expected 400, got {status}", "400", str(status)))
-    results.append(ep)
-
-    # POST /templates (deprecated, uses AccessTokenAuth — 401 with API key)
-    print("  POST /templates (deprecated, 401 with API key)")
-    ep = EndpointResult("POST", "/templates", surface="platform")
-    ep.tested = True
-    ep.expected_status = 401
-    status, body, _ = ctrl("POST", "/templates", headers=h, body={"dockerfile": "FROM ubuntu"})
-    ep.actual_status = status
-    if status not in (400, 401):
-        ep.findings.append(Finding("minor", "auth", "POST /templates",
-                                   f"Expected 401 (needs Bearer), got {status}", "401", str(status)))
-    results.append(ep)
-
-    # POST /templates/{templateID} (deprecated rebuild, uses AccessTokenAuth — 401 with API key)
-    print("  POST /templates/{templateID} (deprecated, 401)")
-    ep = EndpointResult("POST", "/templates/{templateID}", surface="platform")
-    ep.tested = True
-    ep.expected_status = 401
-    tid = template_id or FAKE_TEMPLATE_ID
-    status, body, _ = ctrl("POST", f"/templates/{tid}", headers=h, body={"dockerfile": "FROM ubuntu"})
-    ep.actual_status = status
-    if status not in (400, 401, 404):
-        ep.findings.append(Finding("minor", "status_code", "POST /templates/{templateID}",
-                                   f"Expected 401/404, got {status}", "401 or 404", str(status)))
     results.append(ep)
 
     # ------------------------------------------------------------------

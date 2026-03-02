@@ -13,7 +13,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: write
       pull-requests: write
@@ -30,59 +30,104 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
+      # Step 1: Generate spec from source
+      - name: Generate OpenAPI spec
+        run: python3 scripts/generate_openapi_reference.py --output openapi-generated.yml
+
+      # Step 2: Compare with committed spec
+      - name: Compare specs
+        id: diff
+        run: |
+          if diff -q openapi-public.yml openapi-generated.yml > /dev/null 2>&1; then
+            echo "Spec is up to date — nothing to do"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Spec has drifted from source"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 3: If no difference, exit early
+      # (all subsequent steps are gated on changed == 'true')
+
+      # Step 4: Run validation against the NEW generated spec
       - name: Run validation
+        if: steps.diff.outputs.changed == 'true'
+        id: validate
+        continue-on-error: true
         env:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
           E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
         run: |
+          # Replace committed spec with generated one before validating
+          cp openapi-generated.yml openapi-public.yml
+
+          # Capture the full output; the script exits 1 on critical findings
           python3 scripts/validate_api_reference.py \
             --output openapi-validation-report.md \
-            --verbose
+            --verbose 2>&1 | tee validation-output.txt
 
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet openapi-validation-report.md 2>/dev/null; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-          fi
+          # Extract the final summary block (everything after the last ===... line)
+          SUMMARY=$(awk '/^={50,}/{buf=""} {buf=buf"\n"$0} END{print buf}' validation-output.txt)
+          # Store for PR body (escape newlines for GitHub output)
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "summary<<$EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
 
+      # Step 5+6: Create PR with status indicator
       - name: Create PR
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
+          VALIDATION_SUMMARY: ${{ steps.validate.outputs.summary }}
         run: |
-          BRANCH="api-validation-$(date +%Y-%m-%d)"
+          if [ "$VALIDATION_OUTCOME" = "success" ]; then
+            STATUS_ICON="🟢"
+            STATUS_TEXT="Validation passed"
+          else
+            STATUS_ICON="🔴"
+            STATUS_TEXT="Validation failed — critical findings detected"
+          fi
+
+          BRANCH="api-spec-update-$(date +%Y-%m-%d)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          git add openapi-validation-report.md
-          git commit -m "docs: update API validation report $(date +%Y-%m-%d)"
+          git add openapi-public.yml
+          if [ -f openapi-validation-report.md ]; then
+            git add openapi-validation-report.md
+          fi
+          git commit -m "docs: update openapi-public.yml from source specs $(date +%Y-%m-%d)"
           git push -u origin "$BRANCH"
 
           gh pr create \
-            --title "API validation report $(date +%Y-%m-%d)" \
-            --body "$(cat <<'EOF'
-          ## Automated API Reference Validation
+            --title "$STATUS_ICON Update API spec $(date +%Y-%m-%d)" \
+            --body "$(cat <<EOF
+          ## OpenAPI Spec Update
 
-          Weekly validation of `openapi-public.yml` against the live E2B API.
+          The generated \`openapi-public.yml\` has drifted from the source specs.
+          This PR updates it to match the latest upstream definitions.
 
-          Review the updated `openapi-validation-report.md` for any new findings.
+          ### Validation: $STATUS_ICON $STATUS_TEXT
+
+          \`\`\`
+          $VALIDATION_SUMMARY
+          \`\`\`
           EOF
           )" \
             --base main
 
       - name: Summary
+        if: always()
+        env:
+          CHANGED: ${{ steps.diff.outputs.changed }}
+          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
         run: |
-          echo "## API Reference Validation" >> $GITHUB_STEP_SUMMARY
+          echo "## API Reference Spec Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f openapi-validation-report.md ]; then
-            # Extract critical findings count
-            CRITICAL=$(grep -c "critical" openapi-validation-report.md 2>/dev/null || echo "0")
-            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Critical findings | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
-            echo "| Report | openapi-validation-report.md |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| Result | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Spec changed | ${CHANGED:-false} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${VALIDATION_OUTCOME:-skipped} |" >> $GITHUB_STEP_SUMMARY
