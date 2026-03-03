@@ -43,7 +43,7 @@ jobs:
         run: |
           if diff -q openapi-public.yml openapi-generated.yml > /dev/null 2>&1; then
             echo "Spec is up to date — nothing to do"
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "Spec has drifted from source"
             echo "changed=true" >> $GITHUB_OUTPUT
