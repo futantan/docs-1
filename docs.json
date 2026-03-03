@@ -58,7 +58,7 @@
               "docs/agents/codex",
               {
                 "group": "OpenClaw",
-                "icon": "/images/icons/openclaw.svg",
+                "icon": "/images/icons/openclaw-v2.svg",
                 "pages": [
                   "docs/agents/openclaw/openclaw-gateway",
                   "docs/agents/openclaw/openclaw-telegram"
