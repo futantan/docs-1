@@ -4,10 +4,7 @@ on:
   # schedule:
   #   # Every Thursday at 8 PM UTC
   #   - cron: '0 20 * * 4'
-  pull_request:
-    # Sequence of patterns matched against refs/heads
-    branches:
-      - main
+  workflow_dispatch:
 
 concurrency:
   group: api-reference-validation
