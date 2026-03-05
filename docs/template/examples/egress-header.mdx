@@ -1,0 +1,305 @@
+---
+title: "Egress header"
+description: "Sandbox with automatic HTTP header injection on outbound requests"
+---
+
+This template runs a transparent [mitmproxy](https://mitmproxy.org/) inside the sandbox that automatically injects a custom `X-Sandbox-ID` header into every outbound HTTP and HTTPS request. This is useful for tracking, auditing, or routing requests that originate from specific sandboxes.
+
+The template includes:
+- **[mitmproxy](https://mitmproxy.org/)** running in transparent mode to intercept outbound traffic
+- **iptables** rules that redirect HTTP/HTTPS traffic through the proxy
+- **Automatic CA certificate trust** so HTTPS requests work without certificate errors in Python, Node.js, and OpenSSL
+- **Socket marking** via an `LD_PRELOAD` library to prevent proxy redirect loops
+
+## Template definition
+
+The template installs mitmproxy with its dependencies, copies the proxy addon and startup scripts, and compiles a small C library used to prevent redirect loops. The start command launches the proxy and waits for it to signal readiness.
+
+<CodeGroup>
+
+```typescript JavaScript & TypeScript expandable
+// template.ts
+import { Template, waitForFile } from 'e2b'
+
+export const template = Template()
+  .fromBaseImage()
+  .aptInstall([
+    'python3',
+    'python3-pip',
+    'iptables',
+    'ca-certificates',
+    'curl',
+    'gcc',
+    'libc-dev',
+  ])
+  .runCmd('pip3 install mitmproxy --break-system-packages', { user: 'root' })
+  .runCmd('mkdir -p /opt/mitmproxy', { user: 'root' })
+  .copy('files/mitmproxy/add_header.py', '/opt/mitmproxy/add_header.py')
+  .copy('files/mitmproxy/sockmark.c', '/opt/mitmproxy/sockmark.c')
+  .copy('files/scripts/start-proxy.sh', '/opt/mitmproxy/start-proxy.sh')
+  .runCmd('gcc -shared -fPIC -o /opt/mitmproxy/sockmark.so /opt/mitmproxy/sockmark.c -ldl', { user: 'root' })
+  .runCmd('chmod +x /opt/mitmproxy/start-proxy.sh', { user: 'root' })
+  .setStartCmd('sudo /opt/mitmproxy/start-proxy.sh', waitForFile('/tmp/proxy-ready'))
+```
+
+```python Python expandable
+# template.py
+from e2b import Template, wait_for_file
+
+template = (
+    Template()
+    .from_base_image()
+    .apt_install([
+        "python3",
+        "python3-pip",
+        "iptables",
+        "ca-certificates",
+        "curl",
+        "gcc",
+        "libc-dev",
+    ])
+    .run_cmd("pip3 install mitmproxy --break-system-packages", user="root")
+    .run_cmd("mkdir -p /opt/mitmproxy", user="root")
+    .copy("files/mitmproxy/add_header.py", "/opt/mitmproxy/add_header.py")
+    .copy("files/mitmproxy/sockmark.c", "/opt/mitmproxy/sockmark.c")
+    .copy("files/scripts/start-proxy.sh", "/opt/mitmproxy/start-proxy.sh")
+    .run_cmd("gcc -shared -fPIC -o /opt/mitmproxy/sockmark.so /opt/mitmproxy/sockmark.c -ldl", user="root")
+    .run_cmd("chmod +x /opt/mitmproxy/start-proxy.sh", user="root")
+    .set_start_cmd("sudo /opt/mitmproxy/start-proxy.sh", wait_for_file("/tmp/proxy-ready"))
+)
+```
+
+</CodeGroup>
+
+## Proxy addon
+
+The mitmproxy addon reads the sandbox ID from `/run/e2b/.E2B_SANDBOX_ID` (written by E2B at sandbox boot) and injects it as a header into every outbound request. The header name defaults to `X-Sandbox-ID` but can be configured via the `HEADER_NAME` environment variable.
+
+```python add_header.py
+import os
+from mitmproxy import http
+
+HEADER_NAME = os.environ.get("HEADER_NAME", "X-Sandbox-ID")
+SANDBOX_ID_FILE = "/run/e2b/.E2B_SANDBOX_ID"
+_sandbox_id: str | None = None
+
+
+def request(flow: http.HTTPFlow) -> None:
+    global _sandbox_id
+
+    if _sandbox_id is not None:
+        flow.request.headers[HEADER_NAME] = _sandbox_id
+        return
+
+    # Try reading the sandbox ID file (written by envd after sandbox boot).
+    sid = ""
+    try:
+        with open(SANDBOX_ID_FILE) as f:
+            sid = f.read().strip()
+    except Exception:
+        pass
+
+    # Fall back to E2B_SANDBOX_ID env var.
+    if not sid or sid == "unknown":
+        sid = os.environ.get("E2B_SANDBOX_ID", "").strip()
+
+    # Cache only once we have a real value; otherwise retry next request.
+    if sid and sid != "unknown":
+        _sandbox_id = sid
+    else:
+        sid = "unknown"
+
+    flow.request.headers[HEADER_NAME] = sid
+```
+
+## Socket marking library
+
+To prevent redirect loops, mitmproxy's own outbound connections need to bypass the iptables redirect rules. This small C library is loaded via `LD_PRELOAD` and marks all sockets mitmproxy creates with `SO_MARK=1`. The iptables rules then skip any packets with that mark.
+
+```c sockmark.c
+#define _GNU_SOURCE
+#include <sys/socket.h>
+#include <dlfcn.h>
+
+int socket(int domain, int type, int protocol) {
+    int (*real_socket)(int, int, int) = dlsym(RTLD_NEXT, "socket");
+    int fd = real_socket(domain, type, protocol);
+    if (fd >= 0 && (domain == AF_INET || domain == AF_INET6)) {
+        int mark = 1;
+        setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
+    }
+    return fd;
+}
+```
+
+## Startup script
+
+The startup script runs when the sandbox starts. It fetches the sandbox ID from the instance metadata service, generates and installs the mitmproxy CA certificate, configures iptables to redirect HTTP (port 80) and HTTPS (port 443) traffic through the proxy, and launches mitmproxy in transparent mode.
+
+```bash start-proxy.sh expandable
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROXY_PORT="${PROXY_PORT:-8080}"
+ADDON_PATH="/opt/mitmproxy/add_header.py"
+SOCKMARK_LIB="/opt/mitmproxy/sockmark.so"
+CONFDIR="/root/.mitmproxy"
+
+echo "=== Egress Header Proxy Setup ==="
+echo "Proxy port: ${PROXY_PORT}"
+
+# --- 0. Resolve sandbox ID from MMDS (Firecracker metadata service) ---
+MMDS_TOKEN=$(curl -sf -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-metadata-token-ttl-seconds: 21600" 2>/dev/null || echo "")
+if [ -n "${MMDS_TOKEN}" ]; then
+    SANDBOX_ID=$(curl -sf -H "X-metadata-token: ${MMDS_TOKEN}" \
+        "http://169.254.169.254/instanceID" 2>/dev/null || echo "unknown")
+else
+    SANDBOX_ID="${E2B_SANDBOX_ID:-unknown}"
+fi
+echo "Sandbox ID: ${SANDBOX_ID}"
+
+# --- 1. Generate mitmproxy CA certificate ---
+echo "Generating mitmproxy CA certificate..."
+mitmdump --mode transparent --listen-port "${PROXY_PORT}" \
+    --set confdir="${CONFDIR}" \
+    -s "${ADDON_PATH}" &
+GEN_PID=$!
+
+for i in $(seq 1 30); do
+    [ -f "${CONFDIR}/mitmproxy-ca-cert.pem" ] && break
+    sleep 0.5
+done
+
+kill "${GEN_PID}" 2>/dev/null || true
+wait "${GEN_PID}" 2>/dev/null || true
+
+# --- 2. Install CA certificate system-wide ---
+echo "Installing CA certificate..."
+cp "${CONFDIR}/mitmproxy-ca-cert.pem" /usr/local/share/ca-certificates/mitmproxy.crt
+update-ca-certificates 2>/dev/null
+
+# Set CA env vars for Python, Node.js, and OpenSSL
+cat > /etc/profile.d/mitmproxy-ca.sh << 'ENVEOF'
+export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+ENVEOF
+
+cat >> /etc/environment << 'ENVEOF'
+REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+ENVEOF
+
+# --- 3. Set up iptables rules ---
+# Skip packets marked with 1 (mitmproxy's own outbound traffic)
+echo "Configuring iptables..."
+iptables -t nat -A OUTPUT -m mark --mark 1 -j RETURN
+iptables -t nat -A OUTPUT -d 127.0.0.0/8 -j RETURN
+iptables -t nat -A OUTPUT -p tcp --dport 80 -j REDIRECT --to-port "${PROXY_PORT}"
+iptables -t nat -A OUTPUT -p tcp --dport 443 -j REDIRECT --to-port "${PROXY_PORT}"
+
+# --- 4. Start mitmproxy with LD_PRELOAD for loop prevention ---
+echo "Starting mitmproxy in transparent mode..."
+LD_PRELOAD="${SOCKMARK_LIB}" \
+    E2B_SANDBOX_ID="${SANDBOX_ID}" \
+    HEADER_NAME="${HEADER_NAME:-X-Sandbox-ID}" \
+    mitmdump --mode transparent --listen-port "${PROXY_PORT}" \
+    -s "${ADDON_PATH}" --set confdir="${CONFDIR}" \
+    --quiet &
+MITM_PID=$!
+
+# --- 5. Wait for proxy to be ready ---
+sleep 2
+if kill -0 "${MITM_PID}" 2>/dev/null; then
+    echo "Proxy is ready (PID: ${MITM_PID})"
+else
+    echo "WARNING: mitmproxy may not have started correctly"
+fi
+touch /tmp/proxy-ready
+
+echo "=== Egress Header Proxy Running ==="
+wait "${MITM_PID}"
+```
+
+## Build the template
+
+Build the template with 2 CPUs and 2 GB of RAM. The build compiles the C socket marking library and installs mitmproxy, which may take a few minutes.
+
+<CodeGroup>
+
+```typescript JavaScript & TypeScript
+// build.ts
+import { Template, defaultBuildLogger } from 'e2b'
+import { template as egressTemplate } from './template'
+
+await Template.build(egressTemplate, 'sandbox-egress-header', {
+  cpuCount: 2,
+  memoryMB: 2048,
+  onBuildLogs: defaultBuildLogger(),
+})
+```
+
+```python Python
+# build.py
+from e2b import Template, default_build_logger
+from .template import template as egressTemplate
+
+Template.build(egressTemplate, "sandbox-egress-header",
+    cpu_count=2,
+    memory_mb=2048,
+    on_build_logs=default_build_logger(),
+)
+```
+
+</CodeGroup>
+
+## Verify the header injection
+
+Create a sandbox from the template and make a request to [httpbin.org](https://httpbin.org) to confirm the `X-Sandbox-ID` header is being injected into outbound requests.
+
+<CodeGroup>
+
+```typescript JavaScript & TypeScript
+// sandbox.ts
+import { Sandbox } from 'e2b'
+
+const sbx = await Sandbox.create('sandbox-egress-header', { timeoutMs: 120_000 })
+
+const result = await sbx.commands.run('curl -s https://httpbin.org/headers', {
+  envs: { SSL_CERT_FILE: '/etc/ssl/certs/ca-certificates.crt' },
+})
+console.log(result.stdout)
+
+await sbx.kill()
+```
+
+```python Python
+# sandbox.py
+from e2b import Sandbox
+
+sbx = Sandbox.create("sandbox-egress-header", timeout=120)
+
+result = sbx.commands.run(
+    "curl -s https://httpbin.org/headers",
+    envs={"SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"},
+)
+print(result.stdout)
+
+sbx.kill()
+```
+
+</CodeGroup>
+
+The output includes the injected header with the sandbox's unique ID:
+
+```json
+{
+  "headers": {
+    "Accept": "*/*",
+    "Host": "httpbin.org",
+    "X-Sandbox-Id": "sandbox-id-here"
+  }
+}
+```
