@@ -60,29 +60,6 @@ The response from httpbin.org shows the injected header:
 }
 ```
 
-## Configuration
-
-The header name defaults to `X-Sandbox-ID`. You can change it by setting the `HEADER_NAME` environment variable when creating the sandbox.
-
-<CodeGroup>
-
-```typescript JavaScript & TypeScript
-const sbx = await Sandbox.create('sandbox-egress-header', {
-  timeoutMs: 120_000,
-  envs: { HEADER_NAME: 'X-Agent-ID' },
-})
-```
-
-```python Python
-sbx = Sandbox.create(
-    "sandbox-egress-header",
-    timeout=120,
-    envs={"HEADER_NAME": "X-Agent-ID"},
-)
-```
-
-</CodeGroup>
-
 ## Source code
 
 The full template source including the proxy addon, startup script, and build configuration is available on [GitHub](https://github.com/beran-t/customer-starter-templates/tree/main/templates/sandbox-egress-header).
