@@ -15,7 +15,7 @@ Use the official installation script from [get.docker.com](https://get.docker.co
 import { Template } from 'e2b'
 
 export const template = Template()
-  .fromUbuntuImage('25.04')
+  .fromUbuntuImage('24.04')
   .runCmd('curl -fsSL https://get.docker.com | sudo sh')
   .runCmd('sudo docker run --rm hello-world')
 ```
@@ -26,7 +26,7 @@ from e2b import Template
 
 template = (
     Template()
-    .from_ubuntu_image("25.04")
+    .from_ubuntu_image("24.04")
     .run_cmd("curl -fsSL https://get.docker.com | sudo sh")
     .run_cmd("sudo docker run --rm hello-world")
 )
@@ -97,10 +97,6 @@ sbx.kill()
 
 This example installs Docker and Docker Compose, then validates the setup with a Compose version check and a sample Compose run.
 
-<Note>
-Run Docker and Docker Compose commands as `root` in this setup. The Docker daemon socket is not accessible to the default `user` account.
-</Note>
-
 ### Template
 
 Create a new file named `template-compose.ts` (or `template_compose.py`).
@@ -116,6 +112,7 @@ export const composeTemplate = Template()
     'set -euxo pipefail',
     'sudo apt-get update',
     'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io',
+    'sudo usermod -aG docker user',
     'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin || true',
     'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 || true',
     'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose || true',
@@ -135,6 +132,7 @@ compose_template = (
             "set -euxo pipefail",
             "sudo apt-get update",
             "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io",
+            "sudo usermod -aG docker user",
             "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin || true",
             "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 || true",
             "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose || true",
@@ -190,7 +188,7 @@ import { Sandbox } from 'e2b'
 
 const sbx = await Sandbox.create('docker-compose')
 
-await sbx.commands.run('mkdir -p /tmp/docker-compose-test', { user: 'root' })
+await sbx.commands.run('mkdir -p /tmp/docker-compose-test')
 await sbx.files.write('/tmp/docker-compose-test/compose.yaml', [
   'services:',
   '  hello:',
@@ -215,7 +213,7 @@ else
   echo "No compose command available"
   exit 127
 fi
-`, { user: 'root' })
+`)
 
 console.log(result.stdout)
 await sbx.kill()
@@ -227,7 +225,7 @@ from e2b import Sandbox
 
 sbx = Sandbox.create("docker-compose")
 
-sbx.commands.run("mkdir -p /tmp/docker-compose-test", user="root")
+sbx.commands.run("mkdir -p /tmp/docker-compose-test")
 sbx.files.write(
     "/tmp/docker-compose-test/compose.yaml",
     """
@@ -256,7 +254,6 @@ else
   exit 127
 fi
     """,
-    user="root",
 )
 
 print(result.stdout)
