@@ -1369,6 +1369,7 @@ def rename_and_reorder_tags(spec: dict[str, Any]) -> None:
     """Rename tags and reorder them for the documentation sidebar."""
     TAG_RENAME = {
         "sandboxes": "Sandboxes",
+        "snapshots": "Sandboxes",
         "templates": "Templates",
         "filesystem.Filesystem": "Filesystem",
         "process.Process": "Process",

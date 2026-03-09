@@ -501,6 +501,38 @@ paths:
       operationId: postSandboxSnapshots
     servers:
     - *id001
+  /snapshots:
+    get:
+      description: List all snapshots for the team
+      tags:
+      - Sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: sandboxID
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filter snapshots by source sandbox ID
+      - $ref: '#/components/parameters/paginationLimit'
+      - $ref: '#/components/parameters/paginationNextToken'
+      responses:
+        '200':
+          description: Successfully returned snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SnapshotInfo'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: listSnapshots
+    servers:
+    - *id001
   /v3/templates:
     post:
       description: Create a new template
@@ -1964,38 +1996,6 @@ paths:
       operationId: uploadFile
     servers:
     - *id005
-  /snapshots:
-    get:
-      description: List all snapshots for the team
-      tags:
-      - snapshots
-      security:
-      - ApiKeyAuth: []
-      parameters:
-      - name: sandboxID
-        in: query
-        required: false
-        schema:
-          type: string
-          description: Filter snapshots by source sandbox ID
-      - $ref: '#/components/parameters/paginationLimit'
-      - $ref: '#/components/parameters/paginationNextToken'
-      responses:
-        '200':
-          description: Successfully returned snapshots
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SnapshotInfo'
-        '401':
-          $ref: '#/components/responses/401'
-        '500':
-          $ref: '#/components/responses/500'
-      operationId: listSnapshots
-    servers:
-    - *id001
 components:
   securitySchemes:
     AccessTokenAuth:
