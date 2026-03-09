@@ -460,6 +460,47 @@ paths:
       summary: Refresh sandbox
     servers:
     - *id001
+  /sandboxes/{sandboxID}/snapshots:
+    post:
+      description: Create a persistent snapshot from the sandbox's current state.
+        Snapshots can be used to create new sandboxes and persist beyond the original
+        sandbox's lifetime.
+      tags:
+      - Sandboxes
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/sandboxID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Optional name for the snapshot template. If a snapshot
+                    template with this name already exists, a new build will be assigned
+                    to the existing template instead of creating a new one.
+      responses:
+        '201':
+          description: Snapshot created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotInfo'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: postSandboxSnapshots
+    servers:
+    - *id001
   /v3/templates:
     post:
       description: Create a new template
@@ -1923,6 +1964,38 @@ paths:
       operationId: uploadFile
     servers:
     - *id005
+  /snapshots:
+    get:
+      description: List all snapshots for the team
+      tags:
+      - snapshots
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: sandboxID
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filter snapshots by source sandbox ID
+      - $ref: '#/components/parameters/paginationLimit'
+      - $ref: '#/components/parameters/paginationNextToken'
+      responses:
+        '200':
+          description: Successfully returned snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SnapshotInfo'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+      operationId: listSnapshots
+    servers:
+    - *id001
 components:
   securitySchemes:
     AccessTokenAuth:
@@ -2322,6 +2395,7 @@ components:
       - FILE_TYPE_UNSPECIFIED
       - FILE_TYPE_FILE
       - FILE_TYPE_DIRECTORY
+      - FILE_TYPE_SYMLINK
     filesystem.FilesystemEvent:
       type: object
       properties:
@@ -3000,6 +3074,23 @@ components:
       enum:
       - running
       - paused
+    SnapshotInfo:
+      type: object
+      required:
+      - snapshotID
+      - names
+      properties:
+        snapshotID:
+          type: string
+          description: Identifier of the snapshot template including the tag. Uses
+            namespace/alias when a name was provided (e.g. team-slug/my-snapshot:default),
+            otherwise falls back to the raw template ID (e.g. abc123:default).
+        names:
+          type: array
+          items:
+            type: string
+          description: Full names of the snapshot template including team namespace
+            and tag (e.g. team-slug/my-snapshot:v2)
     Mcp:
       type: object
       description: MCP configuration for the sandbox
@@ -3027,21 +3118,18 @@ components:
         maskRequestHost:
           type: string
           description: Specify host mask which will be used for all sandbox requests
-    SandboxAutoResumePolicy:
-      type: string
-      description: Auto-resume policy for paused sandboxes. Default is off.
-      default: 'off'
-      enum:
-      - any
-      - 'off'
+    SandboxAutoResumeEnabled:
+      type: boolean
+      description: Auto-resume enabled flag for paused sandboxes. Default false.
+      default: false
     SandboxAutoResumeConfig:
       type: object
-      description: Auto-resume configuration for paused sandboxes. Default is off.
+      description: Auto-resume configuration for paused sandboxes.
       required:
-      - policy
+      - enabled
       properties:
-        policy:
-          $ref: '#/components/schemas/SandboxAutoResumePolicy'
+        enabled:
+          $ref: '#/components/schemas/SandboxAutoResumeEnabled'
     SandboxLog:
       description: Log entry with timestamp and line
       required:
