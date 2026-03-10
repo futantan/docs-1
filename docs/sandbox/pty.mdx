@@ -62,9 +62,7 @@ The PTY runs an interactive bash shell with `TERM=xterm-256color`, which support
 
 ## Timeout
 
-By default, PTY sessions have a **60-second timeout** which limits the total duration of the session. When the timeout is reached, the connection to the PTY session will be closed regardless of activity.
-
-For long-running sessions, set `timeoutMs: 0` (JavaScript) or `timeout=0` (Python) to disable the timeout.
+PTY sessions have a configurable timeout that controls the session duration. The default is 60 seconds. For interactive or long-running sessions, set `timeoutMs: 0` (JavaScript) or `timeout=0` (Python) to keep the session open indefinitely.
 
 <CodeGroup>
 ```js JavaScript & TypeScript
@@ -76,7 +74,7 @@ const terminal = await sandbox.pty.create({
   cols: 80,
   rows: 24,
   onData: (data) => process.stdout.write(data),
-  timeoutMs: 0,  // No timeout for long-running sessions
+  timeoutMs: 0,  // Keep the session open indefinitely
 })
 ```
 
@@ -91,7 +89,7 @@ terminal = sandbox.pty.create(
     cols=80,
     rows=24,
     on_data=lambda data: print(data.decode(), end=''),
-    timeout=0,  # No timeout for long-running sessions
+    timeout=0,  # Keep the session open indefinitely
 )
 ```
 </CodeGroup>

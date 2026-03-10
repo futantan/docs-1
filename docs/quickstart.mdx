@@ -35,7 +35,7 @@ We'll write the minimal code for starting Sandbox, executing Python inside it an
 import 'dotenv/config'
 import { Sandbox } from '@e2b/code-interpreter'
 
-const sbx = await Sandbox.create() // By default the sandbox is alive for 5 minutes
+const sbx = await Sandbox.create() // Creates a persistent sandbox session
 const execution = await sbx.runCode('print("hello world")') // Execute Python inside the sandbox
 console.log(execution.logs)
 
@@ -48,7 +48,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from e2b_code_interpreter import Sandbox
 
-sbx = Sandbox.create() # By default the sandbox is alive for 5 minutes
+sbx = Sandbox.create() # Creates a persistent sandbox session
 execution = sbx.run_code("print('hello world')") # Execute Python inside the sandbox
 print(execution.logs)
 

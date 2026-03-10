@@ -5,8 +5,8 @@ description: "Start with custom sandbox templates"
 
 E2B templates allow you to define custom sandboxes.
 You can define the base image, environment variables, files to copy, commands to run, and
-a start command that will be already running when you spawn the sandbox.
-This way, you can have fully configured sandboxes with running processes ready to use with zero wait time for your users.
+a [start command](/docs/template/start-ready-command#start-command) that runs during the template build and is captured in a snapshot — so the process is **already running** when you create a sandbox from that template.
+This gives you fully configured sandboxes with running processes ready to use with zero wait time for your users.
 
 There are two ways how you can start creating a new template:
 - using the CLI

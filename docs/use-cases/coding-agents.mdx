@@ -1,10 +1,10 @@
 ---
 title: "Coding Agents"
-description: "Run AI coding agents like Claude Code, Codex, and AMP in secure E2B sandboxes with full terminal, filesystem, and git access."
+description: "Run AI coding agents like Claude Code, Codex, and Amp in secure E2B sandboxes with full terminal, filesystem, and git access."
 icon: "robot"
 ---
 
-Coding agents like [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), [Codex](https://github.com/openai/codex), and [AMP](https://ampcode.com/) can write, debug, and refactor code autonomously. E2B sandboxes give each agent a full Linux environment with terminal, filesystem, and git — completely isolated from your infrastructure. Pre-built templates mean you can go from zero to a running agent in a single API call.
+Coding agents like [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), [Codex](https://github.com/openai/codex), and [Amp](https://ampcode.com/) can write, debug, and refactor code autonomously. E2B sandboxes give each agent a full Linux environment with terminal, filesystem, and git — completely isolated from your infrastructure. Pre-built templates mean you can go from zero to a running agent in a single API call.
 
 ## Why Use a Sandbox
 
@@ -13,15 +13,14 @@ Running coding agents directly on your machine or servers means giving AI-genera
 1. **Isolation** — agent-generated code runs in a secure sandbox, never touching your production systems or local machine
 2. **Full dev environment** — terminal, filesystem, git, and package managers are all available out of the box, so agents work like a developer would
 3. **Pre-built templates** — ready-made templates for popular agents get you started fast, and you can [build your own](/docs/template/quickstart) for any agent
-4. **Scalability** — spin up many sandboxes in parallel, each running its own agent on a separate task
+4. **Scalability** — run many sandboxes in parallel, each with its own agent on a separate task
 
 ## How It Works
 
 1. **Create a sandbox** — use a pre-built template or [build your own](/docs/template/quickstart) with any agent installed
 2. **Agent gets a full environment** — terminal, filesystem, git access, and any tools installed in the template
 3. **Agent works autonomously** — it reads the codebase, writes code, runs tests, and iterates until the task is done
-4. **Extract results** — pull out the git diff, structured output, or modified files via the SDK
-5. **Sandbox is cleaned up** — once the work is done, the sandbox is destroyed automatically. No lingering state or cleanup needed
+4. **Extract results** — pull out the git diff, structured output, or modified files via the SDK. The sandbox stays available for follow-up work, or you can pause it to pick up later
 
 ## Agent Examples
 
@@ -34,8 +33,8 @@ Since each sandbox is a full Linux environment, you can run any coding agent —
   <Card title="Codex" icon="/images/icons/codex.svg" href="/docs/agents/codex">
     OpenAI's coding agent with schema-validated output and image input
   </Card>
-  <Card title="AMP" icon="/images/icons/amp.svg" href="/docs/agents/amp">
-    Sourcegraph's coding agent with streaming JSON and thread management
+  <Card title="Amp" icon="/images/icons/amp.svg" href="/docs/agents/amp">
+    Coding agent with streaming JSON and thread management
   </Card>
   <Card title="OpenCode" icon="/images/icons/opencode.svg" href="/docs/agents/opencode">
     Open-source multi-provider agent with a built-in web UI

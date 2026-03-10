@@ -56,6 +56,14 @@
               "docs/agents/amp",
               "docs/agents/claude-code",
               "docs/agents/codex",
+              {
+                "group": "OpenClaw",
+                "icon": "https://mintlify.s3.us-west-1.amazonaws.com/e2b-openclaw-icon/images/icons/openclaw.svg",
+                "pages": [
+                  "docs/agents/openclaw/openclaw-gateway",
+                  "docs/agents/openclaw/openclaw-telegram"
+                ]
+              },
               "docs/agents/opencode"
             ]
           },
@@ -99,6 +107,7 @@
               "docs/sandbox/lifecycle-events-api",
               "docs/sandbox/lifecycle-events-webhooks",
               "docs/sandbox/persistence",
+              "docs/sandbox/snapshots",
               "docs/sandbox/git-integration",
               "docs/sandbox/metrics",
               "docs/sandbox/metadata",

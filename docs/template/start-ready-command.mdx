@@ -4,12 +4,19 @@ description: "Define running processes for the sandbox"
 ---
 
 ## Start command
-The start command allows you to specify a command that will be **already running** when you spawn your custom sandbox.
-This way, you can for example have running servers or seeded databases inside the sandbox that are already fully ready when you spawn the sandbox using the SDK and with zero waiting time for your users during the runtime.
+The start command lets you specify a process that runs at the **end of the template build** — not when a sandbox is created.
+During the build, E2B executes the start command, waits for the [ready command](#ready-command) to confirm the process is up, and then takes a [snapshot](/docs/template/how-it-works) of the entire sandbox including the running process.
 
-The idea behind the start command feature is to lower the wait times for your users and have everything ready for your users when you spawn your sandbox.
+When you later create a sandbox from that template, the snapshotted process is **already running** — there is no startup wait.
+This is how you get servers, seeded databases, or any long-running process available instantly when spawning sandboxes with the SDK.
 
-You can see how it works [here](/docs/template/how-it-works).
+<Note title="The start command does not run on sandbox creation">
+  The start command runs **once during template build** and is captured in a snapshot. It does not re-execute each time you create a sandbox. If you need to run a command every time a sandbox is created, use `sandbox.commands.run()` after creating the sandbox instead.
+
+  This also means that [environment variables passed to `Sandbox.create()`](/docs/sandbox/environment-variables#1-global-environment-variables) are **not available** to the start command process — it already ran during the build. If your start command needs environment variables, set them in the template definition using `setEnvs()` / `set_envs()`.
+</Note>
+
+You can see the full build process [here](/docs/template/how-it-works).
 
 ## Ready command
 The ready command allows you to specify a command that will determine **template sandbox** readiness before a [snapshot](/docs/template/how-it-works) is created.
@@ -18,7 +25,7 @@ This way you can control how long should we wait for the [start command](/docs/t
 
 ## Usage
 
-Set the command that runs when the sandbox starts and the command that determines when the sandbox is ready:
+Set the start command (executed during template build) and the ready command (determines when the process is up before snapshotting):
 
 <CodeGroup>
 

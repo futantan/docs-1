@@ -4,7 +4,7 @@ description: "Run AI-powered code review, testing, and validation in secure E2B 
 icon: "gears"
 ---
 
-CI/CD pipelines can use AI agents to review pull requests, generate tests, and validate code changes automatically. E2B sandboxes provide the secure, isolated execution environment where these agents can safely clone repositories, run untrusted code, and report results — all triggered by [GitHub Actions](https://docs.github.com/en/actions) on every pull request. Since each run gets a fresh sandbox, malicious or buggy PR code never touches your CI runner.
+CI/CD pipelines can use AI agents to review pull requests, generate tests, and validate code changes automatically. E2B sandboxes provide the secure, isolated execution environment where these agents can safely clone repositories, run untrusted code, and report results — all triggered by [GitHub Actions](https://docs.github.com/en/actions) on every pull request. Each run uses its own isolated sandbox, so malicious or buggy PR code never touches your CI runner.
 
 ## GitHub Actions workflow
 
@@ -260,11 +260,11 @@ print("Done")
 ```
 </CodeGroup>
 
-1. **Create sandbox** — `Sandbox.create()` spins up an isolated Linux environment with a 5-minute timeout
+1. **Create sandbox** — `Sandbox.create()` creates an isolated Linux environment for the review
 2. **Clone the PR** — `sandbox.git.clone()` checks out the PR branch using `x-access-token` + `GITHUB_TOKEN` for [authentication](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation)
 3. **AI review** — runs `git diff` inside the sandbox, sends the output to an LLM — swap the model for any provider via [Connect LLMs](/docs/quickstart/connect-llms)
 4. **Run tests** — `commands.run()` streams output in real time and throws on failure (`CommandExitError` / `CommandExitException`)
-5. **Post results** — comments the review on the PR via the GitHub REST API, then destroys the sandbox
+5. **Post results** — comments the review on the PR via the GitHub REST API, then shuts down the sandbox
 
 ## Related guides
 

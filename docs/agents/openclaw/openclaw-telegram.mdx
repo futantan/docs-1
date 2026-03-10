@@ -1,0 +1,196 @@
+---
+title: "OpenClaw Telegram"
+description: "Connect OpenClaw to Telegram in an E2B sandbox, approve pairing, and chat through your bot."
+icon: "paper-plane"
+---
+
+OpenClaw supports Telegram as a chat channel. In E2B you can run OpenClaw in a sandbox, attach your bot token, and approve user pairing from the terminal.
+
+This guide covers the working flow we used:
+
+1. Start OpenClaw in a sandbox.
+2. Enable the Telegram plugin.
+3. Add Telegram channel credentials.
+4. Start the channel runtime in background.
+5. Approve Telegram pairing.
+
+## Prerequisites
+
+- A Telegram bot token from [@BotFather](https://t.me/BotFather). There's instructions to follow there, it runs /newbot for you and walks you through naming and creating your bot.
+- An OpenAI API key for the OpenClaw model.
+- E2B API key configured locally.
+
+## Quick start
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const GATEWAY_PORT = 18789
+const GATEWAY_TOKEN = process.env.OPENCLAW_APP_TOKEN || 'my-openclaw-token'
+
+const sandbox = await Sandbox.create('openclaw', {
+  envs: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+  },
+  timeoutMs: 3600_000,
+})
+
+await sandbox.commands.run('openclaw config set agents.defaults.model.primary openai/gpt-5.2')
+
+// Enable the Telegram plugin (required before adding the channel)
+await sandbox.commands.run('openclaw config set plugins.entries.telegram.enabled true')
+await sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
+
+await sandbox.commands.run(
+  `bash -lc 'openclaw config set gateway.controlUi.allowInsecureAuth true && ` +
+    `openclaw config set gateway.controlUi.dangerouslyDisableDeviceAuth true && ` +
+    `openclaw gateway --allow-unconfigured --bind lan --auth token --token ${GATEWAY_TOKEN} --port ${GATEWAY_PORT}'`,
+  { background: true }
+)
+
+for (let i = 0; i < 45; i++) {
+  const probe = await sandbox.commands.run(
+    `bash -lc 'ss -ltn | grep -q ":${GATEWAY_PORT} " && echo ready || echo waiting'`
+  )
+  if (probe.stdout.trim() === 'ready') break
+  await new Promise((r) => setTimeout(r, 1000))
+}
+```
+```python Python
+import os
+import time
+from e2b import Sandbox
+
+GATEWAY_PORT = 18789
+GATEWAY_TOKEN = os.environ.get("OPENCLAW_APP_TOKEN", "my-openclaw-token")
+
+sandbox = Sandbox.create("openclaw", envs={
+    "OPENAI_API_KEY": os.environ["OPENAI_API_KEY"],
+    "TELEGRAM_BOT_TOKEN": os.environ["TELEGRAM_BOT_TOKEN"],
+}, timeout=3600)
+
+sandbox.commands.run("openclaw config set agents.defaults.model.primary openai/gpt-5.2")
+
+# Enable the Telegram plugin (required before adding the channel)
+sandbox.commands.run("openclaw config set plugins.entries.telegram.enabled true")
+sandbox.commands.run('openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"')
+
+sandbox.commands.run(
+    f"bash -lc 'openclaw config set gateway.controlUi.allowInsecureAuth true && "
+    f"openclaw config set gateway.controlUi.dangerouslyDisableDeviceAuth true && "
+    f"openclaw gateway --allow-unconfigured --bind lan --auth token --token {GATEWAY_TOKEN} --port {GATEWAY_PORT}'",
+    background=True,
+)
+
+for _ in range(45):
+    probe = sandbox.commands.run(
+        f"bash -lc 'ss -ltn | grep -q \":{GATEWAY_PORT} \" && echo ready || echo waiting'"
+    )
+    if probe.stdout.strip() == "ready":
+        break
+    time.sleep(1)
+```
+</CodeGroup>
+
+<Info>
+For Telegram setup, you do **not** need to open the gateway URL in a browser. The gateway process is used here as a long-running channel runtime.
+</Info>
+
+## Pair your Telegram user
+
+1. Open your bot in Telegram and send a message (for example: `hi`).
+2. Telegram will return a pairing prompt similar to:
+
+```text
+OpenClaw: access not configured.
+
+Your Telegram user id: ...
+Pairing code: XXXXXXXX
+
+Ask the bot owner to approve with:
+openclaw pairing approve telegram XXXXXXXX
+```
+
+3. Approve that pairing code via `sandbox.commands.run(...)`:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const PAIRING_CODE = 'XXXXXXXX' // from Telegram
+
+await sandbox.commands.run(
+  `openclaw pairing approve --channel telegram ${PAIRING_CODE}`
+)
+```
+```python Python
+PAIRING_CODE = "XXXXXXXX"  # from Telegram
+
+sandbox.commands.run(
+    f"openclaw pairing approve --channel telegram {PAIRING_CODE}"
+)
+```
+</CodeGroup>
+
+`openclaw pairing approve telegram <PAIRING_CODE>` also works if you prefer that form.
+
+## Verify channel status
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const channels = await sandbox.commands.run('openclaw channels list --json')
+const status = await sandbox.commands.run('openclaw channels status --json --probe')
+const pairing = await sandbox.commands.run('openclaw pairing list --json --channel telegram')
+
+console.log(JSON.parse(channels.stdout))
+console.log(JSON.parse(status.stdout))
+console.log(JSON.parse(pairing.stdout))
+```
+```python Python
+import json
+
+channels = sandbox.commands.run("openclaw channels list --json")
+status = sandbox.commands.run("openclaw channels status --json --probe")
+pairing = sandbox.commands.run("openclaw pairing list --json --channel telegram")
+
+print(json.loads(channels.stdout))
+print(json.loads(status.stdout))
+print(json.loads(pairing.stdout))
+```
+</CodeGroup>
+
+If you need logs from channel handlers:
+
+<CodeGroup>
+```typescript JavaScript & TypeScript
+const logs = await sandbox.commands.run(
+  'openclaw channels logs --channel telegram --lines 200'
+)
+console.log(logs.stdout)
+```
+```python Python
+logs = sandbox.commands.run(
+    "openclaw channels logs --channel telegram --lines 200"
+)
+print(logs.stdout)
+```
+</CodeGroup>
+
+## Troubleshooting
+
+- `Unknown channel: telegram`
+  - The Telegram plugin is not enabled. Run `openclaw config set plugins.entries.telegram.enabled true` before adding the channel.
+- `OpenClaw: access not configured`
+  - Pairing has not been approved yet. Run `openclaw pairing approve ...`.
+- `No API key found for provider ...`
+  - This guide uses `openai/gpt-5.2`. Set `OPENAI_API_KEY` in sandbox envs.
+- No pending pairing requests from `pairing list`
+  - Send a fresh message to the bot first, then retry `pairing list --channel telegram`.
+
+## Related
+
+<CardGroup cols={1}>
+  <Card title="OpenClaw gateway" icon="globe" href="/docs/agents/openclaw/openclaw-gateway">
+    Run OpenClaw's web gateway with token auth
+  </Card>
+</CardGroup>

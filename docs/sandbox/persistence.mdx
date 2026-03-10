@@ -3,12 +3,6 @@ title: "Sandbox persistence"
 sidebarTitle: Persistence
 ---
 
-<Note>
-Sandbox persistence is currently in public beta:
-1. Consider [some limitations](#limitations-while-in-beta).
-2. The persistence is free for all users during the beta.
-</Note>
-
 The sandbox persistence allows you to pause your sandbox and resume it later from the same state it was in when you paused it.
 
 This includes not only state of the sandbox's filesystem but also the sandbox's memory. This means all running processes, loaded variables, data, etc.
@@ -17,14 +11,28 @@ This includes not only state of the sandbox's filesystem but also the sandbox's 
 
 Understanding how sandboxes transition between different states is crucial for managing their lifecycle effectively. Here's a diagram showing the possible state transitions:
 
-<Frame>
-<img src="/images/diagram.png" />
-</Frame>
+```mermaid actions={false}
+flowchart TD
+    start(( )) -->|Sandbox.create| Running
+
+    Running["<b>Running</b><br/>• Active execution<br/>• Consumes resources"]
+    Paused["<b>Paused</b><br/>• Preserves memory and files<br/>• Cannot execute code"]
+    Snapshotting["<b>Snapshotting</b><br/>• Creates persistent snapshot<br/>• Briefly pauses execution"]
+    Killed["<b>Killed</b><br/>• Resources released<br/>• Cannot be resumed"]
+
+    Running -->|pause| Paused
+    Running -->|createSnapshot| Snapshotting
+    Paused -->|connect| Running
+    Snapshotting -->|snapshot complete| Running
+    Running -->|kill| Killed
+    Paused -->|kill| Killed
+```
 
 ### State descriptions
 
 - **Running**: The sandbox is actively running and can execute code. This is the initial state after creation.
 - **Paused**: The sandbox execution is suspended but its state is preserved.
+- **Snapshotting**: The sandbox is briefly paused while a persistent snapshot is being created. It automatically returns to Running. See [Snapshots](/docs/sandbox/snapshots).
 - **Killed**: The sandbox is terminated and all resources are released. This is a terminal state.
 
 ### Changing sandbox's state
@@ -51,7 +59,7 @@ from e2b_code_interpreter import Sandbox
 sandbox = Sandbox.create()  # Starts in Running state
 
 # Pause the sandbox
-sandbox.betaPause()  # Running → Paused
+sandbox.beta_pause()  # Running → Paused
 
 # Resume the sandbox
 sandbox.connect()  # Running/Paused → Running
@@ -85,7 +93,7 @@ print('Sandbox created', sbx.sandbox_id)
 # Pause the sandbox
 # You can save the sandbox ID in your database to resume the sandbox later
 sbx.beta_pause()
-print('Sandbox paused', sbx.sandbox_id) 
+print('Sandbox paused', sbx.sandbox_id)
 ```
 </CodeGroup>
 
@@ -201,9 +209,7 @@ Sandbox.kill(sbx.sandbox_id)
 </CodeGroup>
 
 ## Sandbox's timeout
-When you connect to a sandbox, the sandbox's timeout is reset to the default timeout of an E2B sandbox - 5 minutes.
-
-You can pass a custom timeout to the `Sandbox.connect()`/`Sandbox.connect()` method like this:
+When you connect to a sandbox, the inactivity timeout resets. The default is 5 minutes, but you can pass a custom timeout to the `Sandbox.connect()` method:
 
 <CodeGroup>
 ```js JavaScript & TypeScript
@@ -219,11 +225,9 @@ sbx = Sandbox.connect(sandbox_id, timeout=60) # 60 seconds
 </CodeGroup>
 
 
-### Auto-pause (beta)
+### Auto-pause
 
-**Note: Auto-pause is currently in beta and available through `Sandbox.betaCreate()`/`Sandbox.beta_create()` method.**
-
-Sandboxes can now automatically pause after they time out. When a sandbox is paused, it stops consuming compute but preserves its state. The default inactivity timeout is 10 minutes. You can change the timeout by passing the `timeoutMs`/`timeout` parameter to the `Sandbox.connect()`/`Sandbox.connect()` method.
+Sandboxes automatically pause when their timeout expires, preserving their full state instead of shutting down. You can resume at any time from exactly where you left off. The default timeout is 10 minutes — configure it with the `timeoutMs`/`timeout` parameter.
 
 <CodeGroup>
 ```js JavaScript & TypeScript
@@ -238,7 +242,7 @@ const sandbox = await Sandbox.betaCreate({
 ```python Python
 from e2b_code_interpreter import Sandbox
 
-# Create sandbox with auto-pause enabled (Beta)
+# Create sandbox with auto-pause enabled
 sandbox = Sandbox.beta_create(
     auto_pause=True,  # Auto-pause after the sandbox times out
     timeout=10 * 60, # Optional: change the default timeout (10 minutes)
@@ -254,7 +258,7 @@ If you `.kill()` the sandbox, it will be permanently deleted and you won't be ab
 ```js JavaScript & TypeScript
 import { Sandbox } from '@e2b/code-interpreter'
 
-// Create sandbox with auto-pause enabled (Beta)
+// Create sandbox with auto-pause enabled
 const sandbox = await Sandbox.betaCreate({
     autoPause: true  // Auto-pause after the sandbox times out
 })
@@ -262,7 +266,7 @@ const sandbox = await Sandbox.betaCreate({
 ```python Python
 from e2b_code_interpreter import Sandbox
 
-# Create sandbox with auto-pause enabled (Beta)
+# Create sandbox with auto-pause enabled
 sandbox = Sandbox.beta_create(
     auto_pause=True  # Auto-pause after the sandbox times out
 )
@@ -274,11 +278,15 @@ If you have a service (for example a server) running inside your sandbox and you
 If you resume the sandbox, the service will be accessible again but you need to connect clients again.
 
 
-## Limitations while in beta
+## Limitations
 
 ### Pause and resume performance
 - Pausing a sandbox takes approximately **4 seconds per 1 GiB of RAM**
 - Resuming a sandbox takes approximately **1 second**
+
+### Paused sandbox retention
+- Paused sandboxes are kept **indefinitely** — there is no automatic deletion or time-to-live limit
+- You can resume a paused sandbox at any time
 
 ### Continuous runtime limits
 - A sandbox can remain running (without being paused) for:

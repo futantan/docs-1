@@ -47,18 +47,15 @@ code {
     /* orange-500 at 10% opacity */
 }
 
-/* Icon color */
-.callout .text-sky-500 {
-    color: #ff8800;
-}
-
-/* Content text color */
-.callout .text-sky-900 {
+/* Note callout text & icon colors - light mode */
+.callout[data-callout-type="note"],
+.callout[data-callout-type="note"] *:not(a) {
     color: rgb(124 45 18) !important;
-    /* orange-900 */
 }
 
-.dark\:text-sky-200:is(.dark *) {
+/* Note callout text & icon colors - dark mode */
+.dark .callout[data-callout-type="note"],
+.dark .callout[data-callout-type="note"] *:not(a) {
     color: rgb(255, 183, 102) !important;
 }
 

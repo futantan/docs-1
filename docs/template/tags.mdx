@@ -39,6 +39,38 @@ sandbox2 = Sandbox.create('my-template:default')
 
 </CodeGroup>
 
+## Referencing a specific build
+
+Instead of using a named tag, you can start a sandbox from a specific build by passing its `build_id` directly. This is useful when you need to pin a sandbox to an exact build artifact — for example, during debugging or when reproducing an issue from a known build.
+
+The format follows the same colon syntax as tags: `<template>:<build_id>` or `<namespace>/<template>:<build_id>`.
+
+You can find the `build_id` from the return value of `Template.build()` or by listing tags with `Template.getTags()` / `Template.get_tags()`.
+
+<CodeGroup>
+
+```typescript JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+// Start a sandbox from a specific build ID
+const sandbox = await Sandbox.create('my-template:f47ac10b-58cc-4372-a567-0e02b2c3d479')
+
+// With namespace
+const sandbox2 = await Sandbox.create('acme/my-template:f47ac10b-58cc-4372-a567-0e02b2c3d479')
+```
+
+```python Python
+from e2b import Sandbox
+
+# Start a sandbox from a specific build ID
+sandbox = Sandbox.create('my-template:f47ac10b-58cc-4372-a567-0e02b2c3d479')
+
+# With namespace
+sandbox2 = Sandbox.create('acme/my-template:f47ac10b-58cc-4372-a567-0e02b2c3d479')
+```
+
+</CodeGroup>
+
 ## Building with tags
 
 You can build templates with one or more tags to create versioned builds.
@@ -143,6 +175,31 @@ Template.remove_tags('my-template', 'staging')
 <Warning>
 Removing a tag does not delete the build artifact. Other tags pointing to the same build will continue to work.
 </Warning>
+
+### List tags
+
+Retrieve all tags for a template. Each tag includes the tag name, the associated build ID, and when the tag was assigned.
+
+<CodeGroup>
+
+```typescript JavaScript & TypeScript
+import { Template } from 'e2b'
+
+const tags = await Template.getTags('my-template')
+for (const tag of tags) {
+  console.log(`Tag: ${tag.tag}, Build: ${tag.buildId}, Created: ${tag.createdAt}`)
+}
+```
+
+```python Python
+from e2b import Template
+
+tags = Template.get_tags('my-template')
+for tag in tags:
+    print(f"Tag: {tag.tag}, Build: {tag.build_id}, Created: {tag.created_at}")
+```
+
+</CodeGroup>
 
 ## Use cases
 
