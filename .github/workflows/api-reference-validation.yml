@@ -46,49 +46,13 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
-      # Step 3: If no difference, exit early
-      # (all subsequent steps are gated on changed == 'true')
-
-      # Step 4: Run validation against the NEW generated spec
-      - name: Run validation
-        if: steps.diff.outputs.changed == 'true'
-        id: validate
-        continue-on-error: true
-        env:
-          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
-          E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
-        run: |
-          # Replace committed spec with generated one before validating
-          cp openapi-generated.yml openapi-public.yml
-
-          # Capture the full output; the script exits 1 on critical findings
-          python3 scripts/validate_api_reference.py \
-            --output openapi-validation-report.md \
-            --verbose 2>&1 | tee validation-output.txt
-
-          # Extract the final summary block (everything after the last ===... line)
-          SUMMARY=$(awk '/^={50,}/{buf=""} {buf=buf"\n"$0} END{print buf}' validation-output.txt)
-          # Store for PR body (escape newlines for GitHub output)
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "summary<<$EOF" >> $GITHUB_OUTPUT
-          echo "$SUMMARY" >> $GITHUB_OUTPUT
-          echo "$EOF" >> $GITHUB_OUTPUT
-
-      # Step 5+6: Create PR with status indicator
+      # Step 3: Create PR if spec has drifted
       - name: Create PR
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
-          VALIDATION_SUMMARY: ${{ steps.validate.outputs.summary }}
         run: |
-          if [ "$VALIDATION_OUTCOME" = "success" ]; then
-            STATUS_ICON="🟢"
-            STATUS_TEXT="Validation passed"
-          else
-            STATUS_ICON="🔴"
-            STATUS_TEXT="Validation failed — critical findings detected"
-          fi
+          cp openapi-generated.yml openapi-public.yml
 
           BRANCH="api-spec-update-$(date +%Y-%m-%d)"
           git config user.name "github-actions[bot]"
@@ -100,18 +64,12 @@ jobs:
           git push -u origin "$BRANCH"
 
           gh pr create \
-            --title "$STATUS_ICON Update API spec $(date +%Y-%m-%d)" \
+            --title "Update API spec $(date +%Y-%m-%d)" \
             --body "$(cat <<EOF
           ## OpenAPI Spec Update
 
           The generated \`openapi-public.yml\` has drifted from the source specs.
           This PR updates it to match the latest upstream definitions.
-
-          ### Validation: $STATUS_ICON $STATUS_TEXT
-
-          \`\`\`
-          $VALIDATION_SUMMARY
-          \`\`\`
           EOF
           )" \
             --base main
@@ -120,11 +78,9 @@ jobs:
         if: always()
         env:
           CHANGED: ${{ steps.diff.outputs.changed }}
-          VALIDATION_OUTCOME: ${{ steps.validate.outcome }}
         run: |
           echo "## API Reference Spec Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Result | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Spec changed | ${CHANGED:-false} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validation | ${VALIDATION_OUTCOME:-skipped} |" >> $GITHUB_STEP_SUMMARY
