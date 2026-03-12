@@ -18,7 +18,7 @@ const sandbox = await Sandbox.create({
   timeoutMs: 10 * 60 * 1000,
   lifecycle: {
     onTimeout: 'pause',
-    autoResume: true, // resume when traffic arrives
+    autoResume: true, // resume when activity arrives
   },
 })
 ```
@@ -29,7 +29,7 @@ sandbox = Sandbox.create(
     timeout=10 * 60,
     lifecycle={
         "on_timeout": "pause",
-        "auto_resume": True,  # resume when traffic arrives
+        "auto_resume": True,  # resume when activity arrives
     },
 )
 ```
@@ -53,6 +53,59 @@ sandbox = Sandbox.create(
 - [`Sandbox.connect()`](/docs/sandbox/connect) can still be used to resume a paused sandbox manually.
 
 If you use `autoResume: false`, resume explicitly with [`Sandbox.connect()`](/docs/sandbox/connect).
+
+## What counts as activity
+
+Auto-resume is triggered by sandbox activity, not just inbound HTTP traffic.
+
+That includes SDK operations like:
+- `sandbox.commands.run(...)`
+- `sandbox.files.read(...)`
+- `sandbox.files.write(...)`
+- opening a tunneled app URL or sending requests to a service running inside the sandbox
+
+If a sandbox is paused and `autoResume` is enabled, the next supported operation resumes it automatically. You do not need to call [`Sandbox.connect()`](/docs/sandbox/connect) first.
+
+### SDK example: pause, then read a file
+
+<CodeGroup>
+```js JavaScript & TypeScript
+import { Sandbox } from 'e2b'
+
+const sandbox = await Sandbox.create({
+  timeoutMs: 10 * 60 * 1000,
+  lifecycle: {
+    onTimeout: 'pause',
+    autoResume: true,
+  },
+})
+
+await sandbox.files.write('/home/user/hello.txt', 'hello from a paused sandbox')
+await sandbox.pause()
+
+const content = await sandbox.files.read('/home/user/hello.txt')
+console.log(content)
+console.log(`State after read: ${(await sandbox.getInfo()).state}`)
+```
+```python Python
+from e2b import Sandbox
+
+sandbox = Sandbox.create(
+    timeout=10 * 60,
+    lifecycle={
+        "on_timeout": "pause",
+        "auto_resume": True,
+    },
+)
+
+sandbox.files.write("/home/user/hello.txt", "hello from a paused sandbox")
+sandbox.pause()
+
+content = sandbox.files.read("/home/user/hello.txt")
+print(content)
+print(f"State after read: {sandbox.get_info().state}")
+```
+</CodeGroup>
 
 ## Use cases
 
