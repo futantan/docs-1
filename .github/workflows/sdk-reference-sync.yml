@@ -199,11 +199,6 @@ jobs:
             - Changed files detected in this run: `${{ steps.changes.outputs.changed_files }}`
             - Total tracked MDX reference files after generation: `${{ steps.changes.outputs.total_mdx_files }}`
 
-            ## Validation
-            - [x] SDK reference generator completed successfully
-            - [x] Workflow run summary is attached to this run
-            - [ ] Reviewer has verified the generated docs diff before merge
-
             ## Run Details
             - Workflow: `${{ github.workflow }}`
             - Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
