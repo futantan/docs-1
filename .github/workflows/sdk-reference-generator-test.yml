@@ -4,6 +4,11 @@ on:
     pull_request:
         paths:
             - "sdk-reference-generator/**"
+            - ".github/workflows/sdk-reference-sync.yml"
+            - ".github/workflows/sdk-reference-generator-test.yml"
+            - "requirements.txt"
+            - "docs.json"
+            - "docs/sdk-reference/**"
 
 jobs:
     test:

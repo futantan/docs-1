@@ -138,6 +138,7 @@ Tests cover:
 The generator runs in GitHub Actions on:
 - Manual workflow dispatch
 - Automatic repository dispatch from SDK repos on release
+- Scheduled sync every 15 minutes
 
 ### Manual Trigger (GitHub UI)
 
@@ -172,10 +173,35 @@ curl -X POST \
   -d '{"event_type": "sdk-release", "client_payload": {"sdk": "js-sdk", "version": "v2.9.0"}}'
 ```
 
+### Scheduled Sync
+
+The sync workflow also runs on a 15-minute cron interval:
+
+```text
+*/15 * * * *
+```
+
+Scheduled runs default to:
+- **SDK**: `all`
+- **Version**: `all`
+- **Limit**: `3`
+- **Force**: `false`
+
+This acts as a polling safety net if an SDK release event is missed, while keeping the scheduled scan bounded to the latest three versions per SDK.
+
+### Output Behavior
+
+The sync workflow no longer pushes directly to `main`.
+
+When generated docs change, the workflow now:
+- Creates or updates an automation branch
+- Opens a structured pull request with trigger metadata, generation parameters, and a link to the workflow run
+- Limits committed paths to `docs/sdk-reference/**` and `docs.json`
+
 ### Safety Features
 
 - Validates all generated files before committing
-- Only commits if changes detected
+- Only creates a pull request if changes are detected
 - Full logging visible in workflow runs
 - User inputs passed via environment variables (prevents script injection)
 
@@ -197,4 +223,3 @@ pnpm run generate --sdk js-sdk --limit 1
 # run tests
 pnpm test
 ```
-

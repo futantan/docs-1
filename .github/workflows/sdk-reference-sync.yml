@@ -26,6 +26,8 @@ on:
 
   repository_dispatch:
     types: [sdk-release]
+  schedule:
+    - cron: "*/15 * * * *"
 
 # prevent concurrent runs that could conflict
 concurrency:
@@ -38,6 +40,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout docs repo
@@ -78,7 +81,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Determine SDK and Version
+      - name: Determine sync parameters
         id: params
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -91,20 +94,42 @@ jobs:
           PAYLOAD_LIMIT: ${{ github.event.client_payload.limit }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TRIGGER="workflow_dispatch"
             SDK="$INPUT_SDK"
             VERSION="$INPUT_VERSION"
             LIMIT="$INPUT_LIMIT"
             FORCE="$INPUT_FORCE"
           elif [[ "$EVENT_NAME" == "repository_dispatch" ]]; then
+            TRIGGER="repository_dispatch (sdk-release)"
             SDK="$PAYLOAD_SDK"
             VERSION="${PAYLOAD_VERSION:-latest}"
             LIMIT="${PAYLOAD_LIMIT:-5}"
             FORCE="false"
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            TRIGGER="schedule (*/15 * * * *)"
+            SDK="all"
+            VERSION="all"
+            LIMIT="3"
+            FORCE="false"
+          else
+            TRIGGER="$EVENT_NAME"
+            SDK="all"
+            VERSION="latest"
+            LIMIT="5"
+            FORCE="false"
           fi
 
+          if [[ -z "$LIMIT" || "$LIMIT" == "0" ]]; then
+            LIMIT_DISPLAY="No limit"
+          else
+            LIMIT_DISPLAY="$LIMIT"
+          fi
+
+          echo "trigger=$TRIGGER" >> $GITHUB_OUTPUT
           echo "sdk=${SDK:-all}" >> $GITHUB_OUTPUT
           echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
           echo "limit=${LIMIT:-5}" >> $GITHUB_OUTPUT
+          echo "limit_display=$LIMIT_DISPLAY" >> $GITHUB_OUTPUT
           echo "force=${FORCE:-false}" >> $GITHUB_OUTPUT
 
       - name: Generate SDK Reference
@@ -128,47 +153,96 @@ jobs:
 
           pnpm run generate $ARGS
 
-      - name: Commit and push changes
-        id: commit
-        env:
-          SDK_NAME: ${{ steps.params.outputs.sdk }}
-          SDK_VERSION: ${{ steps.params.outputs.version }}
+      - name: Collect change details
+        id: changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          CHANGED_FILES="$(git status --porcelain -- docs/sdk-reference docs.json | wc -l | tr -d ' ')"
+          TOTAL_MDX_FILES="$(find docs/sdk-reference -type f -name '*.mdx' | wc -l | tr -d ' ')"
 
-          git add docs/sdk-reference/
-          git add docs.json
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
+          if [[ "$CHANGED_FILES" == "0" ]]; then
             echo "changes=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "docs: update SDK reference for $SDK_NAME $SDK_VERSION"
-            git push
             echo "changes=true" >> $GITHUB_OUTPUT
           fi
 
+          echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "total_mdx_files=$TOTAL_MDX_FILES" >> $GITHUB_OUTPUT
+
+      - name: Create pull request
+        if: steps.changes.outputs.changes == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: automation/sdk-reference-sync
+          delete-branch: true
+          add-paths: |
+            docs/sdk-reference
+            docs.json
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          commit-message: docs: sync SDK reference for ${{ steps.params.outputs.sdk }} ${{ steps.params.outputs.version }}
+          title: docs: sync SDK reference for ${{ steps.params.outputs.sdk }} ${{ steps.params.outputs.version }}
+          body: |
+            ## Summary
+            This automated PR syncs generated SDK reference documentation.
+
+            ## Trigger
+            - Source: `${{ steps.params.outputs.trigger }}`
+            - SDK: `${{ steps.params.outputs.sdk }}`
+            - Version: `${{ steps.params.outputs.version }}`
+            - Limit: `${{ steps.params.outputs.limit_display }}`
+            - Force: `${{ steps.params.outputs.force }}`
+
+            ## Changes
+            - Updates generated reference files under `docs/sdk-reference/**`
+            - Updates `docs.json` navigation when generation changes the docs tree
+            - Changed files detected in this run: `${{ steps.changes.outputs.changed_files }}`
+            - Total tracked MDX reference files after generation: `${{ steps.changes.outputs.total_mdx_files }}`
+
+            ## Validation
+            - [x] SDK reference generator completed successfully
+            - [x] Workflow run summary is attached to this run
+            - [ ] Reviewer has verified the generated docs diff before merge
+
+            ## Run Details
+            - Workflow: `${{ github.workflow }}`
+            - Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
       - name: Summary
         env:
+          TRIGGER: ${{ steps.params.outputs.trigger }}
           SDK_NAME: ${{ steps.params.outputs.sdk }}
           SDK_VERSION: ${{ steps.params.outputs.version }}
-          LIMIT: ${{ steps.params.outputs.limit }}
-          CHANGES: ${{ steps.commit.outputs.changes }}
+          LIMIT: ${{ steps.params.outputs.limit_display }}
+          FORCE: ${{ steps.params.outputs.force }}
+          CHANGES: ${{ steps.changes.outputs.changes }}
+          CHANGED_FILES: ${{ steps.changes.outputs.changed_files }}
+          TOTAL_MDX_FILES: ${{ steps.changes.outputs.total_mdx_files }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
         run: |
           echo "## SDK Reference Generation Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | $TRIGGER |" >> $GITHUB_STEP_SUMMARY
           echo "| SDK | $SDK_NAME |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | $SDK_VERSION |" >> $GITHUB_STEP_SUMMARY
-          echo "| Limit | ${LIMIT:-No limit} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Changes committed | $CHANGES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Limit | $LIMIT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Force | $FORCE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Changes detected | $CHANGES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Changed files | ${CHANGED_FILES:-0} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR operation | ${PR_OPERATION:-No PR created} |" >> $GITHUB_STEP_SUMMARY
+          if [[ -n "$PR_URL" ]]; then
+            echo "| Pull request | $PR_URL |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ "$CHANGES" == "true" ]]; then
             echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "Total MDX files: $(find docs/sdk-reference -type f -name '*.mdx' | wc -l)" >> $GITHUB_STEP_SUMMARY
+            echo "Total MDX files: $TOTAL_MDX_FILES" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No SDK reference changes were detected, so no pull request was created." >> $GITHUB_STEP_SUMMARY
           fi
