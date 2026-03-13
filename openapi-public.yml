@@ -1065,15 +1065,12 @@ paths:
                   message:
                     type: string
                     description: Error message
-                    example: The sandbox was not found
                   code:
                     type: integer
                     description: Error code
-                    example: 502
                   sandboxID:
                     type: string
                     description: Identifier of the sandbox
-                    example: i1234abcd5678efgh90jk
       security:
       - &id004
         SandboxAccessTokenAuth: []
@@ -1907,36 +1904,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: &id009
-                code: 401
-                message: 'Authentication error: missing or invalid API key'
         '400':
           description: Invalid path
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: &id008
-                code: 400
-                message: 'Bad request: invalid or missing request parameters'
         '404':
           description: File not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: &id011
-                code: 404
-                message: 'Not found: the requested resource does not exist'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: &id010
-                code: 500
-                message: 'Server error: an unexpected error occurred'
         '502': *id003
       operationId: downloadFile
     post:
@@ -1968,32 +1953,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: *id008
         '401':
           description: Invalid user
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: *id009
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example: *id010
         '507':
           description: Not enough disk space
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example:
-                code: 507
-                message: 'Insufficient storage: not enough disk space'
         '502': *id003
       operationId: uploadFile
+    servers:
+    - *id005
+  /files/compose:
+    post:
+      summary: Compose multiple files into a single file using zero-copy concatenation.
+        Source files are deleted after successful composition.
+      tags:
+      - Others
+      security:
+      - *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComposeRequest'
+      responses:
+        '200':
+          description: Files composed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryInfo'
+        '400':
+          $ref: '#/components/responses/InvalidPath'
+        '401':
+          $ref: '#/components/responses/InvalidUser'
+        '404':
+          $ref: '#/components/responses/FileNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '507':
+          $ref: '#/components/responses/NotEnoughDiskSpace'
+        '502': *id003
+      operationId: postFilesCompose
     servers:
     - *id005
 components:
@@ -2189,46 +2203,36 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example: *id008
     '401':
       description: Authentication error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example: *id009
     '403':
       description: Forbidden
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            code: 403
-            message: 'Forbidden: insufficient permissions'
     '404':
       description: Not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example: *id011
     '409':
       description: Conflict
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            code: 409
-            message: 'Conflict: the resource is in a conflicting state'
     '500':
       description: Server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example: *id010
   schemas:
     Error:
       required:
@@ -2306,6 +2310,23 @@ components:
           type: integer
           description: Total virtual memory in MiB
           format: int64
+    ComposeRequest:
+      type: object
+      required:
+      - source_paths
+      - destination
+      properties:
+        source_paths:
+          type: array
+          items:
+            type: string
+          description: Ordered list of source file paths to concatenate
+        destination:
+          type: string
+          description: Destination file path for the composed file
+        username:
+          type: string
+          description: User for setting ownership and resolving relative paths
     connect-protocol-version:
       type: number
       title: Connect-Protocol-Version
