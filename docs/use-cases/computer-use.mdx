@@ -15,7 +15,7 @@ The computer use agent loop follows this pattern:
 1. **User sends a command** — e.g., "Open Firefox and search for AI news"
 2. **Agent creates a desktop sandbox** — an Ubuntu 22.04 environment with [XFCE](https://xfce.org/) desktop and pre-installed applications
 3. **Agent takes a screenshot** — captures the current desktop state via E2B Desktop SDK
-4. **LLM analyzes the screenshot** — a vision model (e.g., [OpenAI Computer Use API](https://platform.openai.com/docs/guides/computer-use)) decides what action to take
+4. **LLM analyzes the screenshot** — a vision model (e.g., [OpenAI Computer Use API](https://developers.openai.com/api/docs/guides/tools-computer-use)) decides what action to take
 5. **Action is executed** — click, type, scroll, or keypress via E2B Desktop SDK
 6. **Repeat** — new screenshot is taken and sent back to the LLM until the task is complete
 
